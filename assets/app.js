@@ -1,11 +1,33 @@
-console.log("STEP 5: starting data load");
-
 fetch("data/players.json")
   .then(response => response.json())
-  .then(data => {
-    console.log("PLAYERS DATA LOADED:");
-    console.log(data);
+  .then(players => {
+
+    const tbody = document.getElementById("leaderboard-body");
+    tbody.innerHTML = "";
+
+    players.forEach(player => {
+
+      const total =
+        player.round1 +
+        player.round2 +
+        player.round3 +
+        player.round4;
+
+      const row = document.createElement("tr");
+
+      row.innerHTML = `
+        <td>${player.name}</td>
+        <td>${player.round1}</td>
+        <td>${player.round2}</td>
+        <td>${player.round3}</td>
+        <td>${player.round4}</td>
+        <td><strong>${total}</strong></td>
+      `;
+
+      tbody.appendChild(row);
+    });
+
   })
   .catch(error => {
-    console.error("FAILED TO LOAD DATA:", error);
+    console.error("Error loading leaderboard:", error);
   });
