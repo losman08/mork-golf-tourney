@@ -260,6 +260,7 @@ hr.div{border:none;border-top:1px solid var(--cream-dark);margin:1rem 0;}
           </div>
           <div class="fg"><label>Invite Code</label><input type="text" id="reg-code" placeholder="e.g. MORK2026" style="text-transform:uppercase;"></div>
           <div class="fg"><label>Full Name</label><input type="text" id="reg-name" placeholder="John Smith"></div>
+          <div class="fg"><label>Nickname (optional)</label><input type="text" id="reg-nickname" placeholder="e.g. Shark, Lefty, Big Dog"></div>
           <div class="fg"><label>Email</label><input type="email" id="reg-email" placeholder="your@email.com"></div>
           <div class="fg"><label>Password</label><input type="password" id="reg-pass" placeholder="Min 6 characters"></div>
           <div class="fg"><label>GHIN Handicap (optional)</label><input type="number" id="reg-hcp" placeholder="e.g. 12.4" step="0.1" min="0" max="54"></div>
@@ -598,6 +599,7 @@ async function doRegister() {
   const code=document.getElementById('reg-code').value.trim().toUpperCase();
   if(code!==INVITE_CODE){ document.getElementById('auth-error').textContent='Invalid invite code.'; return; }
   const name=document.getElementById('reg-name').value.trim();
+  const nickname=document.getElementById('reg-nickname').value.trim();
   const email=document.getElementById('reg-email').value.trim();
   const pass=document.getElementById('reg-pass').value;
   const hcp=document.getElementById('reg-hcp').value;
@@ -605,7 +607,7 @@ async function doRegister() {
   try {
     const cred=await createUserWithEmailAndPassword(auth,email,pass);
     await setDoc(doc(db,'players',cred.user.uid),{
-      name, email, role:'player', officialHandicap: hcp?Number(hcp):null,
+      name, nickname: nickname||null, email, role:'player', officialHandicap: hcp?Number(hcp):null,
       status:'active', createdDate: serverTimestamp(),
       stats:{ roundsPlayed:0,wins:0,top3:0,avgGross:0,avgNet:0,bestRound:null,worstRound:null,seasonPoints:0 }
     });
@@ -650,10 +652,15 @@ onAuthStateChanged(auth, async (user)=>{
 
   if(user){
     currentUser=user;
-    const snap=await getDoc(doc(db,'players',user.uid));
-    if(snap.exists()){ userProfile=snap.data(); userProfile.id=user.uid; }
-    else { userProfile={name:user.email,role:'player',id:user.uid}; }
-    await loadGlobalData();
+    try {
+      const snap=await getDoc(doc(db,'players',user.uid));
+      if(snap.exists()){ userProfile=snap.data(); userProfile.id=user.uid; }
+      else { userProfile={name:user.email,role:'player',id:user.uid}; }
+    } catch(e) {
+      console.warn('Profile load error:',e.message);
+      userProfile={name:user.email,role:'player',id:user.uid};
+    }
+    try { await loadGlobalData(); } catch(e){ console.warn('Data load error:',e.message); }
     document.getElementById('screen-auth').style.display='none';
     document.getElementById('bottom-nav').style.display='block';
     if(userProfile.role==='admin') document.getElementById('admin-nav-btn').style.display='flex';
@@ -783,11 +790,12 @@ async function fetchAllScores(tid) {
     byPlayer[data.playerId].holes[data.holeNumber]=data;
   });
   return Object.values(byPlayer).map(p=>{
-    const player=allPlayers.find(x=>x.id===p.playerId)||{name:'Unknown'};
+    const player=allPlayers.find(x=>x.id===p.playerId)||{name:'Unknown',nickname:null};
     const holes=p.holes;
     const gross=Object.values(holes).reduce((s,h)=>s+h.score,0);
     const holesPlayed=Object.keys(holes).length;
-    return { playerId:p.playerId, name:player.name, holes, gross, holesPlayed, handicap:player.officialHandicap||0 };
+    const dname=player.nickname?player.name+' ('+player.nickname+')':player.name;
+    return { playerId:p.playerId, name:player.name, displayName:dname, holes, gross, holesPlayed, handicap:player.officialHandicap||0 };
   });
 }
 
@@ -970,7 +978,7 @@ async function loadProfile() {
   const p=userProfile;
   document.getElementById('profile-header').innerHTML=`
     <div class="profile-avatar">${p.name?.[0]||'?'}</div>
-    <div class="profile-name">${p.name}</div>
+    <div class="profile-name">${p.name}${p.nickname ? ` <span style="font-size:0.95rem;color:var(--gold);font-weight:400;">"${p.nickname}"</span>` : ""}</div>
     <div class="profile-meta">${p.email||''} · Member since ${p.createdDate?.toDate?.()?.getFullYear()||'2026'}</div>
     ${p.officialHandicap!=null?`<div style="margin-top:8px;"><span class="chip chip-gold">GHIN HCP: ${p.officialHandicap}</span></div>`:''}
     <div style="margin-top:10px;"><span class="chip chip-${p.role==='admin'?'red':'blue'}">${p.role||'player'}</span></div>`;
