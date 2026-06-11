@@ -33,10 +33,10 @@ html,body{height:100%;font-family:'Inter',sans-serif;background:var(--forest);co
 /* ── LAYOUT ── */
 #app{display:flex;flex-direction:column;height:100vh;overflow:hidden;}
 #screen-area{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:80px;}
-#bottom-nav{position:fixed;bottom:0;left:0;right:0;background:var(--forest);border-top:2px solid var(--gold);display:none;z-index:50;}
+#bottom-nav{position:fixed;bottom:0;left:0;right:0;background:var(--forest);border-top:1px solid rgba(201,162,39,0.4);display:none;z-index:50;}
 .bnav-inner{display:flex;justify-content:space-around;padding:6px 0 env(safe-area-inset-bottom);}
-.bnav-btn{display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 12px;border:none;background:transparent;color:rgba(245,240,232,0.5);font-size:0.65rem;letter-spacing:0.06em;text-transform:uppercase;cursor:pointer;font-family:'Inter',sans-serif;transition:color 0.2s;min-width:56px;}
-.bnav-btn .icon{font-size:1.3rem;}
+.bnav-btn{display:flex;flex-direction:column;align-items:center;gap:2px;padding:5px 10px;border:none;background:transparent;color:rgba(245,240,232,0.4);font-size:0.6rem;letter-spacing:0.06em;text-transform:uppercase;cursor:pointer;font-family:'Inter',sans-serif;transition:color 0.2s;min-width:50px;}
+.bnav-btn .icon{font-size:1.15rem;}
 .bnav-btn.active{color:var(--gold);}
 
 /* ── SCREENS ── */
@@ -225,6 +225,39 @@ td.pname{font-weight:600;font-family:'Playfair Display',serif;font-size:0.95rem;
 .blind-hole.selected{background:var(--gold);border-color:var(--gold);color:var(--forest);}
 .info-bar{background:rgba(245,240,232,0.08);border-radius:10px;padding:10px 14px;font-size:0.82rem;color:rgba(245,240,232,0.65);margin-bottom:1rem;border-left:3px solid var(--gold);}
 hr.div{border:none;border-top:1px solid var(--cream-dark);margin:1rem 0;}
+
+/* ── DRAG AND DROP ── */
+.home-tile.dragging{opacity:0.4;transform:scale(0.96);box-shadow:none;cursor:grabbing;}
+.home-tile.drag-over{border-color:var(--gold);transform:scale(1.03);box-shadow:0 0 0 3px rgba(201,162,39,0.3);}
+.home-tile[draggable="true"]{cursor:grab;}
+.home-tile[draggable="true"]:active{cursor:grabbing;}
+.drag-handle{position:absolute;top:6px;right:7px;font-size:0.7rem;color:rgba(0,0,0,0.15);pointer-events:none;line-height:1;}
+
+/* ── AUTH TRANSITION ── */
+#screen-auth{transition:opacity 0.35s ease, transform 0.35s ease;}
+#screen-auth.fade-out{opacity:0;transform:scale(0.97);pointer-events:none;}
+
+/* ── HOME TILES ── */
+.home-tiles{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:1.2rem;}
+.home-tile{background:var(--cream);border-radius:16px;padding:1.3rem 1rem;text-align:center;cursor:pointer;box-shadow:var(--shadow);transition:transform 0.18s,box-shadow 0.18s;border:2px solid transparent;position:relative;overflow:hidden;}
+.home-tile:hover{transform:translateY(-3px);box-shadow:var(--shadow-lg);}
+.home-tile:active{transform:scale(0.97);}
+.home-tile.gold{background:linear-gradient(135deg,#fff9e6,#fdf0b0);border-color:var(--gold);}
+.home-tile.forest{background:linear-gradient(135deg,var(--forest-mid),var(--forest));border-color:var(--forest-light);}
+.home-tile .t-icon{font-size:2.2rem;margin-bottom:8px;display:block;}
+.home-tile .t-label{font-weight:700;font-size:0.9rem;color:var(--forest);font-family:'Playfair Display',serif;}
+.home-tile.forest .t-label{color:var(--cream);}
+.home-tile .t-sub{font-size:0.72rem;color:var(--text-light);margin-top:3px;}
+.home-tile.forest .t-sub{color:rgba(245,240,232,0.55);}
+.home-tile.gold .t-label{color:var(--forest);}
+.home-tile-wide{grid-column:span 2;}
+
+/* ── WELCOME BANNER ── */
+.welcome-banner{background:linear-gradient(135deg,var(--forest-mid),var(--forest));border-radius:16px;padding:1.4rem 1.5rem;margin-bottom:1.2rem;display:flex;align-items:center;justify-content:space-between;box-shadow:var(--shadow);}
+.welcome-left .greeting{font-size:0.75rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--gold);margin-bottom:4px;}
+.welcome-left .wname{font-family:'Playfair Display',serif;font-size:1.3rem;font-weight:700;color:var(--cream);}
+.welcome-left .wrole{font-size:0.75rem;color:rgba(245,240,232,0.5);margin-top:3px;}
+.welcome-avatar{width:48px;height:48px;border-radius:50%;background:var(--gold);display:flex;align-items:center;justify-content:center;font-size:1.4rem;font-weight:700;color:var(--forest);font-family:'Playfair Display',serif;border:2px solid rgba(255,255,255,0.2);flex-shrink:0;}
 </style>
 </head>
 <body>
@@ -276,19 +309,45 @@ hr.div{border:none;border-top:1px solid var(--cream-dark);margin:1rem 0;}
       <div class="topbar">
         <div><div class="topbar-title">Mork Golf Tour</div><div class="topbar-sub">Season Dashboard</div></div>
         <div class="topbar-right">
-          <button class="icon-btn" onclick="showScreen('profile')" title="My Profile">👤</button>
           <button class="icon-btn" onclick="doSignOut()" title="Sign Out">🚪</button>
         </div>
       </div>
       <div class="pad">
+        <!-- Welcome banner -->
+        <div class="welcome-banner">
+          <div class="welcome-left">
+            <div class="greeting">Welcome back</div>
+            <div class="wname" id="home-welcome-name">—</div>
+            <div class="wrole" id="home-welcome-role">Player</div>
+          </div>
+          <div class="welcome-avatar" id="home-welcome-avatar">?</div>
+        </div>
+
+        <!-- Current event hero -->
         <div id="home-current-event"></div>
-        <div style="margin-top:1rem;">
-          <div class="section-title" style="font-size:1.1rem;">Season Standings</div>
+
+        <!-- Main nav tiles — drag to rearrange -->
+        <div style="margin-top:1.2rem;display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+          <div style="font-size:0.7rem;color:rgba(245,240,232,0.4);letter-spacing:0.08em;text-transform:uppercase;">Hold & drag tiles to rearrange</div>
+          <button onclick="resetTileOrder()" style="background:transparent;border:none;color:rgba(245,240,232,0.35);font-size:0.7rem;cursor:pointer;font-family:'Inter',sans-serif;letter-spacing:0.05em;">Reset order</button>
+        </div>
+        <div class="home-tiles" id="home-tile-grid" style="margin-top:0;"></div>
+        <div class="home-tile forest home-tile-wide" id="home-admin-tile" style="display:none;margin-top:12px;" onclick="navTo('admin',null)">
+          <span class="t-icon">⚙️</span>
+          <div class="t-label">Admin Dashboard</div>
+          <div class="t-sub">Manage tournaments, scores & players</div>
+        </div>
+
+        <!-- Season standings -->
+        <div style="margin-top:1.2rem;">
+          <div class="section-title" style="font-size:1.05rem;">Season Standings</div>
           <div class="section-sub">Points across all tournaments</div>
           <div id="home-season-lb" class="lb-table-wrap"></div>
         </div>
+
+        <!-- Recent results -->
         <div style="margin-top:1rem;">
-          <div class="section-title" style="font-size:1.1rem;">Recent Results</div>
+          <div class="section-title" style="font-size:1.05rem;">Recent Results</div>
           <div class="section-sub">Last completed tournaments</div>
           <div id="home-recent" class="card"></div>
         </div>
@@ -661,7 +720,9 @@ onAuthStateChanged(auth, async (user)=>{
       userProfile={name:user.email,role:'player',id:user.uid};
     }
     try { await loadGlobalData(); } catch(e){ console.warn('Data load error:',e.message); }
-    document.getElementById('screen-auth').style.display='none';
+    const authEl = document.getElementById('screen-auth');
+    authEl.classList.add('fade-out');
+    setTimeout(() => { authEl.style.display='none'; authEl.classList.remove('fade-out'); }, 350);
     document.getElementById('bottom-nav').style.display='block';
     if(userProfile.role==='admin') document.getElementById('admin-nav-btn').style.display='flex';
     showScreen('home'); loadHome();
@@ -686,8 +747,176 @@ async function loadGlobalData() {
 }
 
 // ── HOME ──
+// ── TILE DEFINITIONS ──
+const ALL_TILES = [
+  { id:'leaderboard', icon:'🏆', label:'Leaderboard', sub:'Live standings',   action:"navTo('leaderboard',null)", style:'gold' },
+  { id:'scorecard',   icon:'⛳', label:'Enter Scores', sub:'Hole by hole',     action:"navTo('scorecard',null)",   style:'' },
+  { id:'history',     icon:'📋', label:'History',      sub:'All tournaments',  action:"navTo('history',null)",     style:'' },
+  { id:'casual',      icon:'🕹️', label:'Casual Round', sub:'Log any round',   action:"navCasual(null)",           style:'' },
+  { id:'stats',       icon:'📊', label:'My Stats',     sub:'Performance',      action:"navTo('stats',null)",       style:'' },
+  { id:'profile',     icon:'👤', label:'My Profile',   sub:'Account & history',action:"navTo('profile',null)",    style:'' },
+];
+
+const TILE_ORDER_KEY = 'mgt_tile_order';
+
+function getTileOrder() {
+  try {
+    const saved = localStorage.getItem(TILE_ORDER_KEY);
+    if (saved) {
+      const order = JSON.parse(saved);
+      // Validate — must contain all tile ids
+      if (ALL_TILES.every(t => order.includes(t.id))) return order;
+    }
+  } catch(e) {}
+  return ALL_TILES.map(t => t.id);
+}
+
+function saveTileOrder(order) {
+  localStorage.setItem(TILE_ORDER_KEY, JSON.stringify(order));
+}
+
+window.resetTileOrder = function() {
+  localStorage.removeItem(TILE_ORDER_KEY);
+  renderHomeTiles();
+  toast('✅ Tile order reset');
+};
+
+function renderHomeTiles() {
+  const grid = document.getElementById('home-tile-grid');
+  if (!grid) return;
+  const order = getTileOrder();
+  const sorted = order.map(id => ALL_TILES.find(t => t.id === id)).filter(Boolean);
+  grid.innerHTML = '';
+  sorted.forEach(tile => {
+    const el = document.createElement('div');
+    el.className = 'home-tile' + (tile.style ? ' ' + tile.style : '');
+    el.draggable = true;
+    el.dataset.id = tile.id;
+    el.innerHTML = `<div class="drag-handle">⠿</div><span class="t-icon">${tile.icon}</span><div class="t-label">${tile.label}</div><div class="t-sub">${tile.sub}</div>`;
+    // Click to navigate (only if not dragging)
+    el.addEventListener('click', () => { if (!grid._dragging) { eval(tile.action); } });
+    // Drag events
+    el.addEventListener('dragstart', onTileDragStart);
+    el.addEventListener('dragover',  onTileDragOver);
+    el.addEventListener('dragleave', onTileDragLeave);
+    el.addEventListener('drop',      onTileDrop);
+    el.addEventListener('dragend',   onTileDragEnd);
+    // Touch events for mobile
+    el.addEventListener('touchstart', onTileTouchStart, { passive: true });
+    el.addEventListener('touchmove',  onTileTouchMove,  { passive: false });
+    el.addEventListener('touchend',   onTileTouchEnd);
+    grid.appendChild(el);
+  });
+}
+
+// ── DESKTOP DRAG ──
+let dragSrc = null;
+function onTileDragStart(e) {
+  dragSrc = this;
+  this.classList.add('dragging');
+  document.getElementById('home-tile-grid')._dragging = true;
+  e.dataTransfer.effectAllowed = 'move';
+}
+function onTileDragOver(e) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  if (this !== dragSrc) this.classList.add('drag-over');
+}
+function onTileDragLeave(e) { this.classList.remove('drag-over'); }
+function onTileDrop(e) {
+  e.stopPropagation();
+  if (this === dragSrc) return;
+  const grid = document.getElementById('home-tile-grid');
+  const tiles = [...grid.querySelectorAll('.home-tile[data-id]')];
+  const fromIdx = tiles.indexOf(dragSrc);
+  const toIdx   = tiles.indexOf(this);
+  if (fromIdx < 0 || toIdx < 0) return;
+  // Reorder in DOM
+  if (fromIdx < toIdx) grid.insertBefore(dragSrc, this.nextSibling);
+  else grid.insertBefore(dragSrc, this);
+  // Save order
+  const newOrder = [...grid.querySelectorAll('.home-tile[data-id]')].map(el => el.dataset.id);
+  saveTileOrder(newOrder);
+  this.classList.remove('drag-over');
+}
+function onTileDragEnd(e) {
+  this.classList.remove('dragging');
+  document.querySelectorAll('.home-tile').forEach(t => t.classList.remove('drag-over'));
+  setTimeout(() => { const g = document.getElementById('home-tile-grid'); if(g) g._dragging = false; }, 50);
+}
+
+// ── MOBILE TOUCH DRAG ──
+let touchDragEl = null, touchClone = null, touchStartX = 0, touchStartY = 0;
+function onTileTouchStart(e) {
+  const touch = e.touches[0];
+  touchDragEl = this;
+  touchStartX = touch.clientX;
+  touchStartY = touch.clientY;
+  // Long-press delay to distinguish tap from drag
+  touchDragEl._touchTimer = setTimeout(() => {
+    touchClone = touchDragEl.cloneNode(true);
+    const rect = touchDragEl.getBoundingClientRect();
+    touchClone.style.cssText = `position:fixed;top:${rect.top}px;left:${rect.left}px;width:${rect.width}px;opacity:0.85;pointer-events:none;z-index:999;transform:scale(1.05);box-shadow:0 8px 32px rgba(0,0,0,0.25);transition:none;border-radius:16px;`;
+    document.body.appendChild(touchClone);
+    touchDragEl.classList.add('dragging');
+    document.getElementById('home-tile-grid')._dragging = true;
+  }, 300);
+}
+function onTileTouchMove(e) {
+  if (!touchClone) return;
+  e.preventDefault();
+  const touch = e.touches[0];
+  const rect = touchDragEl.getBoundingClientRect();
+  touchClone.style.top  = (touch.clientY - rect.height / 2) + 'px';
+  touchClone.style.left = (touch.clientX - rect.width  / 2) + 'px';
+  // Find tile under finger
+  touchClone.style.display = 'none';
+  const el = document.elementFromPoint(touch.clientX, touch.clientY);
+  touchClone.style.display = '';
+  const target = el?.closest('.home-tile[data-id]');
+  document.querySelectorAll('.home-tile').forEach(t => t.classList.remove('drag-over'));
+  if (target && target !== touchDragEl) target.classList.add('drag-over');
+}
+function onTileTouchEnd(e) {
+  clearTimeout(touchDragEl?._touchTimer);
+  if (!touchClone) { touchDragEl = null; return; }
+  const touch = e.changedTouches[0];
+  touchClone.style.display = 'none';
+  const el = document.elementFromPoint(touch.clientX, touch.clientY);
+  touchClone.style.display = '';
+  const target = el?.closest('.home-tile[data-id]');
+  if (target && target !== touchDragEl) {
+    const grid = document.getElementById('home-tile-grid');
+    const tiles = [...grid.querySelectorAll('.home-tile[data-id]')];
+    const fromIdx = tiles.indexOf(touchDragEl);
+    const toIdx   = tiles.indexOf(target);
+    if (fromIdx < toIdx) grid.insertBefore(touchDragEl, target.nextSibling);
+    else grid.insertBefore(touchDragEl, target);
+    const newOrder = [...grid.querySelectorAll('.home-tile[data-id]')].map(el => el.dataset.id);
+    saveTileOrder(newOrder);
+  }
+  touchClone.remove();
+  touchClone = null;
+  touchDragEl?.classList.remove('dragging');
+  document.querySelectorAll('.home-tile').forEach(t => t.classList.remove('drag-over'));
+  setTimeout(() => { const g = document.getElementById('home-tile-grid'); if(g) g._dragging = false; touchDragEl = null; }, 50);
+}
+
 async function loadHome() {
   await loadGlobalData();
+  // Welcome banner
+  const wname   = document.getElementById('home-welcome-name');
+  const wrole   = document.getElementById('home-welcome-role');
+  const wavatar = document.getElementById('home-welcome-avatar');
+  const adminTile = document.getElementById('home-admin-tile');
+  if (wname && userProfile) {
+    const display = userProfile.nickname ? `${userProfile.name} "${userProfile.nickname}"` : userProfile.name;
+    wname.textContent  = display || userProfile.email || '—';
+    wrole.textContent  = userProfile.role === 'admin' ? '⚙️ Organizer · Admin' : '🏌️ Player';
+    wavatar.textContent = (userProfile.name || userProfile.email || '?')[0].toUpperCase();
+  }
+  if (adminTile) adminTile.style.display = userProfile?.role === 'admin' ? 'block' : 'none';
+  renderHomeTiles();
   renderHomeEvent();
   renderHomeSeasonLb();
   renderHomeRecent();
