@@ -1833,6 +1833,259 @@ window._real_navTo = function(name, btn) {
 };
 
 // ── CASUAL HISTORY with Edit/Delete ──
+// ── CASUAL ROUND: Load hole entry form ──
+let casualHoles = {};
+
+window._real_loadCasualRound = async function loadCasualRound() {
+  casualHoles = {};
+  const cont = document.getElementById('casual-content');
+  if (!cont) return;
+  const pars = window._activeCasualPars || DEFAULT_PARS;
+  const yards = window._activeCasualYards || null;
+
+  let html = `
+    <div class="card card-sm" style="margin-bottom:1rem;">
+      <div class="course-search-wrap">
+        <div class="fg"><label>Course <span class="api-badge">Auto-fill</span></label>
+          <input type="text" id="cr-course" placeholder="Search course name..." autocomplete="off">
+          <div class="course-results" id="cr-course-results" style="display:none;"></div>
+        </div>
+      </div>
+      <div class="two-col">
+        <div class="fg"><label>Date</label><input type="date" id="cr-date"></div>
+        <div class="fg"><label>Course Par</label><input type="number" id="cr-par" value="${pars.reduce((a,b)=>a+b,0)||72}" min="60" max="80"></div>
+      </div>
+      <div class="fg"><label>Tees Played</label>
+        <select id="cr-tees"><option>Blue</option><option>White</option><option selected>Red</option><option>Gold</option></select>
+      </div>
+    </div>
+    <div class="section-title" style="font-size:1rem;margin:0 0 0.8rem;">Front 9</div>
+    <div class="hole-grid">`;
+
+  for (let h = 1; h <= 9; h++) {
+    const par = pars[h-1] || 4;
+    const y = yards ? yards[h-1] : null;
+    html += holeCardHTML(h, par, 'cr', y);
+  }
+  html += `</div><div class="section-title" style="font-size:1rem;margin:1rem 0 0.8rem;">Back 9</div><div class="hole-grid">`;
+  for (let h = 10; h <= 18; h++) {
+    const par = pars[h-1] || 4;
+    const y = yards ? yards[h-1] : null;
+    html += holeCardHTML(h, par, 'cr', y);
+  }
+  html += `</div>
+    <div class="card card-sm" style="margin-top:1rem;">
+      <div class="two-col">
+        <div><div class="section-title" style="font-size:0.85rem;">Total Gross</div><div id="cr-gross" style="font-size:2rem;font-weight:900;color:var(--forest);">0</div></div>
+        <div><div class="section-title" style="font-size:0.85rem;">vs Par</div><div id="cr-vspar" style="font-size:1.5rem;font-weight:700;color:var(--text-mid);">—</div></div>
+      </div>
+    </div>`;
+
+  cont.innerHTML = html;
+  document.getElementById('cr-date').valueAsDate = new Date();
+  setTimeout(() => buildCourseSearchUI('cr-course','cr-course-results', null), 50);
+
+  // Restore edit state if editing
+  if (window._editingCasualId) {
+    // fields pre-filled by editCasualRound
+  }
+};
+window._real_loadCasualRound = window._real_loadCasualRound;
+
+function holeCardHTML(h, par, prefix, yardage) {
+  const yardStr = yardage ? `<span class="hole-yardage">${yardage}y</span>` : '';
+  return `<div class="hole-card" id="${prefix}-hc-${h}">
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <div class="hole-label">Hole ${h}${yardStr}</div>
+      <div class="hole-par">Par ${par}</div>
+    </div>
+    <div class="hole-input-row">
+      <button onclick="window._real_adjustCasualHole(${h},-1)">−</button>
+      <input class="hole-val" type="number" id="${prefix}-hole-${h}" value="" min="1" max="15"
+        onchange="window._real_onCasualChange(${h})" oninput="window._real_onCasualChange(${h})">
+      <button onclick="window._real_adjustCasualHole(${h},1)">+</button>
+    </div>
+  </div>`;
+}
+
+window._real_adjustCasualHole = function(h, delta) {
+  const inp = document.getElementById(`cr-hole-${h}`);
+  if (!inp) return;
+  const cur = parseInt(inp.value) || 0;
+  inp.value = Math.max(1, Math.min(15, cur + delta));
+  window._real_onCasualChange(h);
+};
+
+window._real_onCasualChange = function(h) {
+  const inp = document.getElementById(`cr-hole-${h}`);
+  if (!inp) return;
+  const v = parseInt(inp.value) || 0;
+  if (v > 0) casualHoles[h] = v; else delete casualHoles[h];
+  const gross = Object.values(casualHoles).reduce((s,v)=>s+v,0);
+  const par = parseInt(document.getElementById('cr-par')?.value)||72;
+  const grossEl = document.getElementById('cr-gross');
+  const vsEl = document.getElementById('cr-vspar');
+  if (grossEl) grossEl.textContent = gross || 0;
+  if (vsEl) {
+    const diff = gross - par;
+    vsEl.textContent = gross === 0 ? '—' : diff > 0 ? `+${diff}` : diff === 0 ? 'E' : `${diff}`;
+    vsEl.style.color = diff > 0 ? 'var(--danger)' : diff < 0 ? '#27ae60' : 'var(--text-mid)';
+  }
+};
+
+window._real_saveCasualRound = async function saveCasualRound() {
+  const course = document.getElementById('cr-course')?.value?.trim() || 'Unknown';
+  const date = document.getElementById('cr-date')?.value || new Date().toISOString().slice(0,10);
+  const par = parseInt(document.getElementById('cr-par')?.value) || 72;
+  const tees = document.getElementById('cr-tees')?.value || 'White';
+  const entries = Object.entries(casualHoles).map(([h,s])=>[Number(h),s]);
+  if (!entries.length) { toast('Enter at least one hole score.'); return; }
+  const gross = entries.reduce((s,[,v])=>s+v,0);
+
+  const roundData = {
+    playerId: currentUser.uid,
+    course, date, par, tees, gross,
+    holesPlayed: entries.length,
+    holes: Object.fromEntries(entries.map(([h,s])=>[h,{score:s,par:(window._activeCasualPars||DEFAULT_PARS)[h-1]||4}])),
+    updatedAt: serverTimestamp()
+  };
+
+  if (window._editingCasualId) {
+    await updateDoc(doc(db,'casualRounds',window._editingCasualId), roundData);
+    window._editingCasualId = null;
+    toast(`✅ Round updated! ${gross} at ${course}`);
+  } else {
+    roundData.createdAt = serverTimestamp();
+    await addDoc(collection(db,'casualRounds'), roundData);
+    toast(`✅ Round saved! ${gross} at ${course}`);
+  }
+  window._activeCasualPars = null;
+  window._activeCasualYards = null;
+  window._real_showScreen('casual-history');
+  window._real_loadCasualHistory();
+};
+
+
+// ── TOURNAMENT HISTORY ──
+window._real_loadHistory = async function() {
+  const cont = document.getElementById('history-content');
+  if (!cont) return;
+  cont.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+  try {
+    const snap = await getDocs(query(collection(db,'tournaments'), orderBy('date','desc')));
+    const tournaments = snap.docs.map(d=>({id:d.id,...d.data()}));
+    if (!tournaments.length) {
+      cont.innerHTML = '<div class="empty"><div class="ei">🏆</div><p>No tournaments yet.</p></div>';
+      return;
+    }
+    cont.innerHTML = tournaments.map(t => {
+      const winner = (t.results||[])[0]?.name || '—';
+      const chipCls = t.status==='complete' ? 'chip-complete' : t.status==='active' ? 'chip-active' : 'chip-draft';
+      return `<div class="history-row" style="cursor:pointer;" onclick="window._real_loadHistoryDetail('${t.id}')">
+        <div class="hr-left">
+          <div class="name">${t.name||'Tournament'}</div>
+          <div class="meta">${t.date||''} · ${t.course||''} · <span class="chip ${chipCls}">${t.status||'draft'}</span></div>
+        </div>
+        <div class="hr-right">
+          <div class="score">${winner}</div>
+          <div class="pos">Winner</div>
+        </div>
+      </div>`;
+    }).join('');
+  } catch(e) {
+    cont.innerHTML = `<div class="empty"><div class="ei">⚠️</div><p>Error: ${e.message}</p></div>`;
+  }
+};
+
+window._real_loadHistoryDetail = async function(tid) {
+  window._real_showScreen('history-detail');
+  const tableEl = document.getElementById('hd-table');
+  const titleEl = document.getElementById('hd-title');
+  const subEl   = document.getElementById('hd-sub');
+  if (!tableEl) return;
+  tableEl.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+  try {
+    const tSnap = await getDoc(doc(db,'tournaments',tid));
+    if (!tSnap.exists()) { tableEl.innerHTML='<p>Tournament not found.</p>'; return; }
+    const t = {id:tSnap.id,...tSnap.data()};
+    if (titleEl) titleEl.textContent = t.name||'Tournament';
+    if (subEl)   subEl.textContent   = `${t.date||''} · ${t.course||''} · ${t.format||'Stroke Play'}`;
+    const scores = await fetchAllScores(tid);
+    if (!scores.length) { tableEl.innerHTML='<div class="empty"><div class="ei">📋</div><p>No scores recorded.</p></div>'; return; }
+    const sorted = scores.sort((a,b)=>a.gross-b.gross);
+    tableEl.innerHTML = `<table>
+      <thead><tr><th>#</th><th>Player</th><th class="c">Gross</th><th class="c">Holes</th></tr></thead>
+      <tbody>${sorted.map((s,i)=>`<tr class="${i===0?'leader':''}">
+        <td><span class="badge ${i===0?'badge-gold':i===1?'badge-silver':i===2?'badge-bronze':''}">${i+1}</span></td>
+        <td>${s.name}</td><td class="c">${s.gross}</td><td class="c">${s.holesPlayed||0}/18</td>
+      </tr>`).join('')}
+      </tbody></table>`;
+  } catch(e) {
+    tableEl.innerHTML = `<div class="empty"><div class="ei">⚠️</div><p>Error: ${e.message}</p></div>`;
+  }
+};
+
+// ── STATS SCREEN ──
+window._real_loadStatsScreen = async function() {
+  const cont = document.getElementById('stats-content-main');
+  if (!cont) return;
+  cont.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+  try {
+    if (!currentUser) { cont.innerHTML='<div class="empty"><p>Sign in to view stats.</p></div>'; return; }
+    // Fetch casual rounds
+    const cSnap = await getDocs(query(
+      collection(db,'casualRounds'),
+      where('playerId','==',currentUser.uid),
+      orderBy('date','desc')
+    ));
+    const rounds = cSnap.docs.map(d=>({id:d.id,...d.data()}));
+    // Fetch tournament scores
+    const hSnap = await getDocs(query(
+      collection(db,'holeScores'),
+      where('playerId','==',currentUser.uid)
+    ));
+    const tRounds = hSnap.docs.map(d=>d.data());
+
+    if (!rounds.length && !tRounds.length) {
+      cont.innerHTML='<div class="empty"><div class="ei">📊</div><p>Play some rounds to see stats!</p></div>';
+      return;
+    }
+
+    const grossScores = rounds.map(r=>r.gross).filter(Boolean);
+    const avg = grossScores.length ? Math.round(grossScores.reduce((a,b)=>a+b,0)/grossScores.length) : '—';
+    const best = grossScores.length ? Math.min(...grossScores) : '—';
+    const worst = grossScores.length ? Math.max(...grossScores) : '—';
+    const pars = rounds.map(r=>r.par||72);
+    const diffs = rounds.map((r,i)=>(r.gross||0)-(pars[i]||72));
+    const avgDiff = diffs.length ? (diffs.reduce((a,b)=>a+b,0)/diffs.length).toFixed(1) : '—';
+
+    cont.innerHTML = `
+      <div class="card card-sm" style="margin-bottom:1rem;">
+        <div class="section-title">Casual Round Stats</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:0.8rem;">
+          <div style="text-align:center;"><div style="font-size:1.8rem;font-weight:900;color:var(--forest);">${rounds.length}</div><div style="font-size:0.72rem;color:var(--text-light);text-transform:uppercase;">Rounds</div></div>
+          <div style="text-align:center;"><div style="font-size:1.8rem;font-weight:900;color:var(--forest);">${avg}</div><div style="font-size:0.72rem;color:var(--text-light);text-transform:uppercase;">Avg Score</div></div>
+          <div style="text-align:center;"><div style="font-size:1.8rem;font-weight:900;color:var(--forest);">${best}</div><div style="font-size:0.72rem;color:var(--text-light);text-transform:uppercase;">Best</div></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:1rem;">
+          <div style="text-align:center;"><div style="font-size:1.5rem;font-weight:700;color:var(--forest);">${avgDiff > 0 ? '+'+avgDiff : avgDiff}</div><div style="font-size:0.72rem;color:var(--text-light);text-transform:uppercase;">Avg vs Par</div></div>
+          <div style="text-align:center;"><div style="font-size:1.5rem;font-weight:700;color:var(--forest);">${tRounds.length}</div><div style="font-size:0.72rem;color:var(--text-light);text-transform:uppercase;">Tournament Holes</div></div>
+        </div>
+      </div>
+      <div class="section-title" style="margin-bottom:0.8rem;">Recent Rounds</div>
+      ${rounds.slice(0,5).map(r=>{
+        const diff=r.gross-(r.par||72);
+        const col=diff>0?'var(--danger)':diff<0?'#27ae60':'var(--text-mid)';
+        return `<div class="history-row">
+          <div class="hr-left"><div class="name">${r.course||'Unknown'}</div><div class="meta">${r.date||''} · Par ${r.par||72}</div></div>
+          <div class="hr-right"><div class="score">${r.gross}</div><div class="pos" style="color:${col};">${diff>0?'+'+diff:diff===0?'E':diff} vs par</div></div>
+        </div>`;
+      }).join('')}`;
+  } catch(e) {
+    cont.innerHTML = `<div class="empty"><div class="ei">⚠️</div><p>Error: ${e.message}</p></div>`;
+  }
+};
+
 window._real_loadCasualHistory = async function() {
   const cont = document.getElementById('casual-history-content');
   if (!cont) return;
