@@ -1,30 +1,1689 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Mork Golf Tourney</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#1a3a2a">
+<title>Mork Golf Tour</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --forest: #1a3a2a;
+  --forest-mid: #2d5a3d;
+  --forest-light: #3d7a52;
+  --cream: #f5f0e8;
+  --cream-dark: #e8e0cc;
+  --gold: #c9a227;
+  --gold-light: #e8c84a;
+  --gold-pale: #fdf4d6;
+  --text-dark: #1a1a1a;
+  --text-mid: #4a4a4a;
+  --text-light: #8a8a8a;
+  --danger: #c0392b;
+  --info: #2980b9;
+  --shadow: 0 4px 20px rgba(0,0,0,0.10);
+  --shadow-lg: 0 8px 40px rgba(0,0,0,0.18);
+  --radius: 14px;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;font-family:'Inter',sans-serif;background:var(--forest);color:var(--text-dark);}
+
+/* ── LAYOUT ── */
+#app{display:flex;flex-direction:column;height:100vh;overflow:hidden;}
+#screen-area{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:80px;}
+#bottom-nav{position:fixed;bottom:0;left:0;right:0;background:var(--forest);border-top:2px solid var(--gold);display:none;z-index:50;}
+.bnav-inner{display:flex;justify-content:space-around;padding:6px 0 env(safe-area-inset-bottom);}
+.bnav-btn{display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 12px;border:none;background:transparent;color:rgba(245,240,232,0.5);font-size:0.65rem;letter-spacing:0.06em;text-transform:uppercase;cursor:pointer;font-family:'Inter',sans-serif;transition:color 0.2s;min-width:56px;}
+.bnav-btn .icon{font-size:1.3rem;}
+.bnav-btn.active{color:var(--gold);}
+
+/* ── SCREENS ── */
+.screen{display:none;min-height:100%;padding:0;}
+.screen.active{display:block;}
+
+/* ── AUTH ── */
+#screen-auth{background:var(--forest);display:flex;align-items:center;justify-content:center;min-height:100vh;padding:2rem;}
+.auth-box{background:var(--cream);border-radius:20px;padding:2.5rem;width:100%;max-width:420px;box-shadow:var(--shadow-lg);}
+.auth-logo{text-align:center;margin-bottom:2rem;}
+.auth-logo .icon{font-size:3rem;}
+.auth-logo h1{font-family:'Playfair Display',serif;font-size:1.8rem;color:var(--forest);margin-top:0.5rem;}
+.auth-logo p{font-size:0.82rem;color:var(--text-light);letter-spacing:0.08em;text-transform:uppercase;margin-top:4px;}
+.auth-tabs{display:flex;border-bottom:2px solid var(--cream-dark);margin-bottom:1.5rem;}
+.auth-tab{flex:1;padding:10px;text-align:center;font-size:0.85rem;font-weight:600;cursor:pointer;color:var(--text-light);border-bottom:2px solid transparent;margin-bottom:-2px;transition:all 0.2s;}
+.auth-tab.active{color:var(--forest);border-bottom-color:var(--gold);}
+.auth-panel{display:none;}
+.auth-panel.active{display:block;}
+.divider{text-align:center;color:var(--text-light);font-size:0.8rem;margin:1rem 0;position:relative;}
+.divider::before,.divider::after{content:'';position:absolute;top:50%;width:42%;height:1px;background:var(--cream-dark);}
+.divider::before{left:0;} .divider::after{right:0;}
+
+/* ── FORMS ── */
+.fg{margin-bottom:1rem;}
+.fg label{display:block;font-size:0.78rem;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:var(--text-mid);margin-bottom:5px;}
+.fg input,.fg select,.fg textarea{width:100%;padding:11px 13px;border:2px solid var(--cream-dark);border-radius:9px;font-size:0.93rem;font-family:'Inter',sans-serif;color:var(--text-dark);background:white;outline:none;transition:border-color 0.2s;}
+.fg input:focus,.fg select:focus,.fg textarea:focus{border-color:var(--gold);}
+.fg textarea{resize:vertical;min-height:80px;}
+
+/* ── BUTTONS ── */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:11px 20px;border-radius:9px;font-size:0.88rem;font-weight:600;font-family:'Inter',sans-serif;cursor:pointer;border:none;transition:all 0.2s;letter-spacing:0.02em;}
+.btn-gold{background:var(--gold);color:var(--forest);}
+.btn-gold:hover{background:var(--gold-light);}
+.btn-forest{background:var(--forest-mid);color:white;}
+.btn-forest:hover{background:var(--forest);}
+.btn-danger{background:var(--danger);color:white;}
+.btn-ghost{background:transparent;border:2px solid var(--cream-dark);color:var(--text-mid);}
+.btn-ghost:hover{border-color:var(--forest-light);color:var(--forest);}
+.btn-full{width:100%;}
+.btn-sm{padding:7px 13px;font-size:0.8rem;}
+.btn:disabled{opacity:0.5;cursor:not-allowed;}
+
+/* ── TOP BAR ── */
+.topbar{background:var(--forest);border-bottom:2px solid var(--gold);padding:0 1rem;height:58px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:40;}
+.topbar-title{font-family:'Playfair Display',serif;color:var(--cream);font-size:1.1rem;font-weight:700;}
+.topbar-sub{font-size:0.7rem;color:var(--gold);letter-spacing:0.1em;text-transform:uppercase;}
+.topbar-right{display:flex;gap:8px;align-items:center;}
+.icon-btn{background:transparent;border:none;color:var(--cream);font-size:1.2rem;cursor:pointer;padding:6px;border-radius:6px;transition:color 0.2s;}
+.icon-btn:hover{color:var(--gold);}
+
+/* ── CARDS ── */
+.card{background:var(--cream);border-radius:var(--radius);padding:1.5rem;box-shadow:var(--shadow);}
+.card-sm{padding:1rem 1.2rem;}
+.card h3{font-family:'Playfair Display',serif;font-size:1.15rem;color:var(--forest);margin-bottom:1rem;padding-bottom:0.7rem;border-bottom:2px solid var(--cream-dark);}
+.section-title{font-family:'Playfair Display',serif;font-size:1.3rem;color:var(--cream);font-weight:700;margin-bottom:0.3rem;}
+.section-sub{color:rgba(245,240,232,0.5);font-size:0.82rem;margin-bottom:1.2rem;}
+
+/* ── HOME ── */
+.home-hero{background:linear-gradient(160deg,var(--forest-mid) 0%,var(--forest) 100%);padding:1.5rem;border-radius:var(--radius);margin-bottom:1rem;position:relative;overflow:hidden;}
+.home-hero::before{content:'⛳';position:absolute;right:-10px;top:-10px;font-size:80px;opacity:0.08;}
+.hero-label{font-size:0.7rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--gold);margin-bottom:6px;}
+.hero-title{font-family:'Playfair Display',serif;font-size:1.5rem;color:var(--cream);font-weight:900;line-height:1.2;}
+.hero-meta{font-size:0.82rem;color:rgba(245,240,232,0.6);margin-top:6px;}
+.hero-badge{display:inline-block;background:var(--gold);color:var(--forest);font-size:0.7rem;font-weight:700;padding:3px 10px;border-radius:20px;letter-spacing:0.06em;margin-top:8px;}
+
+.mini-lb{margin-top:1rem;}
+.mini-lb-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.08);}
+.mini-lb-row:last-child{border-bottom:none;}
+.mini-rank{width:22px;text-align:center;font-size:0.8rem;font-weight:700;color:var(--gold);}
+.mini-name{flex:1;color:var(--cream);font-size:0.9rem;font-weight:500;}
+.mini-score{font-size:0.9rem;font-weight:700;color:var(--cream);}
+
+/* ── LEADERBOARD ── */
+.lb-tabs{display:flex;gap:6px;padding:1rem 1rem 0;overflow-x:auto;}
+.lb-tab{padding:7px 16px;border-radius:20px;font-size:0.8rem;font-weight:600;cursor:pointer;border:none;white-space:nowrap;transition:all 0.2s;font-family:'Inter',sans-serif;}
+.lb-tab.active{background:var(--gold);color:var(--forest);}
+.lb-tab:not(.active){background:rgba(245,240,232,0.1);color:rgba(245,240,232,0.7);}
+
+.lb-table-wrap{background:var(--cream);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);}
+table{width:100%;border-collapse:collapse;}
+thead tr{background:var(--forest);color:var(--gold);}
+th{padding:10px 12px;text-align:left;font-size:0.7rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;}
+th.c{text-align:center;}
+tbody tr{border-bottom:1px solid var(--cream-dark);transition:background 0.15s;}
+tbody tr:last-child{border-bottom:none;}
+tbody tr:hover{background:rgba(61,122,82,0.06);}
+tbody tr.leader{background:linear-gradient(90deg,#fff9e6,#fdf4d6);}
+td{padding:11px 12px;font-size:0.88rem;color:var(--text-dark);}
+td.c{text-align:center;}
+td.bold{font-weight:700;}
+td.pname{font-weight:600;font-family:'Playfair Display',serif;font-size:0.95rem;}
+.badge{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;font-size:0.75rem;font-weight:700;}
+.b1{background:var(--gold);color:var(--forest);}
+.b2{background:#C0C0C0;color:#333;}
+.b3{background:#CD7F32;color:white;}
+.bx{background:var(--cream-dark);color:var(--text-mid);}
+.vp{display:inline-block;padding:2px 8px;border-radius:20px;font-size:0.75rem;font-weight:600;}
+.vp.under{background:#d4edda;color:#155724;}
+.vp.over{background:#f8d7da;color:#721c24;}
+.vp.even{background:#e2e8f0;color:#334155;}
+
+/* ── SCORECARD ── */
+.hole-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;}
+.hole-card{background:white;border:2px solid var(--cream-dark);border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:6px;transition:border-color 0.2s;}
+.hole-card.filled{border-color:var(--forest-light);}
+.hole-label{font-size:0.7rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-light);}
+.hole-par{font-size:0.75rem;color:var(--text-light);}
+.hole-input-row{display:flex;align-items:center;gap:6px;}
+.hole-input-row button{width:28px;height:28px;border-radius:6px;border:none;background:var(--cream-dark);font-size:1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;font-weight:700;transition:background 0.15s;}
+.hole-input-row button:hover{background:var(--cream);}
+.hole-val{width:36px;text-align:center;font-size:1.2rem;font-weight:700;color:var(--forest);border:none;outline:none;font-family:'Inter',sans-serif;background:transparent;}
+.score-eagle{background:#1a3a8a;color:white;border-color:#1a3a8a;}
+.score-birdie{background:#e8c84a;color:var(--forest);border-color:#c9a227;}
+.score-par{border-color:var(--forest-light);}
+.score-bogey{background:#f8d7da;border-color:#c0392b;}
+.score-double{background:#f8d7da;border-color:#8e1a10;}
+
+.scorecard-summary{background:var(--cream);border-radius:var(--radius);padding:1rem 1.2rem;display:flex;justify-content:space-around;box-shadow:var(--shadow);margin-bottom:1rem;}
+.sc-stat{text-align:center;}
+.sc-stat .val{font-size:1.6rem;font-weight:900;color:var(--forest);font-family:'Playfair Display',serif;}
+.sc-stat .lbl{font-size:0.68rem;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-light);margin-top:2px;}
+
+/* ── PROFILE ── */
+.profile-header{background:linear-gradient(160deg,var(--forest-mid),var(--forest));border-radius:var(--radius);padding:1.5rem;text-align:center;margin-bottom:1rem;}
+.profile-avatar{width:72px;height:72px;border-radius:50%;background:var(--gold);display:flex;align-items:center;justify-content:center;font-size:2rem;margin:0 auto 0.8rem;border:3px solid rgba(255,255,255,0.2);}
+.profile-name{font-family:'Playfair Display',serif;font-size:1.4rem;color:var(--cream);font-weight:700;}
+.profile-meta{font-size:0.8rem;color:rgba(245,240,232,0.55);margin-top:4px;}
+.stats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:1rem;}
+.stat-box{background:var(--cream);border-radius:10px;padding:0.9rem;text-align:center;box-shadow:var(--shadow);}
+.stat-box .n{font-family:'Playfair Display',serif;font-size:1.6rem;font-weight:900;color:var(--forest);}
+.stat-box .l{font-size:0.65rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-light);margin-top:3px;}
+
+/* ── HISTORY ROWS ── */
+.history-row{display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--cream-dark);}
+.history-row:last-child{border-bottom:none;}
+.hr-left .name{font-weight:600;font-size:0.92rem;color:var(--text-dark);}
+.hr-left .meta{font-size:0.78rem;color:var(--text-light);margin-top:2px;}
+.hr-right{text-align:right;}
+.hr-right .score{font-weight:700;font-size:1rem;color:var(--forest);}
+.hr-right .pos{font-size:0.75rem;color:var(--text-light);}
+
+/* ── ADMIN ── */
+.admin-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;}
+.admin-tile{background:var(--cream);border-radius:var(--radius);padding:1.2rem;text-align:center;cursor:pointer;box-shadow:var(--shadow);transition:transform 0.15s,box-shadow 0.15s;border:2px solid transparent;}
+.admin-tile:hover{transform:translateY(-2px);box-shadow:var(--shadow-lg);border-color:var(--gold);}
+.admin-tile .t-icon{font-size:2rem;margin-bottom:8px;}
+.admin-tile .t-label{font-weight:600;font-size:0.88rem;color:var(--forest);}
+.admin-tile .t-sub{font-size:0.75rem;color:var(--text-light);margin-top:3px;}
+
+.player-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--cream-dark);}
+.player-row:last-child{border-bottom:none;}
+.pr-name{font-weight:600;font-size:0.9rem;}
+.pr-email{font-size:0.78rem;color:var(--text-light);}
+.pr-actions{display:flex;gap:6px;}
+
+/* ── TOAST ── */
+#toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--forest);color:var(--cream);padding:11px 22px;border-radius:30px;font-size:0.85rem;font-weight:500;box-shadow:var(--shadow-lg);border:1px solid var(--gold);opacity:0;transition:all 0.3s;z-index:999;white-space:nowrap;}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+/* ── MODAL ── */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:200;align-items:center;justify-content:center;padding:1rem;}
+.modal-bg.open{display:flex;}
+.modal{background:var(--cream);border-radius:20px;padding:2rem;width:100%;max-width:500px;max-height:90vh;overflow-y:auto;box-shadow:var(--shadow-lg);}
+.modal h3{font-family:'Playfair Display',serif;font-size:1.2rem;color:var(--forest);margin-bottom:1.2rem;}
+.modal-footer{display:flex;gap:8px;margin-top:1.5rem;justify-content:flex-end;}
+
+/* ── MISC ── */
+.pad{padding:1rem;}
+.gap{margin-bottom:1rem;}
+.row{display:flex;gap:8px;align-items:center;}
+.chip{display:inline-block;padding:3px 10px;border-radius:20px;font-size:0.72rem;font-weight:600;letter-spacing:0.04em;}
+.chip-green{background:#d4edda;color:#155724;}
+.chip-blue{background:#d1ecf1;color:#0c5460;}
+.chip-gold{background:var(--gold-pale);color:#7a5c00;}
+.chip-red{background:#f8d7da;color:#721c24;}
+.empty{text-align:center;padding:3rem 1rem;color:var(--text-light);}
+.empty .ei{font-size:2.5rem;margin-bottom:0.8rem;}
+.loading{text-align:center;padding:2rem;color:var(--text-light);}
+.spinner{display:inline-block;width:28px;height:28px;border:3px solid var(--cream-dark);border-top-color:var(--gold);border-radius:50%;animation:spin 0.8s linear infinite;margin-bottom:8px;}
+@keyframes spin{to{transform:rotate(360deg);}}
+@keyframes lb-pulse{0%,100%{box-shadow:0 4px 20px rgba(201,162,39,0.2);}50%{box-shadow:0 4px 40px rgba(201,162,39,0.55);}}
+.leader{animation:lb-pulse 2.5s ease-in-out infinite;}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.blind-hole-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin-top:8px;}
+.blind-hole{padding:6px;text-align:center;border-radius:6px;border:2px solid var(--cream-dark);cursor:pointer;font-size:0.82rem;font-weight:600;transition:all 0.15s;}
+.blind-hole.selected{background:var(--gold);border-color:var(--gold);color:var(--forest);}
+.info-bar{background:rgba(245,240,232,0.08);border-radius:10px;padding:10px 14px;font-size:0.82rem;color:rgba(245,240,232,0.65);margin-bottom:1rem;border-left:3px solid var(--gold);}
+hr.div{border:none;border-top:1px solid var(--cream-dark);margin:1rem 0;}
+</style>
 </head>
-
 <body>
+<div id="app">
+  <div id="screen-area">
 
-  <h1>🏌️ Golf Leaderboard</h1>
+    <!-- ══ AUTH ══ -->
+    <div id="screen-auth" class="screen active" style="display:flex;">
+      <div class="auth-box">
+        <div class="auth-logo">
+          <div class="icon">⛳</div>
+          <h1>Mork Golf Tour</h1>
+          <p>Tournament Platform</p>
+        </div>
+        <div class="auth-tabs">
+          <div class="auth-tab active" onclick="switchAuthTab('login')">Sign In</div>
+          <div class="auth-tab" onclick="switchAuthTab('register')">Join Tour</div>
+        </div>
 
-  <table border="1">
-    <thead>
-      <tr>
-        <th>Player</th>
-        <th>Round 1</th>
-        <th>Round 2</th>
-        <th>Round 3</th>
-        <th>Round 4</th>
-        <th>Total</th>
-      </tr>
-    </thead>
+        <!-- Login -->
+        <div id="auth-login" class="auth-panel active">
+          <div class="fg"><label>Email</label><input type="email" id="li-email" placeholder="your@email.com"></div>
+          <div class="fg"><label>Password</label><input type="password" id="li-pass" placeholder="••••••••"></div>
+          <button class="btn btn-gold btn-full" onclick="doLogin()">Sign In</button>
+          <p style="text-align:center;font-size:0.78rem;color:var(--text-light);margin-top:0.8rem;cursor:pointer;" onclick="doForgotPassword()">Forgot password? Send reset email →</p>
+          <p style="text-align:center;font-size:0.78rem;color:var(--text-light);margin-top:1rem;cursor:pointer;" onclick="switchAuthTab('register')">New to Mork Golf Tour? Join →</p>
+        </div>
 
-    <tbody id="leaderboard-body"></tbody>
-  </table>
+        <!-- Register -->
+        <div id="auth-register" class="auth-panel">
+          <div class="info-bar" style="background:var(--gold-pale);border-left-color:var(--gold);color:#7a5c00;margin-bottom:1rem;">
+            🔐 You need an invite code from the organizer to join.
+          </div>
+          <div class="fg"><label>Invite Code</label><input type="text" id="reg-code" placeholder="e.g. MORK2026" style="text-transform:uppercase;"></div>
+          <div class="fg"><label>Full Name</label><input type="text" id="reg-name" placeholder="John Smith"></div>
+          <div class="fg"><label>Email</label><input type="email" id="reg-email" placeholder="your@email.com"></div>
+          <div class="fg"><label>Password</label><input type="password" id="reg-pass" placeholder="Min 6 characters"></div>
+          <div class="fg"><label>GHIN Handicap (optional)</label><input type="number" id="reg-hcp" placeholder="e.g. 12.4" step="0.1" min="0" max="54"></div>
+          <button class="btn btn-gold btn-full" onclick="doRegister()">Join Mork Golf Tour</button>
+        </div>
 
-  <script src="assets/app.js"></script>
+        <div id="auth-error" style="color:var(--danger);font-size:0.82rem;margin-top:0.8rem;text-align:center;"></div>
+      </div>
+    </div>
+
+    <!-- ══ HOME ══ -->
+    <div id="screen-home" class="screen">
+      <div class="topbar">
+        <div><div class="topbar-title">Mork Golf Tour</div><div class="topbar-sub">Season Dashboard</div></div>
+        <div class="topbar-right">
+          <button class="icon-btn" onclick="showScreen('profile')" title="My Profile">👤</button>
+          <button class="icon-btn" onclick="doSignOut()" title="Sign Out">🚪</button>
+        </div>
+      </div>
+      <div class="pad">
+        <div id="home-current-event"></div>
+        <div style="margin-top:1rem;">
+          <div class="section-title" style="font-size:1.1rem;">Season Standings</div>
+          <div class="section-sub">Points across all tournaments</div>
+          <div id="home-season-lb" class="lb-table-wrap"></div>
+        </div>
+        <div style="margin-top:1rem;">
+          <div class="section-title" style="font-size:1.1rem;">Recent Results</div>
+          <div class="section-sub">Last completed tournaments</div>
+          <div id="home-recent" class="card"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ LEADERBOARD ══ -->
+    <div id="screen-leaderboard" class="screen">
+      <div class="topbar">
+        <div><div class="topbar-title" id="lb-title">Leaderboard</div><div class="topbar-sub" id="lb-sub"></div></div>
+        <div class="topbar-right">
+          <select id="lb-tourney-sel" onchange="loadLeaderboard()" style="background:transparent;border:1px solid var(--gold);color:var(--cream);padding:5px 8px;border-radius:6px;font-size:0.78rem;font-family:'Inter',sans-serif;cursor:pointer;"></select>
+        </div>
+      </div>
+      <div class="lb-tabs">
+        <button class="lb-tab active" onclick="switchLbTab('gross',this)">Gross</button>
+        <button class="lb-tab" onclick="switchLbTab('net',this)">Net</button>
+        <button class="lb-tab" onclick="switchLbTab('system36',this)">System 36</button>
+        <button class="lb-tab" onclick="switchLbTab('peoria',this)">Blind Peoria</button>
+      </div>
+      <div class="pad" style="padding-top:0.8rem;">
+        <div id="lb-content"></div>
+      </div>
+    </div>
+
+    <!-- ══ SCORECARD ══ -->
+    <div id="screen-scorecard" class="screen">
+      <div class="topbar">
+        <div><div class="topbar-title">Enter Scores</div><div class="topbar-sub" id="sc-tourney-name"></div></div>
+        <div class="topbar-right">
+          <button class="btn btn-gold btn-sm" onclick="submitScorecard()">Submit</button>
+        </div>
+      </div>
+      <div class="pad">
+        <div class="scorecard-summary" id="sc-summary">
+          <div class="sc-stat"><div class="val" id="sc-total">—</div><div class="lbl">Total</div></div>
+          <div class="sc-stat"><div class="val" id="sc-vs-par">—</div><div class="lbl">vs Par</div></div>
+          <div class="sc-stat"><div class="val" id="sc-holes">0</div><div class="lbl">Holes</div></div>
+        </div>
+        <div class="section-title" style="font-size:1rem;margin-bottom:0.8rem;">Front 9</div>
+        <div class="hole-grid" id="holes-front"></div>
+        <div class="section-title" style="font-size:1rem;margin:1rem 0 0.8rem;">Back 9</div>
+        <div class="hole-grid" id="holes-back"></div>
+      </div>
+    </div>
+
+    <!-- ══ PROFILE ══ -->
+    <div id="screen-profile" class="screen">
+      <div class="topbar">
+        <div><div class="topbar-title">My Profile</div></div>
+        <div class="topbar-right">
+          <button class="icon-btn" onclick="history.back()">✕</button>
+        </div>
+      </div>
+      <div class="pad">
+        <div class="profile-header" id="profile-header"></div>
+        <div class="stats-grid" id="profile-stats"></div>
+        <div class="card">
+          <h3>Tournament History</h3>
+          <div id="profile-history"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ ADMIN ══ -->
+    <div id="screen-admin" class="screen">
+      <div class="topbar">
+        <div><div class="topbar-title">Admin Dashboard</div><div class="topbar-sub">Organizer Controls</div></div>
+      </div>
+      <div class="pad">
+        <div class="admin-grid">
+          <div class="admin-tile" onclick="openModal('modal-create-tourney')">
+            <div class="t-icon">🏆</div>
+            <div class="t-label">New Tournament</div>
+            <div class="t-sub">Create event</div>
+          </div>
+          <div class="admin-tile" onclick="showAdminPlayers()">
+            <div class="t-icon">👥</div>
+            <div class="t-label">Manage Players</div>
+            <div class="t-sub">Roster & roles</div>
+          </div>
+          <div class="admin-tile" onclick="showAdminScores()">
+            <div class="t-icon">✏️</div>
+            <div class="t-label">Edit Scores</div>
+            <div class="t-sub">Override & correct</div>
+          </div>
+          <div class="admin-tile" onclick="showAdminPeoria()">
+            <div class="t-icon">🎲</div>
+            <div class="t-label">Blind Peoria</div>
+            <div class="t-sub">Select secret holes</div>
+          </div>
+          <div class="admin-tile" onclick="showAdminLock()">
+            <div class="t-icon">🔒</div>
+            <div class="t-label">Lock Results</div>
+            <div class="t-sub">Finalize tournament</div>
+          </div>
+          <div class="admin-tile" onclick="showAdminExport()">
+            <div class="t-icon">📤</div>
+            <div class="t-label">Export Results</div>
+            <div class="t-sub">CSV download</div>
+          </div>
+        </div>
+        <div id="admin-content" style="margin-top:1rem;"></div>
+      </div>
+    </div>
+
+  </div><!-- end screen-area -->
+
+  <!-- BOTTOM NAV -->
+  <div id="bottom-nav">
+    <div class="bnav-inner">
+      <button class="bnav-btn active" onclick="navTo('home',this)"><span class="icon">🏠</span>Home</button>
+      <button class="bnav-btn" onclick="navTo('leaderboard',this)"><span class="icon">🏆</span>Board</button>
+      <button class="bnav-btn" onclick="navTo('scorecard',this)"><span class="icon">⛳</span>Scores</button>
+      <button class="bnav-btn" onclick="navTo('profile',this)"><span class="icon">👤</span>Profile</button>
+      <button class="bnav-btn" id="admin-nav-btn" style="display:none;" onclick="navTo('admin',this)"><span class="icon">⚙️</span>Admin</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODALS ══ -->
+<div class="modal-bg" id="modal-create-tourney">
+  <div class="modal">
+    <h3>🏆 Create Tournament</h3>
+    <div class="fg"><label>Tournament Name</label><input type="text" id="ct-name" placeholder="e.g. August Championship 2026"></div>
+    <div class="two-col">
+      <div class="fg"><label>Date</label><input type="date" id="ct-date"></div>
+      <div class="fg"><label>Course</label><input type="text" id="ct-course" placeholder="Course name"></div>
+    </div>
+    <div class="two-col">
+      <div class="fg"><label>Format</label>
+        <select id="ct-format">
+          <option value="stroke">Stroke Play</option>
+          <option value="system36">System 36</option>
+          <option value="peoria">Blind Peoria</option>
+          <option value="stableford">Stableford</option>
+        </select>
+      </div>
+      <div class="fg"><label>Course Par</label><input type="number" id="ct-par" value="72" min="60" max="80"></div>
+    </div>
+    <div class="fg"><label>Slope Rating (for hdcp calc)</label><input type="number" id="ct-slope" value="113" min="55" max="155"></div>
+    <div class="fg">
+      <label>Season Points (1st/2nd/3rd)</label>
+      <div class="two-col">
+        <input type="number" id="ct-pts1" value="100" placeholder="1st">
+        <input type="number" id="ct-pts2" value="80" placeholder="2nd">
+      </div>
+      <input type="number" id="ct-pts3" value="60" placeholder="3rd" style="margin-top:8px;width:100%;padding:11px 13px;border:2px solid var(--cream-dark);border-radius:9px;font-size:0.93rem;font-family:'Inter',sans-serif;outline:none;">
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-create-tourney')">Cancel</button>
+      <button class="btn btn-gold" onclick="createTournament()">Create</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="modal-edit-score">
+  <div class="modal">
+    <h3>✏️ Edit Player Scores</h3>
+    <div class="fg"><label>Player</label><select id="es-player-sel" onchange="loadPlayerScoresForEdit()"></select></div>
+    <div id="es-holes-grid" class="hole-grid" style="margin-top:0.5rem;"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-edit-score')">Cancel</button>
+      <button class="btn btn-gold" onclick="saveEditedScores()">Save Scores</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<!-- ══ FIREBASE ══ -->
+<script>
+// ── FUNCTION SHIM ──
+// HTML onclicks fire before the Firebase module loads.
+// This shim queues calls and replays them once the module is ready.
+window._shimReady = false;
+window._shimQueue = [];
+const _shimmed = ['doLogin','doRegister','doForgotPassword','doSignOut',
+  'switchAuthTab','showScreen','navTo','navCasual','openModal','closeModal',
+  'loadLeaderboard','switchLbTab','populateLbSelect','submitScorecard',
+  'loadProfile','createTournament','showAdminPlayers','showAdminScores',
+  'showAdminPeoria','showAdminLock','showAdminExport','loadAdmin',
+  'loadPlayerScoresForEdit','saveEditedScores','loadHistory','loadHistoryDetail',
+  'loadCasualRound','saveCasualRound','loadCasualHistory','loadStatsScreen',
+  'showAdminSettings','toggleAdminRole','togglePeoriaHole','savePeoriaHoles',
+  'setActiveTourney','setTourneyStatus'];
+_shimmed.forEach(fn => {
+  window[fn] = function(...args) {
+    if (window._shimReady && typeof window['_real_'+fn] === 'function') {
+      return window['_real_'+fn](...args);
+    }
+    window._shimQueue.push({fn, args});
+  };
+});
+window._shimFlush = function() {
+  window._shimReady = true;
+  window._shimQueue.forEach(({fn, args}) => {
+    if (typeof window['_real_'+fn] === 'function') window['_real_'+fn](...args);
+  });
+  window._shimQueue = [];
+};
+</script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword,
+  signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getFirestore, doc, setDoc, getDoc, getDocs, addDoc, updateDoc, deleteDoc,
+  collection, query, where, orderBy, onSnapshot, serverTimestamp, writeBatch }
+  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDyAtsNMVVC00M_wuVedqIkBOLclOpp5-0",
+  authDomain: "mork-golf-tourney.firebaseapp.com",
+  databaseURL: "https://mork-golf-tourney-default-rtdb.firebaseio.com",
+  projectId: "mork-golf-tourney",
+  storageBucket: "mork-golf-tourney.firebasestorage.app",
+  messagingSenderId: "559245924413",
+  appId: "1:559245924413:web:7ed417e65886552e0c3254"
+};
+
+const fbApp = initializeApp(firebaseConfig);
+const auth  = getAuth(fbApp);
+const db    = getFirestore(fbApp);
+
+// ── CONSTANTS ──
+const INVITE_CODE = "MORK2026";
+const DEFAULT_PARS = [4,4,3,5,4,3,4,5,4, 4,3,5,4,4,3,5,4,4];
+const POINTS_MAP   = { 1:100, 2:80, 3:60, 4:45, 5:30, 6:20, 7:15, 8:10 };
+
+// ── STATE ──
+let currentUser = null, userProfile = null;
+let activeTournament = null, allTournaments = [], allPlayers = [];
+let scorecardData = {}; // holeNum -> score
+let currentLbTab = 'gross';
+let lbUnsubscribe = null;
+let editingTourneyId = null;
+
+// ── UTILS ──
+function uid() { return Date.now().toString(36)+Math.random().toString(36).slice(2,5); }
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.classList.add('show');
+  setTimeout(()=>el.classList.remove('show'), 2800);
+}
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+function showScreen(name) {
+  document.querySelectorAll('.screen').forEach(s=>{ s.classList.remove('active'); s.style.display=''; });
+  const s = document.getElementById('screen-'+name);
+  if(s){ s.classList.add('active'); s.style.display='block'; }
+}
+function navTo(name, btn) {
+  document.querySelectorAll('.bnav-btn').forEach(b=>b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  showScreen(name);
+  if(name==='home') loadHome();
+  if(name==='leaderboard') { populateLbSelect(); loadLeaderboard(); }
+  if(name==='scorecard') loadScorecard();
+  if(name==='profile') loadProfile();
+  if(name==='admin') loadAdmin();
+}
+function switchAuthTab(tab) {
+  document.querySelectorAll('.auth-tab').forEach((t,i)=>{
+    const names=['login','register'];
+    t.classList.toggle('active', names[i]===tab);
+  });
+  document.getElementById('auth-login').classList.toggle('active', tab==='login');
+  document.getElementById('auth-register').classList.toggle('active', tab==='register');
+}
+function vsPar(score, par) {
+  const d=score-par;
+  if(d<0) return `<span class="vp under">${d}</span>`;
+  if(d>0) return `<span class="vp over">+${d}</span>`;
+  return `<span class="vp even">E</span>`;
+}
+function badgeClass(r) { return ['b1','b2','b3'][r-1]||'bx'; }
+function chipStatus(s) {
+  const map={active:'chip-green',completed:'chip-blue',upcoming:'chip-gold',locked:'chip-red'};
+  return map[s]||'chip-gold';
+}
+
+// Make functions global
+window._real_switchAuthTab=switchAuthTab; window._real_doLogin=doLogin; window._real_doForgotPassword=doForgotPassword; window._real_doRegister=doRegister;
+window._real_doSignOut=doSignOut;
+window._real_showScreen=showScreen; window._real_navTo=navTo; window._real_openModal=openModal; window._real_closeModal=closeModal;
+window._real_loadLeaderboard=loadLeaderboard; window._real_switchLbTab=switchLbTab; window._real_populateLbSelect=populateLbSelect;
+window._real_submitScorecard=submitScorecard;
+window._real_loadProfile=loadProfile;
+window._real_loadHome=loadHome;
+window._real_loadScorecard=loadScorecard;
+window._real_createTournament=createTournament; window._real_showAdminPlayers=showAdminPlayers;
+window._real_showAdminScores=showAdminScores; window._real_showAdminPeoria=showAdminPeoria;
+window._real_showAdminLock=showAdminLock; window._real_showAdminExport=showAdminExport; window._real_loadAdmin=loadAdmin;
+window._real_loadPlayerScoresForEdit=loadPlayerScoresForEdit; window._real_saveEditedScores=saveEditedScores;
+
+// ── AUTH ──
+async function doLogin() {
+  const email=document.getElementById('li-email').value.trim();
+  const pass=document.getElementById('li-pass').value;
+  document.getElementById('auth-error').textContent='';
+  try { await signInWithEmailAndPassword(auth,email,pass); }
+  catch(e){ document.getElementById('auth-error').textContent=friendlyError(e.code); }
+}
+
+
+
+async function doRegister() {
+  const code=document.getElementById('reg-code').value.trim().toUpperCase();
+  if(code!==INVITE_CODE){ document.getElementById('auth-error').textContent='Invalid invite code.'; return; }
+  const name=document.getElementById('reg-name').value.trim();
+  const email=document.getElementById('reg-email').value.trim();
+  const pass=document.getElementById('reg-pass').value;
+  const hcp=document.getElementById('reg-hcp').value;
+  if(!name||!email||!pass){ document.getElementById('auth-error').textContent='Please fill all required fields.'; return; }
+  try {
+    const cred=await createUserWithEmailAndPassword(auth,email,pass);
+    await setDoc(doc(db,'players',cred.user.uid),{
+      name, email, role:'player', officialHandicap: hcp?Number(hcp):null,
+      status:'active', createdDate: serverTimestamp(),
+      stats:{ roundsPlayed:0,wins:0,top3:0,avgGross:0,avgNet:0,bestRound:null,worstRound:null,seasonPoints:0 }
+    });
+  } catch(e){ document.getElementById('auth-error').textContent=friendlyError(e.code); }
+}
+async function doForgotPassword() {
+  const email = document.getElementById('li-email').value.trim();
+  if (!email) {
+    document.getElementById('auth-error').textContent = 'Enter your email address above first.';
+    return;
+  }
+  try {
+    await sendPasswordResetEmail(auth, email);
+    document.getElementById('auth-error').style.color = '#27ae60';
+    document.getElementById('auth-error').textContent = '✅ Reset email sent! Check your inbox.';
+    setTimeout(() => {
+      document.getElementById('auth-error').textContent = '';
+      document.getElementById('auth-error').style.color = '';
+    }, 5000);
+  } catch(e) {
+    document.getElementById('auth-error').style.color = '';
+    document.getElementById('auth-error').textContent = friendlyError(e.code);
+  }
+}
+
+
+async function doSignOut() {
+  if(lbUnsubscribe) lbUnsubscribe();
+  await signOut(auth);
+}
+
+function friendlyError(code) {
+  const map={ 'auth/invalid-email':'Invalid email address.',
+    'auth/wrong-password':'Wrong password.','auth/user-not-found':'No account with that email.',
+    'auth/email-already-in-use':'Email already registered.','auth/weak-password':'Password must be at least 6 characters.',
+    'auth/network-request-failed':'Network error. Check your connection.' };
+  return map[code]||'Something went wrong. Try again.';
+}
+
+// ── AUTH STATE ──
+onAuthStateChanged(auth, async (user)=>{
+
+  if(user){
+    currentUser=user;
+    const snap=await getDoc(doc(db,'players',user.uid));
+    if(snap.exists()){ userProfile=snap.data(); userProfile.id=user.uid; }
+    else { userProfile={name:user.email,role:'player',id:user.uid}; }
+    await loadGlobalData();
+    document.getElementById('screen-auth').style.display='none';
+    document.getElementById('bottom-nav').style.display='block';
+    if(userProfile.role==='admin') document.getElementById('admin-nav-btn').style.display='flex';
+    showScreen('home'); loadHome();
+  } else {
+    currentUser=null; userProfile=null;
+    document.getElementById('screen-auth').style.display='flex';
+    document.getElementById('screen-auth').classList.add('active');
+    document.getElementById('bottom-nav').style.display='none';
+    document.querySelectorAll('.screen:not(#screen-auth)').forEach(s=>{ s.classList.remove('active'); s.style.display=''; });
+  }
+});
+
+// ── GLOBAL DATA ──
+async function loadGlobalData() {
+  const [tSnap, pSnap] = await Promise.all([
+    getDocs(query(collection(db,'tournaments'),orderBy('date','desc'))),
+    getDocs(collection(db,'players'))
+  ]);
+  allTournaments = tSnap.docs.map(d=>({id:d.id,...d.data()}));
+  allPlayers     = pSnap.docs.map(d=>({id:d.id,...d.data()}));
+  activeTournament = allTournaments.find(t=>t.status==='active') || allTournaments[0] || null;
+}
+
+// ── HOME ──
+async function loadHome() {
+  await loadGlobalData();
+  renderHomeEvent();
+  renderHomeSeasonLb();
+  renderHomeRecent();
+}
+
+function renderHomeEvent() {
+  const el=document.getElementById('home-current-event');
+  if(!activeTournament){ el.innerHTML=`<div class="home-hero"><div class="hero-label">No Active Event</div><div class="hero-title">Next tournament coming soon</div></div>`; return; }
+  const t=activeTournament;
+  el.innerHTML=`<div class="home-hero">
+    <div class="hero-label">Current Event</div>
+    <div class="hero-title">${t.name}</div>
+    <div class="hero-meta">📍 ${t.course||'TBD'} &nbsp;·&nbsp; 📅 ${t.date||''} &nbsp;·&nbsp; Par ${t.par||72}</div>
+    <div class="hero-badge">${(t.format||'stroke').toUpperCase()}</div>
+    <div class="mini-lb" id="home-mini-lb"><div class="loading"><div class="spinner"></div></div></div>
+    <button class="btn btn-gold" style="margin-top:1rem;width:100%;" onclick="navTo('scorecard',null)">⛳ Enter My Scores</button>
+  </div>`;
+  loadMiniLb();
+}
+
+async function loadMiniLb() {
+  if(!activeTournament) return;
+  const scores=await fetchAllScores(activeTournament.id);
+  const ranked=rankGross(scores, activeTournament);
+  const el=document.getElementById('home-mini-lb');
+  if(!el) return;
+  if(!ranked.length){ el.innerHTML='<div style="color:rgba(245,240,232,0.4);font-size:0.82rem;padding-top:0.5rem;">No scores yet</div>'; return; }
+  el.innerHTML=ranked.slice(0,5).map((r,i)=>`
+    <div class="mini-lb-row">
+      <div class="mini-rank">${i===0?'🥇':i===1?'🥈':i===2?'🥉':i+1}</div>
+      <div class="mini-name">${r.name}</div>
+      <div class="mini-score">${r.gross||'—'}</div>
+    </div>`).join('');
+}
+
+function renderHomeSeasonLb() {
+  const pts={};
+  allTournaments.filter(t=>t.status==='completed'||t.status==='locked').forEach(t=>{
+    (t.results||[]).forEach(r=>{ pts[r.playerId]=(pts[r.playerId]||0)+r.points; });
+  });
+  const ranked=Object.entries(pts).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  const el=document.getElementById('home-season-lb');
+  if(!ranked.length){ el.innerHTML=`<div class="empty"><div class="ei">📊</div><p>No season data yet</p></div>`; return; }
+  el.innerHTML=`<table><thead><tr><th class="c">#</th><th>Player</th><th class="c">Points</th></tr></thead><tbody>${
+    ranked.map(([pid,p],i)=>{
+      const name=allPlayers.find(x=>x.id===pid)?.name||'Unknown';
+      return `<tr ${i===0?'class="leader"':''}><td class="c"><span class="badge ${badgeClass(i+1)}">${i+1}</span></td><td class="pname">${name}</td><td class="c bold">${p}</td></tr>`;
+    }).join('')
+  }</tbody></table>`;
+}
+
+function renderHomeRecent() {
+  const completed=allTournaments.filter(t=>t.status==='completed'||t.status==='locked').slice(0,3);
+  const el=document.getElementById('home-recent');
+  if(!completed.length){ el.innerHTML=`<div class="empty"><div class="ei">🏌️</div><p>No completed tournaments</p></div>`; return; }
+  el.innerHTML=completed.map(t=>`
+    <div class="history-row">
+      <div class="hr-left"><div class="name">${t.name}</div><div class="meta">${t.date||''} · ${t.course||''} · <span class="chip ${chipStatus(t.status)}">${t.status}</span></div></div>
+      <div class="hr-right"><div class="score">${(t.results||[])[0]?.name||'—'}</div><div class="pos">Winner</div></div>
+    </div>`).join('');
+}
+
+// ── LEADERBOARD ──
+function populateLbSelect() {
+  const sel=document.getElementById('lb-tourney-sel');
+  sel.innerHTML=allTournaments.map(t=>`<option value="${t.id}" ${activeTournament?.id===t.id?'selected':''}>${t.name}</option>`).join('');
+}
+
+function switchLbTab(tab, btn) {
+  currentLbTab=tab;
+  document.querySelectorAll('.lb-tab').forEach(b=>b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  renderLeaderboardContent();
+}
+
+async function loadLeaderboard() {
+  const tid=document.getElementById('lb-tourney-sel')?.value || activeTournament?.id;
+  if(!tid){ document.getElementById('lb-content').innerHTML=`<div class="empty"><div class="ei">⛳</div><p>No tournaments yet</p></div>`; return; }
+  const t=allTournaments.find(x=>x.id===tid)||activeTournament;
+  if(!t) return;
+  editingTourneyId=tid;
+  document.getElementById('lb-title').textContent=t.name;
+  document.getElementById('lb-sub').textContent=`${t.course||''} · Par ${t.par||72}`;
+  document.getElementById('lb-content').innerHTML=`<div class="loading"><div class="spinner"></div><p>Loading...</p></div>`;
+  if(lbUnsubscribe) lbUnsubscribe();
+  // Real-time listener
+  lbUnsubscribe=onSnapshot(query(collection(db,'holeScores'),where('tournamentId','==',tid)), async ()=>{
+    const scores=await fetchAllScores(tid);
+    window._lbScores=scores; window._lbTourney=t;
+    renderLeaderboardContent();
+  });
+}
+
+async function fetchAllScores(tid) {
+  const snap=await getDocs(query(collection(db,'holeScores'),where('tournamentId','==',tid)));
+  const byPlayer={};
+  snap.docs.forEach(d=>{
+    const data=d.data();
+    if(!byPlayer[data.playerId]) byPlayer[data.playerId]={playerId:data.playerId,holes:{}};
+    byPlayer[data.playerId].holes[data.holeNumber]=data;
+  });
+  return Object.values(byPlayer).map(p=>{
+    const player=allPlayers.find(x=>x.id===p.playerId)||{name:'Unknown'};
+    const holes=p.holes;
+    const gross=Object.values(holes).reduce((s,h)=>s+h.score,0);
+    const holesPlayed=Object.keys(holes).length;
+    return { playerId:p.playerId, name:player.name, holes, gross, holesPlayed, handicap:player.officialHandicap||0 };
+  });
+}
+
+function rankGross(scores, t) {
+  const par=t?.par||72;
+  return [...scores].filter(s=>s.holesPlayed>0).sort((a,b)=>a.gross-b.gross)
+    .map((s,i)=>({...s, rank:i+1, vspar:s.gross-Math.round((s.holesPlayed/18)*par)}));
+}
+
+function calcSystem36(gross, handicap) {
+  // System 36: stableford points based on par 3/4/5
+  // Simplified: estimate from gross score and handicap
+  const net=gross-handicap;
+  // Each hole: points = 2 + (par - net score). Sum across 18 holes
+  // Simplified flat calculation: target is 36 points
+  return Math.round(36 + (72 - net));
+}
+
+function calcBlindPeoria(playerHoles, selectedHoles, par) {
+  if(!selectedHoles||selectedHoles.length!==6) return null;
+  const holeScores=selectedHoles.map(h=>playerHoles[h]?.score||0);
+  const sum=holeScores.reduce((a,b)=>a+b,0);
+  const hcpRaw=(sum/selectedHoles.length)*18 - par;
+  const hcp=Math.min(Math.max(Math.round(hcpRaw*0.8),0),36);
+  const gross=Object.values(playerHoles).reduce((s,h)=>s+h.score,0);
+  return { net: gross-hcp, hcp };
+}
+
+function renderLeaderboardContent() {
+  const scores=window._lbScores||[];
+  const t=window._lbTourney||activeTournament;
+  const el=document.getElementById('lb-content');
+  if(!scores.length){ el.innerHTML=`<div class="empty"><div class="ei">🏌️</div><p>No scores yet for this tournament.</p></div>`; return; }
+  const par=t?.par||72;
+  let rows=[], headers='';
+
+  if(currentLbTab==='gross'){
+    headers=`<th class="c">#</th><th>Player</th><th class="c">Gross</th><th class="c">vs Par</th><th class="c">Holes</th>`;
+    rows=rankGross(scores,t).map((s,i)=>({
+      rank:i+1, name:s.name, cols:`<td class="c bold">${s.gross}</td><td class="c">${vsPar(s.gross,par)}</td><td class="c">${s.holesPlayed}/18</td>`, leader:i===0
+    }));
+  } else if(currentLbTab==='net'){
+    headers=`<th class="c">#</th><th>Player</th><th class="c">Gross</th><th class="c">HCP</th><th class="c">Net</th>`;
+    const ranked=[...scores].filter(s=>s.holesPlayed>0)
+      .map(s=>({...s, net:s.gross-Math.round((s.holesPlayed/18)*(s.handicap||0))}))
+      .sort((a,b)=>a.net-b.net);
+    rows=ranked.map((s,i)=>({
+      rank:i+1, name:s.name, cols:`<td class="c">${s.gross}</td><td class="c">${s.handicap||0}</td><td class="c bold">${s.net}</td>`, leader:i===0
+    }));
+  } else if(currentLbTab==='system36'){
+    headers=`<th class="c">#</th><th>Player</th><th class="c">Gross</th><th class="c">Pts</th>`;
+    const ranked=[...scores].filter(s=>s.holesPlayed===18)
+      .map(s=>({...s, s36:calcSystem36(s.gross, s.handicap||0)}))
+      .sort((a,b)=>b.s36-a.s36);
+    rows=ranked.map((s,i)=>({
+      rank:i+1, name:s.name, cols:`<td class="c">${s.gross}</td><td class="c bold">${s.s36} pts</td>`, leader:i===0
+    }));
+    if(!rows.length){ el.innerHTML=`<div class="empty"><div class="ei">⏳</div><p>System 36 requires all 18 holes.</p></div>`; return; }
+  } else if(currentLbTab==='peoria'){
+    const selectedHoles=t?.peoriaHoles||[];
+    if(!selectedHoles.length){ el.innerHTML=`<div class="empty"><div class="ei">🎲</div><p>Admin must select 6 secret holes in Admin → Blind Peoria.</p></div>`; return; }
+    const ranked=[...scores].filter(s=>s.holesPlayed===18).map(s=>{
+      const bp=calcBlindPeoria(s.holes, selectedHoles, par);
+      return {...s, peoriaNet:bp?.net||s.gross, peoriaHcp:bp?.hcp||0};
+    }).sort((a,b)=>a.peoriaNet-b.peoriaNet);
+    headers=`<th class="c">#</th><th>Player</th><th class="c">Gross</th><th class="c">Peoria HCP</th><th class="c">Net</th>`;
+    rows=ranked.map((s,i)=>({
+      rank:i+1, name:s.name, cols:`<td class="c">${s.gross}</td><td class="c">${s.peoriaHcp}</td><td class="c bold">${s.peoriaNet}</td>`, leader:i===0
+    }));
+    if(!rows.length){ el.innerHTML=`<div class="empty"><div class="ei">⏳</div><p>Blind Peoria requires all 18 holes.</p></div>`; return; }
+  }
+
+  el.innerHTML=`<div class="lb-table-wrap"><table>
+    <thead><tr>${headers}</tr></thead>
+    <tbody>${rows.map(r=>`<tr class="${r.leader?'leader':''}">
+      <td class="c"><span class="badge ${badgeClass(r.rank)}">${r.rank}</span></td>
+      <td class="pname">${r.name}</td>${r.cols}</tr>`).join('')}
+    </tbody></table></div>`;
+}
+
+// ── SCORECARD ──
+async function loadScorecard() {
+  if(!activeTournament){ document.getElementById('holes-front').innerHTML=`<div class="empty"><div class="ei">⛳</div><p>No active tournament</p></div>`; return; }
+  const t=activeTournament;
+  document.getElementById('sc-tourney-name').textContent=t.name;
+  scorecardData={};
+  // Load existing scores
+  const snap=await getDocs(query(collection(db,'holeScores'),where('tournamentId','==',t.id),where('playerId','==',currentUser.uid)));
+  snap.docs.forEach(d=>{ const data=d.data(); scorecardData[data.holeNumber]=data.score; });
+  renderHoles();
+}
+
+function renderHoles() {
+  const t=activeTournament;
+  const pars=t?.holePars||DEFAULT_PARS;
+  ['front','back'].forEach(side=>{
+    const start=side==='front'?1:10, end=side==='front'?9:18;
+    let html='';
+    for(let h=start;h<=end;h++){
+      const par=pars[h-1]||4;
+      const score=scorecardData[h]||'';
+      const colorClass=score?getScoreClass(score,par):'';
+      html+=`<div class="hole-card ${score?'filled':''} ${colorClass}" id="hc-${h}">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div class="hole-label">Hole ${h}</div>
+          <div class="hole-par">Par ${par}</div>
+        </div>
+        <div class="hole-input-row">
+          <button onclick="window._real_adjustHole(${h},-1)">−</button>
+          <input class="hole-val" type="number" id="hole-${h}" value="${score}" min="1" max="15" onchange="onHoleChange(${h})" oninput="onHoleChange(${h})">
+          <button onclick="window._real_adjustHole(${h},1)">+</button>
+        </div>
+      </div>`;
+    }
+    document.getElementById('holes-'+side).innerHTML=html;
+  });
+  updateScorecardSummary();
+}
+
+function getScoreClass(score, par) {
+  const d=score-par;
+  if(d<=-2) return 'score-eagle';
+  if(d===-1) return 'score-birdie';
+  if(d===0)  return 'score-par';
+  if(d===1)  return 'score-bogey';
+  return 'score-double';
+}
+
+window._real_adjustHole=function(hole, delta) {
+  const inp=document.getElementById('hole-'+hole);
+  const cur=parseInt(inp.value)||0;
+  const next=Math.max(1,Math.min(15,cur+delta));
+  inp.value=next; onHoleChange(hole);
+};
+
+window._real_onHoleChange=function(hole) {
+  const val=parseInt(document.getElementById('hole-'+hole)?.value)||0;
+  if(val>0) scorecardData[hole]=val; else delete scorecardData[hole];
+  const t=activeTournament;
+  const pars=t?.holePars||DEFAULT_PARS;
+  const par=pars[hole-1]||4;
+  const hc=document.getElementById('hc-'+hole);
+  if(hc){ hc.className='hole-card'+(val?` filled ${getScoreClass(val,par)}':'`:''); }
+  updateScorecardSummary();
+};
+
+function updateScorecardSummary() {
+  const t=activeTournament; if(!t) return;
+  const pars=t.holePars||DEFAULT_PARS;
+  const entries=Object.entries(scorecardData);
+  const total=entries.reduce((s,[,v])=>s+v,0);
+  const totalPar=entries.reduce((s,[h])=>s+(pars[h-1]||4),0);
+  document.getElementById('sc-total').textContent=total||'—';
+  const diff=total-totalPar;
+  document.getElementById('sc-vs-par').textContent=total?(diff>0?'+'+diff:diff||'E'):'—';
+  document.getElementById('sc-holes').textContent=entries.length;
+}
+
+async function submitScorecard() {
+  if(!activeTournament||!currentUser) return;
+  const entries=Object.entries(scorecardData);
+  if(!entries.length){ toast('Enter at least one score.'); return; }
+  const t=activeTournament;
+  const pars=t.holePars||DEFAULT_PARS;
+  const batch=writeBatch(db);
+  // Delete existing then re-write
+  const existing=await getDocs(query(collection(db,'holeScores'),where('tournamentId','==',t.id),where('playerId','==',currentUser.uid)));
+  existing.docs.forEach(d=>batch.delete(d.ref));
+  entries.forEach(([hole,score])=>{
+    const ref=doc(collection(db,'holeScores'));
+    batch.set(ref,{ tournamentId:t.id, playerId:currentUser.uid, holeNumber:Number(hole), par:pars[hole-1]||4, score:Number(score), submittedAt:serverTimestamp() });
+  });
+  await batch.commit();
+  toast(`✅ ${entries.length} holes saved!`);
+}
+
+// ── PROFILE ──
+async function loadProfile() {
+  if(!userProfile) return;
+  const p=userProfile;
+  document.getElementById('profile-header').innerHTML=`
+    <div class="profile-avatar">${p.name?.[0]||'?'}</div>
+    <div class="profile-name">${p.name}</div>
+    <div class="profile-meta">${p.email||''} · Member since ${p.createdDate?.toDate?.()?.getFullYear()||'2026'}</div>
+    ${p.officialHandicap!=null?`<div style="margin-top:8px;"><span class="chip chip-gold">GHIN HCP: ${p.officialHandicap}</span></div>`:''}
+    <div style="margin-top:10px;"><span class="chip chip-${p.role==='admin'?'red':'blue'}">${p.role||'player'}</span></div>`;
+  const st=p.stats||{};
+  document.getElementById('profile-stats').innerHTML=`
+    <div class="stat-box"><div class="n">${st.roundsPlayed||0}</div><div class="l">Rounds</div></div>
+    <div class="stat-box"><div class="n">${st.wins||0}</div><div class="l">Wins</div></div>
+    <div class="stat-box"><div class="n">${st.top3||0}</div><div class="l">Top 3s</div></div>
+    <div class="stat-box"><div class="n">${st.seasonPoints||0}</div><div class="l">Pts</div></div>
+    <div class="stat-box"><div class="n">${st.bestRound||'—'}</div><div class="l">Best</div></div>
+    <div class="stat-box"><div class="n">${st.avgGross?Math.round(st.avgGross):'—'}</div><div class="l">Avg</div></div>`;
+  // History
+  const myTourneys=allTournaments.filter(t=>(t.results||[]).some(r=>r.playerId===currentUser.uid));
+  const hist=document.getElementById('profile-history');
+  if(!myTourneys.length){ hist.innerHTML=`<div class="empty"><div class="ei">⛳</div><p>No tournament history yet</p></div>`; return; }
+  hist.innerHTML=myTourneys.map(t=>{
+    const res=(t.results||[]).find(r=>r.playerId===currentUser.uid);
+    return `<div class="history-row">
+      <div class="hr-left"><div class="name">${t.name}</div><div class="meta">${t.date||''} · ${t.course||''}</div></div>
+      <div class="hr-right"><div class="score">${res?.grossScore||'—'}</div><div class="pos">${res?`Finished ${res.rank}${res.rank===1?'st':res.rank===2?'nd':res.rank===3?'rd':'th'}`:'—'}</div></div>
+    </div>`;
+  }).join('');
+}
+
+// ── ADMIN ──
+async function loadAdmin() {
+  if(userProfile?.role!=='admin'){ document.getElementById('admin-content').innerHTML=`<div class="empty"><div class="ei">🔒</div><p>Admin access only</p></div>`; return; }
+  document.getElementById('ct-date').valueAsDate=new Date();
+}
+
+async function createTournament() {
+  const name=document.getElementById('ct-name').value.trim();
+  if(!name){ toast('Enter a tournament name.'); return; }
+  const date=document.getElementById('ct-date').value;
+  const course=document.getElementById('ct-course').value.trim();
+  const format=document.getElementById('ct-format').value;
+  const par=Number(document.getElementById('ct-par').value)||72;
+  const slope=Number(document.getElementById('ct-slope').value)||113;
+  const pts=[Number(document.getElementById('ct-pts1').value)||100,Number(document.getElementById('ct-pts2').value)||80,Number(document.getElementById('ct-pts3').value)||60];
+  await addDoc(collection(db,'tournaments'),{
+    name, date, course, format, par, slope, holePars:DEFAULT_PARS,
+    status:'active', pointsMap:{ 1:pts[0],2:pts[1],3:pts[2],4:45,5:30,6:20,7:15,8:10 },
+    createdBy:currentUser.uid, createdAt:serverTimestamp(), results:[], peoriaHoles:[]
+  });
+  closeModal('modal-create-tourney');
+  await loadGlobalData();
+  toast('🏆 Tournament created!');
+  document.getElementById('admin-content').innerHTML='';
+}
+
+async function showAdminPlayers() {
+  const cont=document.getElementById('admin-content');
+  cont.innerHTML=`<div class="card"><h3>👥 All Players</h3><div class="loading"><div class="spinner"></div></div></div>`;
+  cont.innerHTML=`<div class="card"><h3>👥 All Players</h3>${allPlayers.map(p=>`
+    <div class="player-row">
+      <div><div class="pr-name">${p.name}</div><div class="pr-email">${p.email||''} · <span class="chip chip-${p.role==='admin'?'red':'blue'}">${p.role}</span>${p.officialHandicap!=null?` · HCP ${p.officialHandicap}`:''}</div></div>
+      <div class="pr-actions">
+        <button class="btn btn-ghost btn-sm" onclick="window._real_toggleAdminRole('${p.id}','${p.role}')">${p.role==='admin'?'→ Player':'→ Admin'}</button>
+      </div>
+    </div>`).join('')}
+  </div>`;
+}
+window._real_toggleAdminRole=async function(pid,curRole){
+  const newRole=curRole==='admin'?'player':'admin';
+  await updateDoc(doc(db,'players',pid),{role:newRole});
+  await loadGlobalData(); showAdminPlayers(); toast('Role updated.');
+};
+
+async function showAdminScores() {
+  if(!allTournaments.length){ document.getElementById('admin-content').innerHTML=`<div class="empty"><div class="ei">🏆</div><p>No tournaments</p></div>`; return; }
+  const tid=editingTourneyId||allTournaments[0]?.id;
+  const t=allTournaments.find(x=>x.id===tid)||allTournaments[0];
+  // populate player select in modal
+  const sel=document.getElementById('es-player-sel');
+  sel.innerHTML=allPlayers.map(p=>`<option value="${p.id}">${p.name}</option>`).join('');
+  sel.dataset.tid=tid;
+  loadPlayerScoresForEdit();
+  openModal('modal-edit-score');
+}
+
+async function loadPlayerScoresForEdit() {
+  const sel=document.getElementById('es-player-sel');
+  const pid=sel.value; const tid=sel.dataset.tid||editingTourneyId||allTournaments[0]?.id;
+  const t=allTournaments.find(x=>x.id===tid)||allTournaments[0];
+  if(!t||!pid) return;
+  const snap=await getDocs(query(collection(db,'holeScores'),where('tournamentId','==',tid),where('playerId','==',pid)));
+  const existing={}; snap.docs.forEach(d=>{ const data=d.data(); existing[data.holeNumber]=data.score; });
+  const pars=t.holePars||DEFAULT_PARS;
+  let html='';
+  for(let h=1;h<=18;h++){
+    const par=pars[h-1]||4; const score=existing[h]||'';
+    html+=`<div class="hole-card ${score?'filled':''}">
+      <div class="hole-label">Hole ${h} <span class="hole-par">P${par}</span></div>
+      <input type="number" id="es-h-${h}" value="${score}" min="1" max="15" style="width:100%;padding:6px;border:2px solid var(--cream-dark);border-radius:6px;font-size:0.9rem;text-align:center;font-family:'Inter',sans-serif;outline:none;">
+    </div>`;
+  }
+  document.getElementById('es-holes-grid').innerHTML=html;
+}
+
+async function saveEditedScores() {
+  const sel=document.getElementById('es-player-sel');
+  const pid=sel.value; const tid=sel.dataset.tid||editingTourneyId||allTournaments[0]?.id;
+  const t=allTournaments.find(x=>x.id===tid)||allTournaments[0];
+  if(!t||!pid) return;
+  const pars=t.holePars||DEFAULT_PARS;
+  const batch=writeBatch(db);
+  const existing=await getDocs(query(collection(db,'holeScores'),where('tournamentId','==',tid),where('playerId','==',pid)));
+  existing.docs.forEach(d=>batch.delete(d.ref));
+  for(let h=1;h<=18;h++){
+    const val=parseInt(document.getElementById('es-h-'+h)?.value)||0;
+    if(val>0){ const ref=doc(collection(db,'holeScores')); batch.set(ref,{tournamentId:tid,playerId:pid,holeNumber:h,par:pars[h-1]||4,score:val,submittedAt:serverTimestamp(),editedBy:currentUser.uid}); }
+  }
+  await batch.commit();
+  closeModal('modal-edit-score');
+  toast('✅ Scores saved!');
+}
+
+async function showAdminPeoria() {
+  const t=activeTournament||allTournaments[0]; if(!t){ toast('No tournament.'); return; }
+  const selected=new Set(t.peoriaHoles||[]);
+  let html=`<div class="card"><h3>🎲 Blind Peoria — Select 6 Secret Holes</h3>
+    <div class="info-bar">Select exactly 6 holes. Scores will be used to calculate each player's Peoria handicap and net score.</div>
+    <div class="blind-hole-grid" id="peoria-grid">`;
+  for(let h=1;h<=18;h++) html+=`<div class="blind-hole ${selected.has(h)?'selected':''}" id="ph-${h}" onclick="window._real_togglePeoriaHole(${h})">${h}</div>`;
+  html+=`</div><button class="btn btn-gold btn-full" style="margin-top:1rem;" onclick="window._real_savePeoriaHoles('${t.id}')">Save Secret Holes</button></div>`;
+  document.getElementById('admin-content').innerHTML=html;
+  window._peoriaSelected=new Set(selected);
+}
+window._real_togglePeoriaHole=function(h){
+  if(!window._peoriaSelected) window._peoriaSelected=new Set();
+  const s=window._peoriaSelected;
+  const el=document.getElementById('ph-'+h);
+  if(s.has(h)){ s.delete(h); el.classList.remove('selected'); }
+  else if(s.size<6){ s.add(h); el.classList.add('selected'); }
+  else { toast('Select exactly 6 holes.'); }
+};
+window._real_savePeoriaHoles=async function(tid){
+  const holes=Array.from(window._peoriaSelected||[]);
+  if(holes.length!==6){ toast('Select exactly 6 holes.'); return; }
+  await updateDoc(doc(db,'tournaments',tid),{peoriaHoles:holes.sort((a,b)=>a-b)});
+  await loadGlobalData(); toast('🎲 Secret holes saved!');
+};
+
+async function showAdminLock() {
+  const t=activeTournament||allTournaments[0]; if(!t){ toast('No tournament.'); return; }
+  const scores=await fetchAllScores(t.id);
+  const ranked=rankGross(scores,t);
+  // Compute results & points
+  const results=ranked.map((r,i)=>({
+    playerId:r.playerId, name:r.name, rank:i+1, grossScore:r.gross,
+    points:(t.pointsMap||POINTS_MAP)[i+1]||5
+  }));
+  const batch=writeBatch(db);
+  batch.update(doc(db,'tournaments',t.id),{status:'locked',results});
+  // Update player stats
+  for(const r of results){
+    const pRef=doc(db,'players',r.playerId);
+    const pSnap=await getDoc(pRef);
+    if(pSnap.exists()){
+      const st=pSnap.data().stats||{};
+      const rounds=(st.roundsPlayed||0)+1;
+      const wins=(st.wins||0)+(r.rank===1?1:0);
+      const top3=(st.top3||0)+(r.rank<=3?1:0);
+      const avgGross=((st.avgGross||0)*(rounds-1)+r.grossScore)/rounds;
+      const best=st.bestRound?Math.min(st.bestRound,r.grossScore):r.grossScore;
+      const worst=st.worstRound?Math.max(st.worstRound,r.grossScore):r.grossScore;
+      const pts=(st.seasonPoints||0)+r.points;
+      batch.update(pRef,{stats:{...st,roundsPlayed:rounds,wins,top3,avgGross,bestRound:best,worstRound:worst,seasonPoints:pts}});
+    }
+  }
+  await batch.commit();
+  await loadGlobalData();
+  document.getElementById('admin-content').innerHTML=`<div class="card" style="text-align:center;padding:2rem;">
+    <div style="font-size:2.5rem;margin-bottom:1rem;">🔒</div>
+    <div style="font-family:'Playfair Display',serif;font-size:1.2rem;color:var(--forest);">${t.name} Locked</div>
+    <div style="color:var(--text-light);margin-top:0.5rem;">Results finalized. Player stats updated.</div>
+  </div>`;
+  toast('🔒 Tournament locked & results saved!');
+}
+
+async function showAdminExport() {
+  const t=activeTournament||allTournaments.find(x=>x.status==='locked')||allTournaments[0]; if(!t){ toast('No tournament.'); return; }
+  const scores=await fetchAllScores(t.id);
+  const ranked=rankGross(scores,t);
+  let csv='Rank,Name,Gross Score,vs Par,Holes Played\n';
+  ranked.forEach(r=>{ csv+=`${r.rank},"${r.name}",${r.gross},${r.vspar>=0?'+'+r.vspar:r.vspar},${r.holesPlayed}\n`; });
+  const blob=new Blob([csv],{type:'text/csv'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download=`${t.name.replace(/\s+/g,'_')}_results.csv`; a.click();
+  toast('📤 CSV downloaded!');
+}
+
+// ── TOURNAMENT HISTORY SCREEN ──
+async function loadHistory() {
+  const cont = document.getElementById('history-content');
+  if (!cont) return;
+  cont.innerHTML = `<div class="loading"><div class="spinner"></div></div>`;
+  await loadGlobalData();
+  if (!allTournaments.length) {
+    cont.innerHTML = `<div class="empty"><div class="ei">📋</div><p>No tournaments yet</p></div>`;
+    return;
+  }
+  cont.innerHTML = allTournaments.map(t => {
+    const winner = (t.results || [])[0];
+    const playerCount = t.playerCount || (t.results || []).length;
+    return `<div class="card card-sm gap" onclick="loadHistoryDetail('${t.id}')" style="cursor:pointer;transition:transform 0.15s;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform=''">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem;">
+        <div style="font-family:'Playfair Display',serif;font-size:1.05rem;font-weight:700;color:var(--forest);">${t.name}</div>
+        <span class="chip chip-${chipStatus(t.status)}">${t.status}</span>
+      </div>
+      <div style="font-size:0.8rem;color:var(--text-light);">📍 ${t.course||'TBD'} &nbsp;·&nbsp; 📅 ${t.date||'—'} &nbsp;·&nbsp; Par ${t.par||72} &nbsp;·&nbsp; ${(t.format||'stroke').toUpperCase()}</div>
+      ${winner ? `<div style="margin-top:0.6rem;display:flex;align-items:center;gap:8px;"><span style="font-size:1.2rem;">🏆</span><span style="font-size:0.88rem;font-weight:600;color:var(--forest);">${winner.name}</span><span style="font-size:0.8rem;color:var(--text-light);">· ${winner.grossScore||'—'} gross · ${winner.points||0} pts</span></div>` : ''}
+    </div>`;
+  }).join('');
+}
+window._real_loadHistory = loadHistory;
+
+async function loadHistoryDetail(tid) {
+  const t = allTournaments.find(x => x.id === tid);
+  if (!t) return;
+  const scores = await fetchAllScores(tid);
+  const ranked = rankGross(scores, t);
+  showScreen('history-detail');
+  document.getElementById('hd-title').textContent = t.name;
+  document.getElementById('hd-sub').textContent = `${t.course||''} · ${t.date||''} · Par ${t.par||72}`;
+  const rHdrs = `<th class="c">#</th><th>Player</th><th class="c">Gross</th><th class="c">vs Par</th>`;
+  const rows = ranked.map((r,i) => `<tr class="${i===0?'leader':''}">
+    <td class="c"><span class="badge ${badgeClass(i+1)}">${i+1}</span></td>
+    <td class="pname">${r.name}</td>
+    <td class="c bold">${r.gross}</td>
+    <td class="c">${vsPar(r.gross, t.par||72)}</td>
+  </tr>`).join('');
+  document.getElementById('hd-table').innerHTML = `<div class="lb-table-wrap"><table>
+    <thead><tr>${rHdrs}</tr></thead><tbody>${rows||'<tr><td colspan="4" style="text-align:center;padding:1.5rem;color:#888">No scores recorded</td></tr>'}</tbody>
+  </table></div>`;
+  // Hole-by-hole breakdown
+  if (ranked.length) {
+    const pars = t.holePars || DEFAULT_PARS;
+    let holeHtml = `<div class="card" style="margin-top:1rem;overflow-x:auto;"><h3>Hole-by-Hole Breakdown</h3><table style="min-width:600px;">
+      <thead><tr><th>Player</th>${pars.map((_,i)=>`<th class="c" style="font-size:0.68rem;">${i+1}</th>`).join('')}<th class="c">Total</th></tr></thead>
+      <tbody>`;
+    ranked.forEach(r => {
+      holeHtml += `<tr><td class="pname" style="font-size:0.82rem;">${r.name}</td>`;
+      pars.forEach((_,i) => {
+        const h = i+1;
+        const score = r.holes[h]?.score;
+        const par = pars[i];
+        let bg = '';
+        if (score) {
+          const d = score - par;
+          if (d <= -2) bg = 'background:#1a3a8a;color:white;';
+          else if (d === -1) bg = 'background:#e8c84a;color:#1a3a2a;';
+          else if (d === 0) bg = 'background:#d4edda;color:#155724;';
+          else if (d === 1) bg = 'background:#f8d7da;color:#721c24;';
+          else if (d >= 2) bg = 'background:#f5c6cb;color:#491217;';
+        }
+        holeHtml += `<td class="c" style="font-size:0.78rem;font-weight:600;padding:6px 4px;${bg}">${score||'—'}</td>`;
+      });
+      holeHtml += `<td class="c bold">${r.gross||'—'}</td></tr>`;
+    });
+    holeHtml += `</tbody></table></div>`;
+    document.getElementById('hd-holes').innerHTML = holeHtml;
+  } else {
+    document.getElementById('hd-holes').innerHTML = '';
+  }
+}
+window._real_loadHistoryDetail = loadHistoryDetail;
+
+// ── CASUAL ROUND MODE ──
+let casualHoles = {};
+async function loadCasualRound() {
+  casualHoles = {};
+  const cont = document.getElementById('casual-content');
+  if (!cont) return;
+  const pars = DEFAULT_PARS;
+  let html = `
+    <div class="card card-sm" style="margin-bottom:1rem;">
+      <div class="two-col">
+        <div class="fg"><label>Course</label><input type="text" id="cr-course" placeholder="Course name"></div>
+        <div class="fg"><label>Date</label><input type="date" id="cr-date"></div>
+      </div>
+      <div class="two-col">
+        <div class="fg"><label>Course Par</label><input type="number" id="cr-par" value="72" min="60" max="80"></div>
+        <div class="fg"><label>Tees Played</label>
+          <select id="cr-tees"><option>Blue</option><option>White</option><option selected>Red</option><option>Gold</option></select>
+        </div>
+      </div>
+    </div>
+    <div class="scorecard-summary" style="margin-bottom:1rem;">
+      <div class="sc-stat"><div class="val" id="cr-total">—</div><div class="lbl">Total</div></div>
+      <div class="sc-stat"><div class="val" id="cr-vs-par">—</div><div class="lbl">vs Par</div></div>
+      <div class="sc-stat"><div class="val" id="cr-holes">0</div><div class="lbl">Holes</div></div>
+    </div>
+    <div class="section-title" style="font-size:1rem;margin-bottom:0.8rem;">Front 9</div>
+    <div class="hole-grid">`;
+  for (let h = 1; h <= 9; h++) {
+    const par = pars[h-1] || 4;
+    html += holeCardHTML(h, par, 'cr');
+  }
+  html += `</div><div class="section-title" style="font-size:1rem;margin:1rem 0 0.8rem;">Back 9</div><div class="hole-grid">`;
+  for (let h = 10; h <= 18; h++) {
+    const par = pars[h-1] || 4;
+    html += holeCardHTML(h, par, 'cr');
+  }
+  html += `</div>`;
+  cont.innerHTML = html;
+  document.getElementById('cr-date').valueAsDate = new Date();
+}
+window._real_loadCasualRound = loadCasualRound;
+
+function holeCardHTML(h, par, prefix) {
+  return `<div class="hole-card" id="${prefix}-hc-${h}">
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <div class="hole-label">Hole ${h}</div>
+      <div class="hole-par">Par ${par}</div>
+    </div>
+    <div class="hole-input-row">
+      <button onclick="window._real_adjustCasualHole(${h},-1)">−</button>
+      <input class="hole-val" type="number" id="${prefix}-hole-${h}" value="" min="1" max="15"
+        onchange="onCasualChange(${h})" oninput="onCasualChange(${h})">
+      <button onclick="window._real_adjustCasualHole(${h},1)">+</button>
+    </div>
+  </div>`;
+}
+
+window._real_adjustCasualHole = function(h, delta) {
+  const inp = document.getElementById('cr-hole-' + h);
+  if (!inp) return;
+  const cur = parseInt(inp.value) || 0;
+  inp.value = Math.max(1, Math.min(15, cur + delta));
+  onCasualChange(h);
+};
+
+window._real_onCasualChange = function(h) {
+  const val = parseInt(document.getElementById('cr-hole-' + h)?.value) || 0;
+  if (val > 0) casualHoles[h] = val; else delete casualHoles[h];
+  const par = (DEFAULT_PARS[h-1] || 4);
+  const hc = document.getElementById('cr-hc-' + h);
+  if (hc) { hc.className = 'hole-card' + (val ? ` filled ${getScoreClass(val, par)}` : ''); }
+  updateCasualSummary();
+};
+
+function updateCasualSummary() {
+  const entries = Object.entries(casualHoles);
+  const total = entries.reduce((s, [, v]) => s + v, 0);
+  const totalPar = entries.reduce((s, [h]) => s + (DEFAULT_PARS[h-1] || 4), 0);
+  document.getElementById('cr-total').textContent = total || '—';
+  const diff = total - totalPar;
+  document.getElementById('cr-vs-par').textContent = total ? (diff > 0 ? '+' + diff : diff === 0 ? 'E' : diff) : '—';
+  document.getElementById('cr-holes').textContent = entries.length;
+}
+
+async function saveCasualRound() {
+  const entries = Object.entries(casualHoles);
+  if (entries.length < 9) { toast('Enter at least 9 holes.'); return; }
+  const course = document.getElementById('cr-course').value.trim() || 'Unknown Course';
+  const date = document.getElementById('cr-date').value || new Date().toISOString().split('T')[0];
+  const par = Number(document.getElementById('cr-par').value) || 72;
+  const tees = document.getElementById('cr-tees').value;
+  const gross = entries.reduce((s, [, v]) => s + v, 0);
+  const roundRef = await addDoc(collection(db, 'casualRounds'), {
+    playerId: currentUser.uid,
+    course, date, par, tees, gross,
+    holesPlayed: entries.length,
+    holes: Object.fromEntries(entries.map(([h, s]) => [h, { score: s, par: DEFAULT_PARS[h-1] || 4 }])),
+    createdAt: serverTimestamp()
+  });
+  // Update player stats
+  const pSnap = await getDoc(doc(db, 'players', currentUser.uid));
+  if (pSnap.exists()) {
+    const st = pSnap.data().stats || {};
+    const rounds = (st.roundsPlayed || 0) + 1;
+    const avgGross = ((st.avgGross || 0) * (rounds - 1) + gross) / rounds;
+    const best = st.bestRound ? Math.min(st.bestRound, gross) : gross;
+    const worst = st.worstRound ? Math.max(st.worstRound, gross) : gross;
+    await updateDoc(doc(db, 'players', currentUser.uid), {
+      stats: { ...st, roundsPlayed: rounds, avgGross, bestRound: best, worstRound: worst }
+    });
+    userProfile.stats = { ...st, roundsPlayed: rounds, avgGross, bestRound: best, worstRound: worst };
+  }
+  toast(`✅ Round saved! ${gross} at ${course}`);
+  casualHoles = {};
+  loadCasualRound();
+}
+window._real_saveCasualRound = saveCasualRound;
+
+// ── CASUAL ROUND HISTORY ──
+async function loadCasualHistory() {
+  const cont = document.getElementById('casual-history-content');
+  if (!cont) return;
+  const snap = await getDocs(query(collection(db, 'casualRounds'), where('playerId', '==', currentUser.uid), orderBy('date', 'desc')));
+  if (!snap.docs.length) {
+    cont.innerHTML = `<div class="empty"><div class="ei">⛳</div><p>No casual rounds logged yet</p></div>`;
+    return;
+  }
+  const rounds = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  const avgGross = Math.round(rounds.reduce((s, r) => s + r.gross, 0) / rounds.length);
+  const best = Math.min(...rounds.map(r => r.gross));
+  cont.innerHTML = `
+    <div class="stats-grid" style="margin-bottom:1rem;">
+      <div class="stat-box"><div class="n">${rounds.length}</div><div class="l">Rounds</div></div>
+      <div class="stat-box"><div class="n">${avgGross}</div><div class="l">Avg Score</div></div>
+      <div class="stat-box"><div class="n">${best}</div><div class="l">Best Round</div></div>
+    </div>
+    ${rounds.map(r => `
+      <div class="history-row">
+        <div class="hr-left">
+          <div class="name">${r.course||'Unknown'}</div>
+          <div class="meta">${r.date||''} · ${r.holesPlayed||18} holes · ${r.tees||''} tees · Par ${r.par||72}</div>
+        </div>
+        <div class="hr-right">
+          <div class="score">${r.gross}</div>
+          <div class="pos">${vsPar(r.gross, r.par||72).replace(/<[^>]+>/g,'').trim()} vs par</div>
+        </div>
+      </div>`).join('')}`;
+}
+window._real_loadCasualHistory = loadCasualHistory;
+
+// ── STATS ENGINE ──
+async function loadStatsScreen() {
+  const cont = document.getElementById('stats-content-main');
+  if (!cont) return;
+  cont.innerHTML = `<div class="loading"><div class="spinner"></div></div>`;
+  // Fetch all tournament scores for current user
+  const tSnap = await getDocs(query(collection(db, 'holeScores'), where('playerId', '==', currentUser.uid)));
+  const byTourney = {};
+  tSnap.docs.forEach(d => {
+    const data = d.data();
+    if (!byTourney[data.tournamentId]) byTourney[data.tournamentId] = [];
+    byTourney[data.tournamentId].push(data);
+  });
+  // Casual rounds
+  const cSnap = await getDocs(query(collection(db, 'casualRounds'), where('playerId', '==', currentUser.uid)));
+  const casualRounds = cSnap.docs.map(d => d.data());
+  const p = userProfile?.stats || {};
+  // Score distribution
+  const allScores = [];
+  Object.values(byTourney).forEach(holes => {
+    const total = holes.reduce((s, h) => s + h.score, 0);
+    if (holes.length === 18) allScores.push(total);
+  });
+  casualRounds.forEach(r => { if (r.holesPlayed === 18) allScores.push(r.gross); });
+  // Hole difficulty from all tournament data
+  const holeStats = {};
+  for (let h = 1; h <= 18; h++) holeStats[h] = { total: 0, count: 0, par: DEFAULT_PARS[h-1] || 4 };
+  tSnap.docs.forEach(d => {
+    const data = d.data();
+    if (holeStats[data.holeNumber]) {
+      holeStats[data.holeNumber].total += data.score;
+      holeStats[data.holeNumber].count++;
+    }
+  });
+  // Score distribution buckets
+  const buckets = { eagles: 0, birdies: 0, pars: 0, bogeys: 0, doubles: 0, worse: 0 };
+  tSnap.docs.forEach(d => {
+    const data = d.data();
+    const diff = data.score - data.par;
+    if (diff <= -2) buckets.eagles++;
+    else if (diff === -1) buckets.birdies++;
+    else if (diff === 0) buckets.pars++;
+    else if (diff === 1) buckets.bogeys++;
+    else if (diff === 2) buckets.doubles++;
+    else buckets.worse++;
+  });
+  const totalHoles = Object.values(buckets).reduce((a, b) => a + b, 0);
+  const pct = n => totalHoles ? Math.round((n / totalHoles) * 100) : 0;
+  // Handicap trend from last 10 rounds
+  const recentScores = [...allScores].slice(-10);
+  const trend = recentScores.length >= 3
+    ? (recentScores.slice(-3).reduce((a, b) => a + b, 0) / 3 -
+       recentScores.slice(0, 3).reduce((a, b) => a + b, 0) / 3).toFixed(1)
+    : null;
+  cont.innerHTML = `
+    <div class="section-title" style="font-size:1rem;margin-bottom:0.8rem;">Season Overview</div>
+    <div class="stats-grid" style="margin-bottom:1.5rem;">
+      <div class="stat-box"><div class="n">${p.roundsPlayed||0}</div><div class="l">Rounds</div></div>
+      <div class="stat-box"><div class="n">${p.wins||0}</div><div class="l">Wins</div></div>
+      <div class="stat-box"><div class="n">${p.top3||0}</div><div class="l">Top 3s</div></div>
+      <div class="stat-box"><div class="n">${p.seasonPoints||0}</div><div class="l">Season Pts</div></div>
+      <div class="stat-box"><div class="n">${p.bestRound||'—'}</div><div class="l">Best Round</div></div>
+      <div class="stat-box"><div class="n">${p.avgGross ? Math.round(p.avgGross) : '—'}</div><div class="l">Avg Gross</div></div>
+    </div>
+    <div class="section-title" style="font-size:1rem;margin-bottom:0.8rem;">Score Distribution</div>
+    <div class="card card-sm" style="margin-bottom:1.5rem;">
+      ${renderDistBar('Eagles 🦅', buckets.eagles, pct(buckets.eagles), '#1a3a8a', 'white')}
+      ${renderDistBar('Birdies 🐦', buckets.birdies, pct(buckets.birdies), '#c9a227', '#1a3a2a')}
+      ${renderDistBar('Pars ⛳', buckets.pars, pct(buckets.pars), '#27ae60', 'white')}
+      ${renderDistBar('Bogeys', buckets.bogeys, pct(buckets.bogeys), '#e67e22', 'white')}
+      ${renderDistBar('Doubles', buckets.doubles, pct(buckets.doubles), '#c0392b', 'white')}
+      ${renderDistBar('Worse', buckets.worse, pct(buckets.worse), '#8e1a10', 'white')}
+      <div style="text-align:center;font-size:0.75rem;color:var(--text-light);margin-top:0.8rem;">${totalHoles} holes total</div>
+    </div>
+    <div class="section-title" style="font-size:1rem;margin-bottom:0.8rem;">Hole Difficulty (Your Avg)</div>
+    <div class="card card-sm" style="overflow-x:auto;margin-bottom:1.5rem;">
+      <table style="min-width:520px;">
+        <thead><tr>
+          ${Array.from({length:18},(_,i)=>`<th class="c" style="font-size:0.65rem;">H${i+1}</th>`).join('')}
+        </tr></thead>
+        <tbody><tr>
+          ${Array.from({length:18},(_,i)=>{
+            const h=i+1; const hs=holeStats[h];
+            const avg=hs.count?+(hs.total/hs.count).toFixed(1):null;
+            const par=hs.par;
+            const diff=avg?+(avg-par).toFixed(1):null;
+            let bg='';
+            if(diff!==null){
+              if(diff<0) bg='background:#1a3a8a;color:white;';
+              else if(diff===0) bg='background:#d4edda;color:#155724;';
+              else if(diff<=0.5) bg='background:#fff3cd;color:#856404;';
+              else if(diff<=1) bg='background:#f8d7da;color:#721c24;';
+              else bg='background:#f5c6cb;color:#491217;';
+            }
+            return `<td class="c" style="font-size:0.78rem;font-weight:600;padding:8px 4px;${bg}">${avg||'—'}</td>`;
+          }).join('')}
+        </tr></tbody>
+      </table>
+      <div style="display:flex;gap:12px;margin-top:0.8rem;font-size:0.72rem;color:var(--text-light);flex-wrap:wrap;">
+        <span>🟦 Under par &nbsp; 🟩 Even &nbsp; 🟨 +0.5 &nbsp; 🟥 +1 &nbsp; ⬛ +1.5+</span>
+      </div>
+    </div>
+    ${trend !== null ? `
+    <div class="section-title" style="font-size:1rem;margin-bottom:0.8rem;">Recent Trend (last 10 rounds)</div>
+    <div class="card card-sm" style="text-align:center;margin-bottom:1.5rem;">
+      <div style="font-size:2rem;font-weight:900;font-family:'Playfair Display',serif;color:var(--forest);">${trend > 0 ? '+' : ''}${trend}</div>
+      <div style="font-size:0.78rem;color:var(--text-light);margin-top:4px;">strokes vs first 3 rounds</div>
+      <div style="font-size:0.82rem;color:${trend < 0 ? '#27ae60' : '#c0392b'};margin-top:6px;font-weight:600;">${trend < 0 ? '📈 Improving!' : trend > 0 ? '📉 Room to grow' : '⛳ Steady'}</div>
+    </div>` : ''}`;
+}
+window._real_loadStatsScreen = loadStatsScreen;
+window._shimFlush();
+
+function renderDistBar(label, count, pct, color, textColor) {
+  return `<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+    <div style="width:80px;font-size:0.78rem;color:var(--text-mid);">${label}</div>
+    <div style="flex:1;background:var(--cream-dark);border-radius:20px;overflow:hidden;height:18px;">
+      <div style="width:${pct}%;background:${color};height:100%;border-radius:20px;transition:width 0.5s;"></div>
+    </div>
+    <div style="width:44px;text-align:right;font-size:0.78rem;font-weight:600;color:var(--text-mid);">${count} (${pct}%)</div>
+  </div>`;
+}
+
+// ── ADMIN: INVITE CODE SETTINGS ──
+async function showAdminSettings() {
+  const cont = document.getElementById('admin-content');
+  const t = activeTournament || allTournaments[0];
+  cont.innerHTML = `<div class="card">
+    <h3>⚙️ Tour Settings</h3>
+    <div class="info-bar">Current invite code: <strong>MORK2026</strong><br>Share this with new players so they can register.</div>
+    <hr class="div">
+    <div class="section-title" style="font-size:0.95rem;margin-bottom:0.8rem;color:var(--forest);">Active Tournament</div>
+    <div class="fg"><label>Set Active Tournament</label>
+      <select id="set-active-sel">${allTournaments.map(t2=>`<option value="${t2.id}" ${t?.id===t2.id?'selected':''}>${t2.name}</option>`).join('')}</select>
+    </div>
+    <button class="btn btn-gold" onclick="setActiveTourney()">Set Active</button>
+    <hr class="div">
+    <div class="section-title" style="font-size:0.95rem;margin-bottom:0.8rem;color:var(--forest);">Tournament Status</div>
+    <div class="fg"><label>Tournament</label>
+      <select id="status-sel">${allTournaments.map(t2=>`<option value="${t2.id}">${t2.name}</option>`).join('')}</select>
+    </div>
+    <div class="fg"><label>Status</label>
+      <select id="status-val-sel">
+        <option value="upcoming">Upcoming</option>
+        <option value="active">Active</option>
+        <option value="completed">Completed</option>
+        <option value="locked">Locked</option>
+      </select>
+    </div>
+    <button class="btn btn-forest" onclick="setTourneyStatus()">Update Status</button>
+  </div>`;
+}
+window._real_showAdminSettings = showAdminSettings;
+
+window._real_setActiveTourney = async function() {
+  const tid = document.getElementById('set-active-sel').value;
+  // Set all to upcoming, selected to active
+  const batch = writeBatch(db);
+  allTournaments.forEach(t => {
+    batch.update(doc(db, 'tournaments', t.id), { status: t.id === tid ? 'active' : t.status === 'active' ? 'upcoming' : t.status });
+  });
+  await batch.commit();
+  await loadGlobalData();
+  activeTournament = allTournaments.find(t => t.id === tid) || null;
+  toast('✅ Active tournament updated!');
+};
+
+window._real_setTourneyStatus = async function() {
+  const tid = document.getElementById('status-sel').value;
+  const status = document.getElementById('status-val-sel').value;
+  await updateDoc(doc(db, 'tournaments', tid), { status });
+  await loadGlobalData();
+  toast(`Status updated to "${status}"`);
+};
+
+// Add Settings tile to admin grid
+const adminGrid = document.querySelector('.admin-grid');
+if (adminGrid) {
+  const settingsTile = document.createElement('div');
+  settingsTile.className = 'admin-tile';
+  settingsTile.onclick = showAdminSettings;
+  settingsTile.innerHTML = `<div class="t-icon">⚙️</div><div class="t-label">Settings</div><div class="t-sub">Status & config</div>`;
+  adminGrid.appendChild(settingsTile);
+}
+
+// ── REAL-TIME SCORE COLORING ON SCORECARD ──
+// Enhanced hole card click-to-set via buttons (already wired), add keyboard support
+document.addEventListener('keydown', e => {
+  // Digit keys 1-9 on a focused hole input sets score directly
+  if (e.target.classList.contains('hole-val')) {
+    if (e.key >= '1' && e.key <= '9') {
+      e.target.value = e.key;
+      const holeNum = parseInt(e.target.id.replace('hole-','').replace('cr-hole-',''));
+      if (!isNaN(holeNum)) {
+        if (e.target.id.startsWith('cr-')) onCasualChange(holeNum);
+        else onHoleChange(holeNum);
+      }
+    }
+  }
+});
+
+
+</script>
+
+<!-- ── ADDITIONAL SCREENS (injected after script) ── -->
+<script>
+// Inject missing screens into DOM after load
+document.addEventListener('DOMContentLoaded', () => {
+  const screenArea = document.getElementById('screen-area');
+
+  // History Screen
+  screenArea.insertAdjacentHTML('beforeend', `
+  <div id="screen-history" class="screen">
+    <div class="topbar">
+      <div><div class="topbar-title">Tournament History</div><div class="topbar-sub">All events</div></div>
+    </div>
+    <div class="pad" id="history-content"><div class="loading"><div class="spinner"></div></div></div>
+  </div>`);
+
+  // History Detail Screen
+  screenArea.insertAdjacentHTML('beforeend', `
+  <div id="screen-history-detail" class="screen">
+    <div class="topbar">
+      <div><div class="topbar-title" id="hd-title">Results</div><div class="topbar-sub" id="hd-sub"></div></div>
+      <div class="topbar-right"><button class="icon-btn" onclick="showScreen('history');loadHistory()">← Back</button></div>
+    </div>
+    <div class="pad">
+      <div id="hd-table"></div>
+      <div id="hd-holes"></div>
+    </div>
+  </div>`);
+
+  // Casual Round Screen
+  screenArea.insertAdjacentHTML('beforeend', `
+  <div id="screen-casual" class="screen">
+    <div class="topbar">
+      <div><div class="topbar-title">Casual Round</div><div class="topbar-sub">Log a round anytime</div></div>
+      <div class="topbar-right">
+        <button class="btn btn-gold btn-sm" onclick="saveCasualRound()">Save Round</button>
+      </div>
+    </div>
+    <div class="pad" id="casual-content"><div class="loading"><div class="spinner"></div></div></div>
+  </div>`);
+
+  // Casual History Screen
+  screenArea.insertAdjacentHTML('beforeend', `
+  <div id="screen-casual-history" class="screen">
+    <div class="topbar">
+      <div><div class="topbar-title">My Rounds</div><div class="topbar-sub">Personal round history</div></div>
+      <div class="topbar-right"><button class="icon-btn" onclick="showScreen('casual');loadCasualRound()">← Back</button></div>
+    </div>
+    <div class="pad" id="casual-history-content"><div class="loading"><div class="spinner"></div></div></div>
+  </div>`);
+
+  // Stats Screen
+  screenArea.insertAdjacentHTML('beforeend', `
+  <div id="screen-stats" class="screen">
+    <div class="topbar">
+      <div><div class="topbar-title">My Stats</div><div class="topbar-sub">Performance analytics</div></div>
+    </div>
+    <div class="pad" id="stats-content-main"><div class="loading"><div class="spinner"></div></div></div>
+  </div>`);
+
+  // Add extra nav items to bottom nav
+  const bnavInner = document.querySelector('.bnav-inner');
+  // Replace scorecard button with a + menu approach — add Casual and History
+  bnavInner.insertAdjacentHTML('beforeend', `
+    <button class="bnav-btn" onclick="navTo('history',this)"><span class="icon">📋</span>History</button>
+    <button class="bnav-btn" onclick="navCasual(this)"><span class="icon">🕹️</span>Casual</button>
+    <button class="bnav-btn" onclick="navTo('stats',this)"><span class="icon">📊</span>Stats</button>
+  `);
+});
+
+// Nav helpers for new screens
+// Override navTo to include new screens, forwarding to real module functions
+window._real_navTo = function(name, btn) {
+  document.querySelectorAll('.bnav-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  if (window._real_showScreen) window._real_showScreen(name);
+  if (name === 'home' && window._real_loadHome) window._real_loadHome();
+  if (name === 'leaderboard') { if(window._real_populateLbSelect) window._real_populateLbSelect(); if(window._real_loadLeaderboard) window._real_loadLeaderboard(); }
+  if (name === 'scorecard' && window._real_loadScorecard) window._real_loadScorecard();
+  if (name === 'profile' && window._real_loadProfile) window._real_loadProfile();
+  if (name === 'admin' && window._real_loadAdmin) window._real_loadAdmin();
+  if (name === 'history' && window._real_loadHistory) window._real_loadHistory();
+  if (name === 'stats' && window._real_loadStatsScreen) window._real_loadStatsScreen();
+};
+
+window._real_navCasual = function(btn) {
+  document.querySelectorAll('.bnav-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  if (window._real_showScreen) window._real_showScreen('casual');
+  if (window._real_loadCasualRound) window._real_loadCasualRound();
+};
+</script>
 
 </body>
 </html>
