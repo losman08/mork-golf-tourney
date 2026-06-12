@@ -89,6 +89,13 @@ html,body{height:100%;font-family:'Inter',sans-serif;background:var(--forest);co
 
 /* ── CARDS ── */
 .card{background:var(--cream);border-radius:var(--radius);padding:1.5rem;box-shadow:var(--shadow);}
+.course-search-wrap{position:relative;margin-bottom:0;}
+.course-results{position:absolute;top:100%;left:0;right:0;background:white;border-radius:0 0 10px 10px;box-shadow:0 8px 24px rgba(0,0,0,0.15);z-index:100;max-height:200px;overflow-y:auto;border:1px solid var(--cream-dark);border-top:none;}
+.course-result-item{padding:10px 14px;cursor:pointer;font-size:0.85rem;border-bottom:1px solid var(--cream-dark);transition:background 0.15s;}
+.course-result-item:last-child{border-bottom:none;}
+.course-result-item:hover{background:var(--gold-pale);}
+.course-result-name{font-weight:600;color:var(--text-dark);}
+.course-result-loc{font-size:0.75rem;color:var(--text-light);margin-top:2px;}
 .card-sm{padding:1rem 1.2rem;}
 .card h3{font-family:'Playfair Display',serif;font-size:1.15rem;color:var(--forest);margin-bottom:1rem;padding-bottom:0.7rem;border-bottom:2px solid var(--cream-dark);}
 .section-title{font-family:'Playfair Display',serif;font-size:1.3rem;color:var(--cream);font-weight:700;margin-bottom:0.3rem;}
@@ -1494,7 +1501,7 @@ async function loadCasualRound() {
   let html = `
     <div class="card card-sm" style="margin-bottom:1rem;">
       <div class="two-col">
-        <div class="fg"><label>Course</label><input type="text" id="cr-course" placeholder="Course name"></div>
+        <div class="fg course-search-wrap"><label>Course</label><input type="text" id="cr-course" placeholder="Search course name..." autocomplete="off"><div class="course-results" id="cr-course-results" style="display:none;"></div></div>
         <div class="fg"><label>Date</label><input type="date" id="cr-date"></div>
       </div>
       <div class="two-col">
@@ -1523,6 +1530,7 @@ async function loadCasualRound() {
   html += `</div>`;
   cont.innerHTML = html;
   document.getElementById('cr-date').valueAsDate = new Date();
+  initCourseSearch('cr-course', 'cr-course-results');
 }
 window._real_loadCasualRound = loadCasualRound;
 
@@ -1821,6 +1829,129 @@ if (adminGrid) {
 
 // ── REAL-TIME SCORE COLORING ON SCORECARD ──
 // Enhanced hole card click-to-set via buttons (already wired), add keyboard support
+
+// ── OPENGOLF COURSE SEARCH API ──
+const GOLF_API_BASE = 'https://api.opengolfapi.com/api/v1';
+let _courseCache = {};
+let _activeCourseData = null;
+
+async function searchCourses(query) {
+  if (!query || query.length < 3) return [];
+  const key = query.toLowerCase().trim();
+  if (_courseCache[key]) return _courseCache[key];
+  try {
+    const resp = await fetch(`${GOLF_API_BASE}/courses/?search=${encodeURIComponent(query)}&limit=8`);
+    if (!resp.ok) return [];
+    const data = await resp.json();
+    const results = Array.isArray(data) ? data : (data.results || data.courses || []);
+    _courseCache[key] = results.slice(0, 8);
+    return _courseCache[key];
+  } catch(e) { return []; }
+}
+
+async function fetchCourseDetail(id) {
+  try {
+    const resp = await fetch(`${GOLF_API_BASE}/courses/${id}/`);
+    if (!resp.ok) return null;
+    return await resp.json();
+  } catch(e) { return null; }
+}
+
+function getHolePars(courseData, tee) {
+  if (!courseData) return DEFAULT_PARS;
+  const tees = courseData.tees || courseData.tee_sets || [];
+  let t = tees.find(x => (x.name||x.color||'').toLowerCase().includes((tee||'').toLowerCase()));
+  if (!t) t = tees[0];
+  if (!t) return DEFAULT_PARS;
+  const holes = t.holes || t.hole_details || [];
+  if (holes.length >= 18) return holes.slice(0,18).map(h => h.par || 4);
+  return DEFAULT_PARS;
+}
+
+function getHoleYardages(courseData, tee) {
+  if (!courseData) return null;
+  const tees = courseData.tees || courseData.tee_sets || [];
+  let t = tees.find(x => (x.name||x.color||'').toLowerCase().includes((tee||'').toLowerCase()));
+  if (!t) t = tees[0];
+  if (!t) return null;
+  const holes = t.holes || t.hole_details || [];
+  if (holes.length >= 18) return holes.slice(0,18).map(h => h.yards || h.yardage || null);
+  return null;
+}
+
+function initCourseSearch(inputId, resultsId) {
+  const inp = document.getElementById(inputId);
+  const res = document.getElementById(resultsId);
+  if (!inp || !res) return;
+  let timer;
+  inp.addEventListener('input', () => {
+    clearTimeout(timer);
+    const q = inp.value.trim();
+    if (q.length < 3) { res.innerHTML = ''; res.style.display = 'none'; return; }
+    res.innerHTML = '<div class="course-result-item" style="color:var(--text-light);font-style:italic;">Searching...</div>';
+    res.style.display = 'block';
+    timer = setTimeout(async () => {
+      const courses = await searchCourses(q);
+      if (!courses.length) {
+        res.innerHTML = '<div class="course-result-item" style="color:var(--text-light);">No courses found — enter manually.</div>';
+        return;
+      }
+      res.innerHTML = courses.map(c => {
+        const name = c.name || c.course_name || 'Unknown';
+        const loc = [c.city, c.state, c.country].filter(Boolean).join(', ');
+        return `<div class="course-result-item" onclick="selectCourseResult('${c.id||c.course_id}','${name.replace(/'/g,"\'")}')">
+          <div class="course-result-name">${name}</div>
+          ${loc ? `<div class="course-result-loc">${loc}</div>` : ''}
+        </div>`;
+      }).join('');
+    }, 400);
+  });
+  document.addEventListener('click', e => {
+    if (!inp.contains(e.target) && !res.contains(e.target)) res.style.display = 'none';
+  });
+}
+
+async function selectCourseResult(id, name) {
+  const inp = document.getElementById('cr-course');
+  const res = document.getElementById('cr-course-results');
+  if (inp) inp.value = name;
+  if (res) res.style.display = 'none';
+  const detail = await fetchCourseDetail(id);
+  _activeCourseData = detail;
+  if (!detail) return;
+  // Update tee selector options
+  const teeEl = document.getElementById('cr-tees');
+  const tees = detail.tees || detail.tee_sets || [];
+  if (teeEl && tees.length) {
+    teeEl.innerHTML = tees.map(t => `<option>${t.name || t.color || 'Standard'}</option>`).join('');
+  }
+  applyCourseToRound();
+  toast('⛳ Course loaded!');
+}
+
+function applyCourseToRound() {
+  if (!_activeCourseData) return;
+  const teeEl = document.getElementById('cr-tees');
+  const tee = teeEl ? teeEl.value : null;
+  const pars = getHolePars(_activeCourseData, tee);
+  const yards = getHoleYardages(_activeCourseData, tee);
+  const totalPar = pars.reduce((a,b) => a+b, 0);
+  const parEl = document.getElementById('cr-par');
+  if (parEl) parEl.value = totalPar;
+  // Re-render hole cards with new pars and yardages
+  for (let h = 1; h <= 18; h++) {
+    const card = document.getElementById(`cr-hc-${h}`);
+    if (!card) continue;
+    const par = pars[h-1] || 4;
+    const y = yards ? yards[h-1] : null;
+    const yStr = y ? `<span style="font-size:0.65rem;color:var(--text-light);margin-left:4px;">${y}y</span>` : '';
+    const labelEl = card.querySelector('.hole-label');
+    const parEl2 = card.querySelector('.hole-par');
+    if (labelEl) labelEl.innerHTML = `Hole ${h}${yStr}`;
+    if (parEl2) parEl2.textContent = `Par ${par}`;
+  }
+}
+
 document.addEventListener('keydown', e => {
   // Digit keys 1-9 on a focused hole input sets score directly
   if (e.target.classList.contains('hole-val')) {
