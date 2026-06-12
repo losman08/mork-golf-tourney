@@ -200,7 +200,7 @@ td.pname{font-weight:600;font-family:'Playfair Display',serif;font-size:0.95rem;
 .modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:200;align-items:center;justify-content:center;padding:1rem;}
 .modal-bg.open{display:flex;}
 .modal{background:var(--cream);border-radius:20px;padding:2rem;width:100%;max-width:500px;max-height:90vh;overflow-y:auto;box-shadow:var(--shadow-lg);}
-.modal h3{font-family:'Playfair Display',serif;font-size:1.2rem;color:var(--forest);margin-bottom:1.2rem;}
+.modal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.2rem;}.modal h3{font-family:'Playfair Display',serif;font-size:1.2rem;color:var(--forest);margin:0;}.modal-close-btn{background:rgba(0,0,0,0.07);border:none;font-size:1.1rem;font-weight:700;cursor:pointer;color:var(--forest);padding:4px 9px;border-radius:6px;line-height:1;transition:all 0.15s;}.modal-close-btn:hover{background:rgba(0,0,0,0.15);}
 .modal-footer{display:flex;gap:8px;margin-top:1.5rem;justify-content:flex-end;}
 
 /* ── MISC ── */
@@ -472,7 +472,7 @@ hr.div{border:none;border-top:1px solid var(--cream-dark);margin:1rem 0;}
 <!-- ══ MODALS ══ -->
 <div class="modal-bg" id="modal-create-tourney">
   <div class="modal">
-    <h3>🏆 Create Tournament</h3>
+    <div class="modal-header"><h3>🏆 Create Tournament</h3><button class="modal-close-btn" onclick="closeModal('modal-create-tourney')">✕</button></div>
     <div class="fg"><label>Tournament Name</label><input type="text" id="ct-name" placeholder="e.g. August Championship 2026"></div>
     <div class="two-col">
       <div class="fg"><label>Date</label><input type="date" id="ct-date"></div>
@@ -507,7 +507,7 @@ hr.div{border:none;border-top:1px solid var(--cream-dark);margin:1rem 0;}
 
 <div class="modal-bg" id="modal-edit-score">
   <div class="modal">
-    <h3>✏️ Edit Player Scores</h3>
+    <div class="modal-header"><h3>✏️ Edit Player Scores</h3><button class="modal-close-btn" onclick="closeModal('modal-edit-score')">✕</button></div>
     <div class="fg"><label>Player</label><select id="es-player-sel" onchange="loadPlayerScoresForEdit()"></select></div>
     <div id="es-holes-grid" class="hole-grid" style="margin-top:0.5rem;"></div>
     <div class="modal-footer">
@@ -593,8 +593,19 @@ function toast(msg) {
   el.textContent = msg; el.classList.add('show');
   setTimeout(()=>el.classList.remove('show'), 2800);
 }
-function openModal(id) { document.getElementById(id).classList.add('open'); }
-function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+function openModal(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.classList.add('open');
+  el._outsideHandler = function(e) { if (e.target === el) closeModal(id); };
+  el.addEventListener('click', el._outsideHandler);
+}
+function closeModal(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.classList.remove('open');
+  if (el._outsideHandler) { el.removeEventListener('click', el._outsideHandler); el._outsideHandler = null; }
+}
 function showScreen(name) {
   document.querySelectorAll('.screen').forEach(s=>{ s.classList.remove('active'); s.style.display=''; });
   const s = document.getElementById('screen-'+name);
@@ -1835,6 +1846,11 @@ document.addEventListener('keydown', e => {
   }
 });
 
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    document.querySelectorAll('.modal-bg.open').forEach(function(m) { closeModal(m.id); });
+  }
+});
 
 </script>
 
