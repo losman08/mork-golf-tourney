@@ -1843,7 +1843,7 @@ async function searchCourses(query) {
     const resp = await fetch(`${GOLF_API_BASE}/courses/search?q=${encodeURIComponent(query)}`);
     if (!resp.ok) return [];
     const data = await resp.json();
-    const results = Array.isArray(data) ? data : (data.results || data.courses || []);
+    const results = data.courses || data.results || (Array.isArray(data) ? data : []);
     _courseCache[key] = results.slice(0, 8);
     return _courseCache[key];
   } catch(e) { return []; }
@@ -1897,7 +1897,7 @@ function initCourseSearch(inputId, resultsId) {
         return;
       }
       res.innerHTML = courses.map(c => {
-        const name = c.name || c.course_name || 'Unknown';
+        const name = c.course_name || c.club_name || c.name || 'Unknown';
         const loc = [c.city, c.state, c.country].filter(Boolean).join(', ');
         return `<div class="course-result-item" onclick="selectCourseResult('${c.id||c.course_id}','${name.replace(/'/g,"\'")}')">
           <div class="course-result-name">${name}</div>
