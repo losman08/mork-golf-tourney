@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Course Library Sandbox</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Inter', sans-serif; background: #1a3a2a; min-height: 100vh; padding: 1.5rem; }
+.container { max-width: 800px; margin: 0 auto; }
+h1 { color: #f5d060; font-size: 1.4rem; margin-bottom: 0.3rem; }
+.subtitle { color: rgba(245,240,232,0.6); font-size: 0.82rem; margin-bottom: 1.5rem; }
+.badge { display: inline-block; background: #2d5a3d; color: #f5d060; font-size: 0.7rem; font-weight: 700; padding: 2px 8px; border-radius: 20px; margin-left: 8px; letter-spacing: 0.05em; }
+.card { background: #f5f0e8; border-radius: 16px; padding: 1.5rem; margin-bottom: 1rem; }
+.card h2 { font-size: 1rem; color: #1a3a2a; margin-bottom: 1rem; display: flex; align-items: center; gap: 8px; }
+.fg { margin-bottom: 0.8rem; }
+label { display: block; font-size: 0.75rem; font-weight: 600; color: #4a4a4a; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px; }
+input, select { width: 100%; border: 1.5px solid #d8d0c0; border-radius: 8px; padding: 9px 12px; font-size: 0.88rem; font-family: 'Inter', sans-serif; background: white; color: #1a1a1a; transition: border-color 0.15s; }
+input:focus, select:focus { outline: none; border-color: #3d6635; }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+.btn { border: none; border-radius: 10px; padding: 10px 20px; font-size: 0.88rem; font-weight: 700; font-family: 'Inter', sans-serif; cursor: pointer; transition: all 0.2s; }
+.btn-gold { background: #f5d060; color: #1a3a2a; }
+.btn-gold:hover { background: #ffe066; }
+.btn-green { background: #2d5a3d; color: #f5f0e8; }
+.btn-green:hover { background: #3d7a52; }
+.btn-red { background: #c0392b; color: white; }
+.btn-red:hover { background: #e74c3c; }
+.btn-ghost { background: transparent; border: 2px solid #d8d0c0; color: #4a4a4a; }
+.btn-ghost:hover { border-color: #1a3a2a; color: #1a3a2a; }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 1rem; }
+.section-title { font-size: 0.78rem; font-weight: 700; color: #1a3a2a; text-transform: uppercase; letter-spacing: 0.08em; margin: 1rem 0 0.6rem; border-top: 1px solid #d8d0c0; padding-top: 0.8rem; }
+.hole-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; margin-bottom: 0.5rem; }
+.hole-cell { text-align: center; }
+.hole-cell label { font-size: 0.65rem; margin-bottom: 2px; }
+.hole-cell input { padding: 5px 2px; font-size: 0.82rem; text-align: center; }
+.tee-block { background: white; border-radius: 10px; padding: 1rem; margin-bottom: 0.8rem; border: 1.5px solid #d8d0c0; }
+.tee-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.8rem; }
+.tee-color-dot { width: 14px; height: 14px; border-radius: 50%; display: inline-block; margin-right: 6px; }
+.tee-title { font-size: 0.88rem; font-weight: 700; color: #1a3a2a; display: flex; align-items: center; }
+.log { background: #1a3a2a; color: #f5d060; border-radius: 10px; padding: 1rem; font-size: 0.75rem; font-family: monospace; max-height: 220px; overflow-y: auto; white-space: pre-wrap; margin-top: 0.8rem; }
+.status { padding: 8px 12px; border-radius: 8px; font-size: 0.82rem; font-weight: 600; margin-top: 0.8rem; }
+.status.ok { background: #d4edda; color: #155724; }
+.status.err { background: #f8d7da; color: #721c24; }
+.status.info { background: #d1ecf1; color: #0c5460; }
+.library-list { margin-top: 0.8rem; }
+.lib-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; background: white; border-radius: 8px; margin-bottom: 6px; border: 1px solid #d8d0c0; }
+.lib-name { font-size: 0.88rem; font-weight: 600; color: #1a3a2a; }
+.lib-meta { font-size: 0.75rem; color: #7a7a7a; margin-top: 2px; }
+.lib-actions { display: flex; gap: 6px; }
+.api-result { background: #e8f5e9; border: 1px solid #4caf50; border-radius: 8px; padding: 0.8rem; font-size: 0.78rem; margin-top: 0.8rem; }
+.api-result h4 { color: #1b5e20; margin-bottom: 0.4rem; }
+.tee-tag { display: inline-block; padding: 2px 8px; border-radius: 5px; font-size: 0.72rem; font-weight: 700; margin: 2px; }
+.hole-score-preview { display: grid; grid-template-columns: repeat(9,1fr); gap: 3px; margin-top: 6px; }
+.hs { text-align: center; padding: 3px; border-radius: 4px; font-size: 0.7rem; font-weight: 600; }
+.hs.p3 { background: #e3f2fd; color: #0d47a1; }
+.hs.p4 { background: #f5f0e8; color: #4a4a4a; }
+.hs.p5 { background: #fff8e1; color: #7a5c00; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>⛳ Course Library Sandbox <span class="badge">SANDBOX — no app changes</span></h1>
+  <p class="subtitle">Test course search, API fetch, and Firestore save/delete independently from the live app.</p>
+
+  <!-- STEP 1: API Search -->
+  <div class="card">
+    <h2>Step 1 — Search GolfCourseAPI</h2>
+    <div class="row2">
+      <div class="fg">
+        <label>Course Name</label>
+        <input type="text" id="search-input" placeholder="e.g. Seascape Golf" value="Seascape Golf">
+      </div>
+      <div class="fg">
+        <label>API Key</label>
+        <input type="text" id="api-key" value="G6C4LZ2VBEAREQCPWXS26FR4II">
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-gold" onclick="searchCourse()">🔍 Search API</button>
+      <button class="btn btn-ghost" onclick="clearLog()">Clear Log</button>
+    </div>
+    <div id="api-status"></div>
+    <div id="api-result-area"></div>
+    <div class="log" id="log" style="display:none;"></div>
+  </div>
+
+  <!-- STEP 2: Manual / Edit Course Form -->
+  <div class="card">
+    <h2>Step 2 — Review & Edit Course Data</h2>
+    <div class="row2">
+      <div class="fg"><label>Course Name</label><input type="text" id="c-name" placeholder="e.g. Seascape Golf Club"></div>
+      <div class="fg"><label>City</label><input type="text" id="c-city" placeholder="Aptos"></div>
+    </div>
+    <div class="row2">
+      <div class="fg"><label>State</label><input type="text" id="c-state" placeholder="CA" maxlength="2"></div>
+      <div class="fg"><label>Overall Par</label><input type="number" id="c-par" value="72" min="60" max="80"></div>
+    </div>
+
+    <div id="tees-container">
+      <!-- tee blocks injected here -->
+    </div>
+
+    <button class="btn btn-ghost" onclick="addTeeBlock()" style="margin-top:0.5rem;">+ Add Tee Box</button>
+
+    <div class="btn-row">
+      <button class="btn btn-green" onclick="saveCourse()">💾 Save to Firestore</button>
+      <button class="btn btn-ghost" onclick="resetForm()">↺ Reset Form</button>
+    </div>
+    <div id="save-status"></div>
+  </div>
+
+  <!-- STEP 3: View Library -->
+  <div class="card">
+    <h2>Step 3 — Firestore Course Library</h2>
+    <div class="btn-row">
+      <button class="btn btn-gold" onclick="loadLibrary()">🔄 Load Library</button>
+    </div>
+    <div id="library-status"></div>
+    <div class="library-list" id="library-list"></div>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, serverTimestamp }
+  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDyAtsNMVVC00M_wuVedqIkBOLclOpp5-0",
+  authDomain: "mork-golf-tourney.firebaseapp.com",
+  projectId: "mork-golf-tourney",
+  storageBucket: "mork-golf-tourney.firebasestorage.app",
+  messagingSenderId: "314668694744",
+  appId: "1:314668694744:web:ca4b10e5db9be5e3d8d0eb"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+// ── TEE COLORS ──
+const TEE_COLORS = {
+  Blue: '#1565c0', White: '#888', Gold: '#daa520',
+  Red: '#c62828', Green: '#2e7d32', Black: '#212121', Silver: '#aaa'
+};
+
+let teeCount = 0;
+
+function log(msg) {
+  const el = document.getElementById('log');
+  el.style.display = 'block';
+  el.textContent += '[' + new Date().toLocaleTimeString() + '] ' + msg + '\n';
+  el.scrollTop = el.scrollHeight;
+}
+
+function clearLog() {
+  document.getElementById('log').textContent = '';
+  document.getElementById('log').style.display = 'none';
+  document.getElementById('api-result-area').innerHTML = '';
+  document.getElementById('api-status').innerHTML = '';
+}
+
+function setStatus(id, msg, type) {
+  document.getElementById(id).innerHTML = `<div class="status ${type}">${msg}</div>`;
+}
+
+// ── ADD TEE BLOCK ──
+window.addTeeBlock = function(tee) {
+  teeCount++;
+  const id = 'tee-' + teeCount;
+  const name = tee?.name || 'Blue';
+  const rating = tee?.rating || '';
+  const slope = tee?.slope || '';
+  const totalYards = tee?.totalYards || '';
+  const holes = tee?.holes || Array(18).fill({par:4,yards:''});
+  const color = TEE_COLORS[name] || '#888';
+
+  const div = document.createElement('div');
+  div.className = 'tee-block';
+  div.id = id;
+
+  const holeInputsFront = holes.slice(0,9).map((h,i) => `
+    <div class="hole-cell">
+      <label>H${i+1}</label>
+      <input type="number" id="${id}-par-${i+1}" value="${h.par||4}" min="3" max="6">
+      <input type="number" id="${id}-yds-${i+1}" value="${h.yards||''}" min="50" max="700" placeholder="yds" style="margin-top:2px;font-size:0.72rem;color:#7a7a7a;">
+    </div>`).join('');
+
+  const holeInputsBack = holes.slice(9,18).map((h,i) => `
+    <div class="hole-cell">
+      <label>H${i+10}</label>
+      <input type="number" id="${id}-par-${i+10}" value="${h.par||4}" min="3" max="6">
+      <input type="number" id="${id}-yds-${i+10}" value="${h.yards||''}" min="50" max="700" placeholder="yds" style="margin-top:2px;font-size:0.72rem;color:#7a7a7a;">
+    </div>`).join('');
+
+  div.innerHTML = `
+    <div class="tee-header">
+      <div class="tee-title">
+        <span class="tee-color-dot" style="background:${color};"></span>
+        <select id="${id}-name" style="width:auto;padding:4px 8px;font-size:0.82rem;font-weight:700;border:1.5px solid #d8d0c0;border-radius:6px;">
+          ${Object.keys(TEE_COLORS).map(c=>`<option${c===name?' selected':''}>${c}</option>`).join('')}
+        </select>
+        &nbsp;Tees
+      </div>
+      <button class="btn btn-red" style="padding:4px 10px;font-size:0.75rem;" onclick="document.getElementById('${id}').remove()">✕ Remove</button>
+    </div>
+    <div class="row3">
+      <div class="fg"><label>Rating</label><input type="number" id="${id}-rating" value="${rating}" step="0.1" placeholder="e.g. 69.7"></div>
+      <div class="fg"><label>Slope</label><input type="number" id="${id}-slope" value="${slope}" placeholder="e.g. 127"></div>
+      <div class="fg"><label>Total Yards</label><input type="number" id="${id}-yards" value="${totalYards}" placeholder="e.g. 5769"></div>
+    </div>
+    <div class="section-title">Front 9 — Par / Yards</div>
+    <div class="hole-grid">${holeInputsFront}</div>
+    <div class="section-title">Back 9 — Par / Yards</div>
+    <div class="hole-grid">${holeInputsBack}</div>`;
+
+  document.getElementById('tees-container').appendChild(div);
+};
+
+// ── SEARCH API ──
+window.searchCourse = async function() {
+  const q = document.getElementById('search-input').value.trim();
+  const key = document.getElementById('api-key').value.trim();
+  if (!q) { setStatus('api-status','Enter a course name','err'); return; }
+
+  setStatus('api-status','Searching...','info');
+  log('Searching GolfCourseAPI for: ' + q);
+
+  // Try multiple endpoint formats
+  const endpoints = [
+    `https://api.golfcourseapi.com/v1/search?search_query=${encodeURIComponent(q)}`,
+    `https://api.golfcourseapi.com/v1/courses?search=${encodeURIComponent(q)}`,
+    `https://api.golfcourseapi.com/v1/courses/search?q=${encodeURIComponent(q)}`,
+  ];
+
+  let found = false;
+  for (const url of endpoints) {
+    try {
+      log('Trying: ' + url);
+      const resp = await fetch(url, {
+        headers: { 'Authorization': 'Key ' + key }
+      });
+      const text = await resp.text();
+      log('Status: ' + resp.status);
+      log('Response: ' + text.slice(0,500));
+
+      if (resp.ok && text.startsWith('{')) {
+        const data = JSON.parse(text);
+        handleApiResult(data);
+        found = true;
+        break;
+      }
+    } catch(e) {
+      log('Error: ' + e.message);
+    }
+  }
+
+  if (!found) {
+    setStatus('api-status','API not reachable or no results — see log. Fill in manually below.','err');
+  }
+};
+
+function handleApiResult(data) {
+  log('Parsed response keys: ' + Object.keys(data).join(', '));
+  const courses = data.courses || data.results || data.data || (Array.isArray(data) ? data : [data]);
+  log('Courses found: ' + courses.length);
+
+  if (!courses.length) {
+    setStatus('api-status','No courses found in response','err');
+    return;
+  }
+
+  // Show clickable results
+  const html = courses.slice(0,6).map((c,i) => `
+    <div class="lib-row" style="cursor:pointer;" onclick="selectApiCourse(${i})">
+      <div>
+        <div class="lib-name">${c.club_name||c.course_name||c.name||'Unknown'}</div>
+        <div class="lib-meta">${c.city||''} ${c.state||''} · Par ${c.par||c.par_total||'?'} · ${c.holes||18} holes</div>
+      </div>
+      <button class="btn btn-gold" style="padding:5px 12px;font-size:0.78rem;">Select</button>
+    </div>`).join('');
+
+  document.getElementById('api-result-area').innerHTML = html;
+  window._apiCourses = courses;
+  setStatus('api-status', `Found ${courses.length} courses — click one to populate the form`, 'ok');
+}
+
+window.selectApiCourse = function(idx) {
+  const c = window._apiCourses[idx];
+  if (!c) return;
+  log('Selected: ' + JSON.stringify(c).slice(0,300));
+
+  // Fill basic fields
+  document.getElementById('c-name').value = c.club_name || c.course_name || c.name || '';
+  document.getElementById('c-city').value = c.city || '';
+  document.getElementById('c-state').value = c.state || '';
+  document.getElementById('c-par').value = c.par || c.par_total || 72;
+
+  // Clear existing tees
+  document.getElementById('tees-container').innerHTML = '';
+  teeCount = 0;
+
+  // Try to populate tees from API data
+  const tees = c.tees || c.tee_sets || c.teeboxes || [];
+  if (tees.length) {
+    log('Tees found: ' + tees.length);
+    tees.forEach(t => {
+      const holes = t.holes || t.hole_details || [];
+      window.addTeeBlock({
+        name: t.name || t.color || t.tee_color || 'Blue',
+        rating: t.rating || t.course_rating || '',
+        slope: t.slope || t.slope_rating || '',
+        totalYards: t.yards || t.yardage || t.total_yards || '',
+        holes: holes.length ? holes.map(h => ({par: h.par||4, yards: h.yards||h.yardage||''})) : Array(18).fill({par:4,yards:''})
+      });
+    });
+  } else {
+    log('No tee data in response — adding blank Blue tee for manual entry');
+    window.addTeeBlock({name:'Blue'});
+  }
+
+  setStatus('api-status','Course loaded into form — review and add tee data, then save','ok');
+};
+
+// ── SAVE TO FIRESTORE ──
+window.saveCourse = async function() {
+  const name = document.getElementById('c-name').value.trim();
+  if (!name) { setStatus('save-status','Course name required','err'); return; }
+
+  const teeBlocks = document.querySelectorAll('.tee-block');
+  const tees = [];
+
+  teeBlocks.forEach(block => {
+    const id = block.id;
+    const teeName = document.getElementById(id+'-name').value;
+    const rating = parseFloat(document.getElementById(id+'-rating').value)||0;
+    const slope = parseInt(document.getElementById(id+'-slope').value)||113;
+    const totalYards = parseInt(document.getElementById(id+'-yards').value)||0;
+    const holes = [];
+    for (let h = 1; h <= 18; h++) {
+      holes.push({
+        hole: h,
+        par: parseInt(document.getElementById(`${id}-par-${h}`)?.value)||4,
+        yards: parseInt(document.getElementById(`${id}-yds-${h}`)?.value)||0
+      });
+    }
+    tees.push({ name: teeName, rating, slope, totalYards, holes });
+  });
+
+  const holePars = tees[0]?.holes.map(h=>h.par) || Array(18).fill(4);
+  const par = holePars.reduce((a,b)=>a+b,0);
+
+  const courseData = {
+    name,
+    city: document.getElementById('c-city').value.trim(),
+    state: document.getElementById('c-state').value.trim().toUpperCase(),
+    par,
+    holePars,
+    tees,
+    createdAt: serverTimestamp()
+  };
+
+  setStatus('save-status','Saving...','info');
+  log('Saving course: ' + name);
+  log('Tees: ' + tees.map(t=>t.name).join(', '));
+
+  try {
+    const ref = await addDoc(collection(db,'courseLibrary'), courseData);
+    setStatus('save-status',`✅ Saved! Firestore ID: ${ref.id}`, 'ok');
+    log('Saved with ID: ' + ref.id);
+    loadLibrary();
+  } catch(e) {
+    setStatus('save-status','❌ Error: ' + e.message, 'err');
+    log('Save error: ' + e.message);
+  }
+};
+
+// ── LOAD LIBRARY ──
+window.loadLibrary = async function() {
+  setStatus('library-status','Loading...','info');
+  try {
+    const snap = await getDocs(collection(db,'courseLibrary'));
+    const courses = snap.docs.map(d=>({id:d.id,...d.data()}));
+    document.getElementById('library-status').innerHTML =
+      `<div class="status ok">✅ ${courses.length} courses in library</div>`;
+
+    document.getElementById('library-list').innerHTML = courses.map(c => `
+      <div class="lib-row">
+        <div>
+          <div class="lib-name">${c.name}</div>
+          <div class="lib-meta">${c.city||''}, ${c.state||''} · Par ${c.par||'?'} · ${(c.tees||[]).length} tee set(s)
+            ${(c.tees||[]).map(t=>`<span class="tee-tag" style="background:${TEE_COLORS[t.name]||'#888'}22;color:${TEE_COLORS[t.name]||'#888'}">${t.name}</span>`).join('')}
+          </div>
+        </div>
+        <div class="lib-actions">
+          <button class="btn btn-ghost" style="padding:4px 10px;font-size:0.75rem;" onclick="previewCourse('${c.id}')">Preview</button>
+          <button class="btn btn-red" style="padding:4px 10px;font-size:0.75rem;" onclick="deleteCourse('${c.id}','${c.name.replace(/'/g,'')}')">Delete</button>
+        </div>
+      </div>`).join('') || '<p style="color:#7a7a7a;font-size:0.85rem;padding:0.5rem;">No courses yet.</p>';
+
+    window._libraryData = courses;
+  } catch(e) {
+    setStatus('library-status','❌ Error: ' + e.message,'err');
+    log('Load error: ' + e.message);
+  }
+};
+
+window.deleteCourse = async function(id, name) {
+  if (!confirm(`Delete "${name}" from the library?`)) return;
+  await deleteDoc(doc(db,'courseLibrary',id));
+  log('Deleted: ' + name);
+  loadLibrary();
+};
+
+window.previewCourse = function(id) {
+  const c = window._libraryData?.find(x=>x.id===id);
+  if (!c) return;
+  log('--- PREVIEW: ' + c.name + ' ---');
+  log('Par: ' + c.par);
+  (c.tees||[]).forEach(t => {
+    log(`${t.name} tees: ${t.totalYards}y, Rating ${t.rating}, Slope ${t.slope}`);
+    if (t.holes?.length) {
+      const front = t.holes.slice(0,9).map(h=>`H${h.hole}:P${h.par}/${h.yards}y`).join(' ');
+      const back = t.holes.slice(9).map(h=>`H${h.hole}:P${h.par}/${h.yards}y`).join(' ');
+      log('Front: ' + front);
+      log('Back:  ' + back);
+    }
+  });
+};
+
+window.resetForm = function() {
+  document.getElementById('c-name').value='';
+  document.getElementById('c-city').value='';
+  document.getElementById('c-state').value='';
+  document.getElementById('c-par').value='72';
+  document.getElementById('tees-container').innerHTML='';
+  teeCount=0;
+  document.getElementById('save-status').innerHTML='';
+};
+
+// ── AUTH CHECK ──
+onAuthStateChanged(auth, user => {
+  if (!user) {
+    document.querySelector('h1').insertAdjacentHTML('afterend',
+      '<div class="status err" style="margin-bottom:1rem;">⚠️ Not signed in — open morks-golf-tourney.vercel.app first, sign in, then reload this page.</div>');
+  } else {
+    log('Signed in as: ' + user.email);
+    loadLibrary();
+  }
+});
+
+// Add initial tee blocks
+window.addTeeBlock({name:'Blue'});
+window.addTeeBlock({name:'White'});
+</script>
+</body>
+</html>
