@@ -1831,7 +1831,7 @@ if (adminGrid) {
 // Enhanced hole card click-to-set via buttons (already wired), add keyboard support
 
 // ── OPENGOLF COURSE SEARCH API ──
-const GOLF_API_BASE = 'https://api.opengolfapi.com/api/v1';
+const GOLF_API_BASE = 'https://api.opengolfapi.org/v1';
 let _courseCache = {};
 let _activeCourseData = null;
 
@@ -1840,7 +1840,7 @@ async function searchCourses(query) {
   const key = query.toLowerCase().trim();
   if (_courseCache[key]) return _courseCache[key];
   try {
-    const resp = await fetch(`${GOLF_API_BASE}/courses/?search=${encodeURIComponent(query)}&limit=8`);
+    const resp = await fetch(`${GOLF_API_BASE}/courses/search?q=${encodeURIComponent(query)}`);
     if (!resp.ok) return [];
     const data = await resp.json();
     const results = Array.isArray(data) ? data : (data.results || data.courses || []);
@@ -1851,7 +1851,7 @@ async function searchCourses(query) {
 
 async function fetchCourseDetail(id) {
   try {
-    const resp = await fetch(`${GOLF_API_BASE}/courses/${id}/`);
+    const resp = await fetch(`${GOLF_API_BASE}/courses/${id}`);
     if (!resp.ok) return null;
     return await resp.json();
   } catch(e) { return null; }
