@@ -1765,9 +1765,6 @@ document.addEventListener('keydown', e => {
   }
 });
 
-// ── FIRE THE SHIM — all _real_ functions now defined, flush queued calls ──
-window._shimFlush();
-
 </script>
 
 <!-- ── ADDITIONAL SCREENS (injected after script) ── -->
@@ -2197,6 +2194,10 @@ window._real_navCasual = function(btn) {
   if (window._real_showScreen) window._real_showScreen('casual');
   if (window._real_loadCasualRound) window._real_loadCasualRound();
 };
+
+// ── FIRE THE SHIM — all _real_ functions now defined ──
+setTimeout(() => { if (window._shimFlush) window._shimFlush(); }, 150);
+
 </script>
 
 </body>
