@@ -1906,26 +1906,40 @@ setTimeout(() => { if (window._shimFlush) window._shimFlush(); }, 150);
 
 // ── FIRE SHIM — all _real_ functions defined ──
 });
+</script>
 
-// Nav helpers for new screens
-// Override navTo to include new screens, forwarding to<script>
-// Inject missing screens into DOM
+<script>
+// Wire up additional nav after DOM ready
+document.addEventListener('DOMContentLoaded', function() {
+  // Add History and Stats nav buttons
+  var bnavInner = document.querySelector('.bnav-inner');
+  if (bnavInner && !document.getElementById('nav-history-btn')) {
+    var histBtn = document.createElement('button');
+    histBtn.className = 'bnav-btn';
+    histBtn.id = 'nav-history-btn';
+    histBtn.innerHTML = '<span class="icon">📋</span>History';
+    histBtn.onclick = function() { window._real_navTo('history', this); };
+    bnavInner.appendChild(histBtn);
 
-// Inject missing screens into DOM after load
-document.addEventListener('DOMContentLoaded', () => {
-  // Screens in static HTML
+    var statBtn = document.createElement('button');
+    statBtn.className = 'bnav-btn';
+    statBtn.id = 'nav-stats-btn';
+    statBtn.innerHTML = '<span class="icon">📊</span>Stats';
+    statBtn.onclick = function() { window._real_navTo('stats', this); };
+    bnavInner.appendChild(statBtn);
 
+    var casBtn = document.createElement('button');
+    casBtn.className = 'bnav-btn';
+    casBtn.id = 'nav-casual-btn';
+    casBtn.innerHTML = '<span class="icon">🕹️</span>Casual';
+    casBtn.onclick = function() { window._real_navCasual(this); };
+    bnavInner.appendChild(casBtn);
+  }
+});
+</script>
 
-  // Add extra nav items to bottom nav
-  const bnavInner = document.querySelector('.bnav-inner');
-  // Replace scorecard button with a + menu approach — add Casual and History
-  bnavInner.insertAdjacentHTML('beforeend', `
-    <button class="bnav-btn" onclick="window._real_navTo('history',this)"><span class="icon">📋</span>History</button>
-    <button class="bnav-btn" onclick="window._real_navCasual(this)"><span class="icon">🕹️</span>Casual</button>
-    <button class="bnav-btn" onclick="window._real_navTo('stats',this)"><span class="icon">📊</span>Stats</button>
-  `);
-</script>v helpers for new screens
-// Override navTo to include new screens, forwarding to real module functions
+<script>
+// Additional _real_ functions
 window._real_navTo = function(name, btn) {
   document.querySelectorAll('.bnav-btn').forEach(b => b.classList.remove('active'));
   if (btn) btn.classList.add('active');
@@ -2193,6 +2207,8 @@ window._real_loadStatsScreen = async function() {
   }
 };
 
+// ── FIRE SHIM (backup) ──
+if(window._shimFlush) window._shimFlush();
 
 </script>
 
