@@ -722,37 +722,43 @@ function friendlyError(code) {
 // Show auth screen on first load
 document.getElementById('screen-auth').classList.add('visible');
 
-onAuthStateChanged(auth, async (user)=>{
-
-  if(user){
-    currentUser=user;
+onAuthStateChanged(auth, async (user) => {
+  const errEl = document.getElementById('auth-error');
+  if (user) {
+    currentUser = user;
     try {
-      const snap=await getDoc(doc(db,'players',user.uid));
-      if(snap.exists()){ userProfile=snap.data(); userProfile.id=user.uid; }
-      else { userProfile={name:user.email,role:'player',id:user.uid}; }
+      const snap = await getDoc(doc(db, 'players', user.uid));
+      if (snap.exists()) { userProfile = snap.data(); userProfile.id = user.uid; }
+      else { userProfile = {name: user.email, role: 'player', id: user.uid}; }
     } catch(e) {
-      console.warn('Profile load error:',e.message);
-      userProfile={name:user.email,role:'player',id:user.uid};
+      userProfile = {name: user.email, role: 'player', id: user.uid};
     }
-    try { await loadGlobalData(); } catch(e){ console.warn('Data load error:',e.message); }
+    try { await loadGlobalData(); } catch(e) { console.warn('loadGlobalData error:', e); }
+    // Hide auth screen
     const authEl = document.getElementById('screen-auth');
-    authEl.classList.add('fade-out');
-    setTimeout(() => {
-      authEl.classList.remove('active','visible','fade-out');
-      authEl.style.display='none';
-    }, 350);
-    document.getElementById('bottom-nav').style.display='block';
-    if(userProfile.role==='admin') document.getElementById('admin-nav-btn').style.display='flex';
-    showScreen('home'); loadHome();
+    authEl.style.display = 'none';
+    authEl.classList.remove('active');
+    // Show app
+    document.getElementById('bottom-nav').style.display = 'block';
+    if (userProfile.role === 'admin') {
+      document.getElementById('admin-nav-btn').style.display = 'flex';
+    }
+    showScreen('home');
+    loadHome();
   } else {
-    currentUser=null; userProfile=null;
-    const authScreen = document.getElementById('screen-auth');
-    authScreen.classList.add('active','visible');
-    authScreen.style.display='';
-    document.getElementById('bottom-nav').style.display='none';
-    document.querySelectorAll('.screen:not(#screen-auth)').forEach(s=>{ s.classList.remove('active'); s.style.display=''; });
+    currentUser = null;
+    userProfile = null;
+    const authEl = document.getElementById('screen-auth');
+    authEl.style.display = 'flex';
+    authEl.classList.add('active');
+    document.getElementById('bottom-nav').style.display = 'none';
+    document.querySelectorAll('.screen:not(#screen-auth)').forEach(s => {
+      s.classList.remove('active');
+      s.style.display = '';
+    });
   }
 });
+
 
 // ── GLOBAL DATA ──
 async function loadGlobalData() {
