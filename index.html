@@ -200,7 +200,7 @@ td.pname{font-weight:600;font-family:'Playfair Display',serif;font-size:0.95rem;
 .modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:200;align-items:center;justify-content:center;padding:1rem;}
 .modal-bg.open{display:flex;}
 .modal{background:var(--cream);border-radius:20px;padding:2rem;width:100%;max-width:500px;max-height:90vh;overflow-y:auto;box-shadow:var(--shadow-lg);}
-.modal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.2rem;}.modal h3{font-family:'Playfair Display',serif;font-size:1.2rem;color:var(--forest);margin:0;}.modal-close-btn{background:rgba(0,0,0,0.07);border:none;font-size:1.1rem;font-weight:700;cursor:pointer;color:var(--forest);padding:4px 9px;border-radius:6px;line-height:1;transition:all 0.15s;}.modal-close-btn:hover{background:rgba(0,0,0,0.15);}
+.modal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.2rem;}.modal h3{font-family:'Playfair Display',serif;font-size:1.2rem;color:var(--forest);margin:0;}.modal-close-btn{background:rgba(0,0,0,0.07);border:none;font-size:1.1rem;font-weight:700;cursor:pointer;color:var(--forest);padding:4px 9px;border-radius:6px;line-height:1;}.modal-close-btn:hover{background:rgba(0,0,0,0.15);}
 .modal-footer{display:flex;gap:8px;margin-top:1.5rem;justify-content:flex-end;}
 
 /* ── MISC ── */
@@ -593,19 +593,8 @@ function toast(msg) {
   el.textContent = msg; el.classList.add('show');
   setTimeout(()=>el.classList.remove('show'), 2800);
 }
-function openModal(id) {
-  const el = document.getElementById(id);
-  if (!el) return;
-  el.classList.add('open');
-  el._outsideHandler = function(e) { if (e.target === el) closeModal(id); };
-  el.addEventListener('click', el._outsideHandler);
-}
-function closeModal(id) {
-  const el = document.getElementById(id);
-  if (!el) return;
-  el.classList.remove('open');
-  if (el._outsideHandler) { el.removeEventListener('click', el._outsideHandler); el._outsideHandler = null; }
-}
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
 function showScreen(name) {
   document.querySelectorAll('.screen').forEach(s=>{ s.classList.remove('active'); s.style.display=''; });
   const s = document.getElementById('screen-'+name);
@@ -722,43 +711,37 @@ function friendlyError(code) {
 // Show auth screen on first load
 document.getElementById('screen-auth').classList.add('visible');
 
-onAuthStateChanged(auth, async (user) => {
-  const errEl = document.getElementById('auth-error');
-  if (user) {
-    currentUser = user;
+onAuthStateChanged(auth, async (user)=>{
+
+  if(user){
+    currentUser=user;
     try {
-      const snap = await getDoc(doc(db, 'players', user.uid));
-      if (snap.exists()) { userProfile = snap.data(); userProfile.id = user.uid; }
-      else { userProfile = {name: user.email, role: 'player', id: user.uid}; }
+      const snap=await getDoc(doc(db,'players',user.uid));
+      if(snap.exists()){ userProfile=snap.data(); userProfile.id=user.uid; }
+      else { userProfile={name:user.email,role:'player',id:user.uid}; }
     } catch(e) {
-      userProfile = {name: user.email, role: 'player', id: user.uid};
+      console.warn('Profile load error:',e.message);
+      userProfile={name:user.email,role:'player',id:user.uid};
     }
-    try { await loadGlobalData(); } catch(e) { console.warn('loadGlobalData error:', e); }
-    // Hide auth screen
+    try { await loadGlobalData(); } catch(e){ console.warn('Data load error:',e.message); }
     const authEl = document.getElementById('screen-auth');
-    authEl.style.display = 'none';
-    authEl.classList.remove('active');
-    // Show app
-    document.getElementById('bottom-nav').style.display = 'block';
-    if (userProfile.role === 'admin') {
-      document.getElementById('admin-nav-btn').style.display = 'flex';
-    }
-    showScreen('home');
-    loadHome();
+    authEl.classList.add('fade-out');
+    setTimeout(() => {
+      authEl.classList.remove('active','visible','fade-out');
+      authEl.style.display='none';
+    }, 350);
+    document.getElementById('bottom-nav').style.display='block';
+    if(userProfile.role==='admin') document.getElementById('admin-nav-btn').style.display='flex';
+    showScreen('home'); loadHome();
   } else {
-    currentUser = null;
-    userProfile = null;
-    const authEl = document.getElementById('screen-auth');
-    authEl.style.display = 'flex';
-    authEl.classList.add('active');
-    document.getElementById('bottom-nav').style.display = 'none';
-    document.querySelectorAll('.screen:not(#screen-auth)').forEach(s => {
-      s.classList.remove('active');
-      s.style.display = '';
-    });
+    currentUser=null; userProfile=null;
+    const authScreen = document.getElementById('screen-auth');
+    authScreen.classList.add('active','visible');
+    authScreen.style.display='';
+    document.getElementById('bottom-nav').style.display='none';
+    document.querySelectorAll('.screen:not(#screen-auth)').forEach(s=>{ s.classList.remove('active'); s.style.display=''; });
   }
 });
-
 
 // ── GLOBAL DATA ──
 async function loadGlobalData() {
@@ -1852,44 +1835,6 @@ document.addEventListener('keydown', e => {
   }
 });
 
-
-// ── TOURNAMENT HISTORY ──
-async function loadHistory() {
-  const cont = document.getElementById('history-content');
-  if (!cont) return;
-  cont.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
-  try {
-    const snap = await getDocs(query(collection(db,'tournaments'), orderBy('date','desc')));
-    const tournaments = snap.docs.map(d=>({id:d.id,...d.data()}));
-    if (!tournaments.length) {
-      cont.innerHTML = '<div class="empty"><div class="ei">🏆</div><p>No tournaments yet.</p></div>';
-      return;
-    }
-    cont.innerHTML = tournaments.map(t => {
-      const winner = (t.results||[])[0]?.name || '—';
-      const chipCls = t.status==='locked'?'chip-red':t.status==='active'?'chip-green':'chip-gold';
-      return `<div class="history-row">
-        <div class="hr-left">
-          <div class="name">${t.name||'Tournament'}</div>
-          <div class="meta">${t.date||''} · ${t.course||''} · <span class="chip ${chipCls}">${t.status||'draft'}</span></div>
-        </div>
-        <div class="hr-right">
-          <div class="score">${winner}</div>
-          <div class="pos">Winner</div>
-        </div>
-      </div>`;
-    }).join('');
-  } catch(e) {
-    cont.innerHTML = `<div class="empty"><div class="ei">⚠️</div><p>Error loading history.</p></div>`;
-  }
-}
-window.loadHistory = loadHistory;
-
-document.addEventListener('keydown', function(e) {
-  if (e.key === 'Escape') {
-    document.querySelectorAll('.modal-bg.open').forEach(function(m) { closeModal(m.id); });
-  }
-});
 
 </script>
 
