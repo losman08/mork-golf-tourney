@@ -200,7 +200,7 @@ td.pname{font-weight:600;font-family:'Playfair Display',serif;font-size:0.95rem;
 .modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:200;align-items:center;justify-content:center;padding:1rem;}
 .modal-bg.open{display:flex;}
 .modal{background:var(--cream);border-radius:20px;padding:2rem;width:100%;max-width:500px;max-height:90vh;overflow-y:auto;box-shadow:var(--shadow-lg);}
-.modal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.2rem;}.modal h3{font-family:'Playfair Display',serif;font-size:1.2rem;color:var(--forest);margin:0;}.modal-close-btn{background:rgba(0,0,0,0.07);border:none;font-size:1.1rem;font-weight:700;cursor:pointer;color:var(--forest);padding:4px 9px;border-radius:6px;line-height:1;}.modal-close-btn:hover{background:rgba(0,0,0,0.15);}
+.modal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.2rem;}.modal h3{font-family:'Playfair Display',serif;font-size:1.2rem;color:var(--forest);margin:0;}.modal-close-btn{background:var(--forest);border:none;font-size:1.1rem;font-weight:900;cursor:pointer;color:var(--gold);padding:6px 11px;border-radius:8px;line-height:1;min-width:32px;text-align:center;}.modal-close-btn:hover{background:var(--forest-mid);}
 .modal-footer{display:flex;gap:8px;margin-top:1.5rem;justify-content:flex-end;}
 
 /* ── MISC ── */
@@ -308,7 +308,7 @@ hr.div{border:none;border-top:1px solid var(--cream-dark);margin:1rem 0;}
     <!-- ══ HOME ══ -->
     <div id="screen-home" class="screen">
       <div class="topbar">
-        <div style="display:flex;align-items:center;gap:10px;"><img src="logo.jpg" alt="MT" style="height:36px;width:56px;object-fit:contain;border-radius:5px;"><div><div class="topbar-title">Morks Golf Tour</div><div class="topbar-sub">Season Dashboard</div></div></div>
+        <div style="display:flex;align-items:center;gap:10px;"><img src="logo.jpg" alt="" style="height:36px;width:56px;object-fit:contain;border-radius:5px;" onerror="this.style.display='none'"><div><div class="topbar-title">Morks Golf Tour</div><div class="topbar-sub">Season Dashboard</div></div></div>
         <div class="topbar-right">
           <button class="icon-btn" onclick="window._real_doSignOut()" title="Sign Out">🚪</button>
         </div>
