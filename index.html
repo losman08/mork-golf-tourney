@@ -89,13 +89,29 @@ html,body{height:100%;font-family:'Inter',sans-serif;background:var(--forest);co
 
 /* ── CARDS ── */
 .card{background:var(--cream);border-radius:var(--radius);padding:1.5rem;box-shadow:var(--shadow);}
-.course-search-wrap{position:relative;margin-bottom:0;}
-.course-results{position:absolute;top:100%;left:0;right:0;background:white;border-radius:0 0 10px 10px;box-shadow:0 8px 24px rgba(0,0,0,0.15);z-index:100;max-height:200px;overflow-y:auto;border:1px solid var(--cream-dark);border-top:none;}
-.course-result-item{padding:10px 14px;cursor:pointer;font-size:0.85rem;border-bottom:1px solid var(--cream-dark);transition:background 0.15s;}
-.course-result-item:last-child{border-bottom:none;}
-.course-result-item:hover{background:var(--gold-pale);}
-.course-result-name{font-weight:600;color:var(--text-dark);}
-.course-result-loc{font-size:0.75rem;color:var(--text-light);margin-top:2px;}
+.course-search-wrap{position:relative;}
+.course-dropdown{position:absolute;top:100%;left:0;right:0;background:white;border-radius:0 0 10px 10px;box-shadow:0 8px 24px rgba(0,0,0,0.15);z-index:100;max-height:220px;overflow-y:auto;border:1px solid var(--cream-dark);border-top:none;display:none;}
+.course-drop-item{padding:10px 14px;cursor:pointer;font-size:0.85rem;border-bottom:1px solid var(--cream-dark);transition:background 0.15s;}
+.course-drop-item:last-child{border-bottom:none;}
+.course-drop-item:hover{background:var(--gold-pale);}
+.course-drop-name{font-weight:600;color:var(--text-dark);}
+.course-drop-meta{font-size:0.75rem;color:var(--text-light);margin-top:2px;}
+.recent-courses{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:0.8rem;}
+.recent-course-btn{background:var(--forest);color:var(--gold);border:none;border-radius:8px;padding:6px 12px;font-size:0.78rem;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;transition:background 0.15s;white-space:nowrap;}
+.recent-course-btn:hover{background:var(--forest-mid);}
+.tee-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:0.8rem;}
+.tee-tab{padding:5px 14px;border-radius:8px;font-size:0.8rem;font-weight:700;cursor:pointer;border:1.5px solid var(--cream-dark);background:var(--cream);color:var(--text-mid);transition:all 0.15s;font-family:'Inter',sans-serif;}
+.tee-tab.active{background:var(--forest);color:var(--gold);border-color:var(--forest);}
+.hole-yardage{font-size:0.65rem;color:var(--text-light);margin-left:3px;}
+.score-albatross{background:#fff8e1;color:#7a5c00;border-color:#daa520!important;}
+.score-eagle{background:#e8eaf6;color:#283593;border-color:#5c6bc0!important;}
+.score-birdie{background:#e8f5e9;color:#1b5e20;border-color:#4caf50!important;}
+.score-par{background:white;color:var(--text-dark);}
+.score-bogey{background:#fff3e0;color:#e65100;border-color:#ff9800!important;}
+.score-double{background:#fce4ec;color:#b71c1c;border-color:#f44336!important;}
+.score-triple{background:#f3e5f5;color:#4a148c;border-color:#ab47bc!important;}
+.score-snowman{background:#212121;color:white;border-color:#424242!important;}
+
 .card-sm{padding:1rem 1.2rem;}
 .card h3{font-family:'Playfair Display',serif;font-size:1.15rem;color:var(--forest);margin-bottom:1rem;padding-bottom:0.7rem;border-bottom:2px solid var(--cream-dark);}
 .section-title{font-family:'Playfair Display',serif;font-size:1.3rem;color:var(--cream);font-weight:700;margin-bottom:0.3rem;}
@@ -457,6 +473,11 @@ hr.div{border:none;border-top:1px solid var(--cream-dark);margin:1rem 0;}
             <div class="t-label">Export Results</div>
             <div class="t-sub">CSV download</div>
           </div>
+          <div class="admin-tile" onclick="window._real_showAdminLibrary()">
+            <div class="t-icon">📚</div>
+            <div class="t-label">Course Library</div>
+            <div class="t-sub">Add &amp; manage courses</div>
+          </div>
         </div>
         <div id="admin-content" style="margin-top:1rem;"></div>
       </div>
@@ -537,7 +558,7 @@ const _shimmed = ['doLogin','doRegister','doForgotPassword','doSignOut',
   'switchAuthTab','showScreen','navTo','navCasual','openModal','closeModal',
   'loadLeaderboard','switchLbTab','populateLbSelect','submitScorecard',
   'loadProfile','createTournament','showAdminPlayers','showAdminScores',
-  'showAdminPeoria','showAdminLock','showAdminExport','loadAdmin',
+  'showAdminPeoria','showAdminLock','showAdminExport','showAdminLibrary','loadAdmin',
   'loadPlayerScoresForEdit','saveEditedScores','loadHistory','loadHistoryDetail',
   'loadCasualRound','saveCasualRound','loadCasualHistory','loadStatsScreen',
   'showAdminSettings','toggleAdminRole','togglePeoriaHole','savePeoriaHoles',
@@ -648,7 +669,7 @@ window._real_loadHome=loadHome;
 window._real_loadScorecard=loadScorecard;
 window._real_createTournament=createTournament; window._real_showAdminPlayers=showAdminPlayers;
 window._real_showAdminScores=showAdminScores; window._real_showAdminPeoria=showAdminPeoria;
-window._real_showAdminLock=showAdminLock; window._real_showAdminExport=showAdminExport; window._real_loadAdmin=loadAdmin;
+window._real_showAdminLock=showAdminLock; window._real_showAdminExport=showAdminExport; window._real_showAdminLibrary=showAdminLibrary; window._real_loadAdmin=loadAdmin;
 window._real_loadPlayerScoresForEdit=loadPlayerScoresForEdit; window._real_saveEditedScores=saveEditedScores;
 
 // ── AUTH ──
@@ -1501,7 +1522,7 @@ async function loadCasualRound() {
   let html = `
     <div class="card card-sm" style="margin-bottom:1rem;">
       <div class="two-col">
-        <div class="fg course-search-wrap"><label>Course</label><input type="text" id="cr-course" placeholder="Search course name..." autocomplete="off"><div class="course-results" id="cr-course-results" style="display:none;"></div></div>
+        <div class="fg"><label>Course</label><input type="text" id="cr-course" placeholder="Course name" autocomplete="off"></div>
         <div class="fg"><label>Date</label><input type="date" id="cr-date"></div>
       </div>
       <div class="two-col">
@@ -1530,6 +1551,8 @@ async function loadCasualRound() {
   html += `</div>`;
   cont.innerHTML = html;
   document.getElementById('cr-date').valueAsDate = new Date();
+  initCourseSearchBox();
+  loadRecentCourses();
   initCourseSearch('cr-course', 'cr-course-results');
 }
 window._real_loadCasualRound = loadCasualRound;
@@ -1830,232 +1853,359 @@ if (adminGrid) {
 // ── REAL-TIME SCORE COLORING ON SCORECARD ──
 // Enhanced hole card click-to-set via buttons (already wired), add keyboard support
 
-// ── COURSE LIBRARY + GOLFCOURSEAPI FALLBACK ──
-const GCAPI_KEY = '10591';
-const GCAPI_BASE = 'https://api.golfcourseapi.com/v1';
-let _libraryCache = null;
 
-// Load course library from Firestore
+// ── COURSE LIBRARY ──
+let _courseLibrary = null;
+
 async function loadCourseLibrary() {
-  if (_libraryCache) return _libraryCache;
+  if (_courseLibrary) return _courseLibrary;
   try {
-    const snap = await getDocs(query(collection(db, 'courseLibrary'), orderBy('state'), orderBy('name')));
-    _libraryCache = snap.docs.map(d => ({id: d.id, ...d.data()}));
-    return _libraryCache;
+    const snap = await getDocs(query(collection(db, 'courseLibrary'), orderBy('name')));
+    _courseLibrary = snap.docs.map(d => ({id: d.id, ...d.data()}));
+    return _courseLibrary;
   } catch(e) { return []; }
 }
 
-// Search library first, then API fallback
-async function searchCoursesAll(q) {
-  const lib = await loadCourseLibrary();
-  const term = q.toLowerCase().trim();
-  // Filter library matches
-  const libMatches = lib.filter(c =>
-    (c.name||'').toLowerCase().includes(term) ||
-    (c.city||'').toLowerCase().includes(term) ||
-    (c.state||'').toLowerCase().includes(term)
-  ).slice(0, 6);
-
-  // Always try API fallback too
-  let apiMatches = [];
-  try {
-    const resp = await fetch(`${GCAPI_BASE}/search?search_query=${encodeURIComponent(q)}&key=${GCAPI_KEY}`);
-    if (resp.ok) {
-      const data = await resp.json();
-      const courses = data.courses || data.results || [];
-      apiMatches = courses.slice(0, 5).map(c => ({
-        id: 'api_' + (c.id || c.course_id || Math.random()),
-        name: c.club_name || c.course_name || c.name || 'Unknown',
-        city: c.location?.city || c.city || '',
-        state: c.location?.state || c.state || '',
-        par: c.par || c.par_total || null,
-        holes: c.holes || [],
-        _fromApi: true,
-        _apiId: c.id || c.course_id,
-      }));
-    }
-  } catch(e) {}
-
-  // Merge: library first, then API results not already in library
-  const libNames = new Set(libMatches.map(c => c.name.toLowerCase()));
-  const merged = [...libMatches, ...apiMatches.filter(c => !libNames.has(c.name.toLowerCase()))];
-  return merged;
+function getActiveTee(course) {
+  if (!course || !course.tees || !course.tees.length) return null;
+  return course.tees.find(t => t.name === 'White') || course.tees[0];
 }
 
-function initCourseSearch(inputId, resultsId) {
-  const inp = document.getElementById(inputId);
-  const res = document.getElementById(resultsId);
-  if (!inp || !res) return;
+function applyCourseToCasualRound(course, teeName) {
+  if (!course) return;
+  const tees = course.tees || [];
+  const tee = tees.find(t => t.name === teeName) || tees.find(t => t.name === 'White') || tees[0];
+  if (!tee) return;
+
+  // Update tee tabs
+  const tabsEl = document.getElementById('cr-tee-tabs');
+  if (tabsEl) {
+    tabsEl.innerHTML = tees.map(t =>
+      `<button class="tee-tab${t.name === tee.name ? ' active' : ''}"
+        onclick="applyCourseToCasualRound(window._activeCourse, '${t.name}')">${t.name}</button>`
+    ).join('');
+  }
+
+  // Update stats bar
+  const statsEl = document.getElementById('cr-course-stats');
+  if (statsEl) {
+    statsEl.innerHTML = `
+      <span>Par ${tee.holes ? tee.holes.reduce((s,h)=>s+h.par,0) : course.par}</span> &nbsp;·&nbsp;
+      <span>${tee.totalYards || '?'}y</span> &nbsp;·&nbsp;
+      <span>Rating ${tee.rating || '?'}</span> &nbsp;·&nbsp;
+      <span>Slope ${tee.slope || '?'}</span>`;
+  }
+
+  // Update par input
+  const parEl = document.getElementById('cr-par');
+  if (parEl && tee.holes) parEl.value = tee.holes.reduce((s,h)=>s+h.par,0);
+
+  // Update hole cards
+  if (tee.holes && tee.holes.length === 18) {
+    tee.holes.forEach(h => {
+      const card = document.getElementById('cr-hc-' + h.hole);
+      if (!card) return;
+      const labelEl = card.querySelector('.hole-label');
+      const parEl2 = card.querySelector('.hole-par');
+      if (labelEl) {
+        const yStr = h.yards ? `<span class="hole-yardage">${h.yards}y</span>` : '';
+        labelEl.innerHTML = `Hole ${h.hole}${yStr}`;
+      }
+      if (parEl2) parEl2.textContent = `Par ${h.par}`;
+    });
+  }
+
+  window._activeCourse = course;
+  window._activeTee = tee;
+}
+
+function initCourseSearchBox() {
+  const inp = document.getElementById('cr-course');
+  const drop = document.getElementById('cr-course-drop');
+  if (!inp || !drop) return;
   let timer;
   inp.addEventListener('input', () => {
     clearTimeout(timer);
-    const q = inp.value.trim();
-    if (q.length < 2) { res.style.display = 'none'; return; }
-    res.innerHTML = '<div class="course-result-item" style="color:var(--text-light);font-style:italic;">Searching...</div>';
-    res.style.display = 'block';
+    const q = inp.value.trim().toLowerCase();
+    if (q.length < 2) { drop.style.display = 'none'; return; }
     timer = setTimeout(async () => {
-      const courses = await searchCoursesAll(q);
-      if (!courses.length) {
-        res.innerHTML = '<div class="course-result-item" style="color:var(--text-light);">No courses found — type name manually below.</div>';
-        setTimeout(() => { res.style.display = 'none'; }, 2000);
-        return;
-      }
-      res.innerHTML = courses.map((c, i) => {
-        const loc = [c.city, c.state].filter(Boolean).join(', ');
-        const badge = c._fromApi ? '<span style="font-size:0.65rem;background:#e8f5e9;color:#2e7d32;padding:1px 5px;border-radius:4px;margin-left:4px;">API</span>' :
-                                   '<span style="font-size:0.65rem;background:var(--gold-pale);color:#7a5c00;padding:1px 5px;border-radius:4px;margin-left:4px;">Library</span>';
-        return `<div class="course-result-item" onclick="selectCourse(${i})">
-          <div class="course-result-name">${c.name}${badge}</div>
-          ${loc ? `<div class="course-result-loc">${loc}</div>` : ''}
-        </div>`;
-      }).join('');
-      res._courses = courses;
-    }, 350);
+      const lib = await loadCourseLibrary();
+      const matches = lib.filter(c =>
+        c.name.toLowerCase().includes(q) ||
+        (c.city||'').toLowerCase().includes(q)
+      ).slice(0, 8);
+      if (!matches.length) { drop.style.display = 'none'; return; }
+      drop.innerHTML = matches.map((c,i) =>
+        `<div class="course-drop-item" onclick="selectLibraryCourse(${i})">
+          <div class="course-drop-name">${c.name}</div>
+          <div class="course-drop-meta">${c.city||''}${c.state ? ', '+c.state : ''} · Par ${c.par}</div>
+        </div>`
+      ).join('');
+      drop._matches = matches;
+      drop.style.display = 'block';
+    }, 300);
   });
   document.addEventListener('click', e => {
-    if (!inp.contains(e.target) && !res.contains(e.target)) res.style.display = 'none';
+    if (!inp.contains(e.target) && !drop.contains(e.target)) drop.style.display = 'none';
   });
 }
 
-window.selectCourse = function(idx) {
-  const res = document.getElementById('cr-course-results');
+window.selectLibraryCourse = function(idx) {
+  const drop = document.getElementById('cr-course-drop');
   const inp = document.getElementById('cr-course');
-  if (!res || !res._courses) return;
-  const c = res._courses[idx];
-  if (!c) return;
-  if (inp) inp.value = c.name;
-  res.style.display = 'none';
-
-  // Apply pars from library course
-  if (!c._fromApi && c.holePars && c.holePars.length === 18) {
-    applyParsToRound(c.holePars, null, c.par || c.holePars.reduce((a,b)=>a+b,0));
-    toast('⛳ Course loaded from library!');
-  } else if (c.par) {
-    // API result with total par only
-    const parEl = document.getElementById('cr-par');
-    if (parEl) parEl.value = c.par;
-    toast('⛳ Course loaded — adjust hole pars if needed.');
-  } else {
-    toast('⛳ Course selected — enter hole pars manually.');
-  }
+  if (!drop || !drop._matches) return;
+  const course = drop._matches[idx];
+  if (!course) return;
+  if (inp) inp.value = course.name;
+  drop.style.display = 'none';
+  applyCourseToCasualRound(course, 'White');
+  toast('⛳ ' + course.name + ' loaded!');
 };
 
-function applyParsToRound(pars, yards, totalPar) {
-  const parEl = document.getElementById('cr-par');
-  if (parEl && totalPar) parEl.value = totalPar;
-  for (let h = 1; h <= 18; h++) {
-    const card = document.getElementById(`cr-hc-${h}`);
-    if (!card) continue;
-    const par = pars ? (pars[h-1] || 4) : 4;
-    const y = yards ? yards[h-1] : null;
-    const yStr = y ? `<span style="font-size:0.65rem;color:var(--text-light);margin-left:4px;">${y}y</span>` : '';
-    const labelEl = card.querySelector('.hole-label');
-    const parEl2 = card.querySelector('.hole-par');
-    if (labelEl) labelEl.innerHTML = `Hole ${h}${yStr}`;
-    if (parEl2) parEl2.textContent = `Par ${par}`;
-  }
+window.selectRecentCourse = async function(name) {
+  const lib = await loadCourseLibrary();
+  const course = lib.find(c => c.name === name);
+  if (!course) { toast('Course not found in library.'); return; }
+  const inp = document.getElementById('cr-course');
+  if (inp) inp.value = course.name;
+  applyCourseToCasualRound(course, 'White');
+  toast('⛳ ' + course.name + ' loaded!');
+};
+
+async function loadRecentCourses() {
+  if (!currentUser) return;
+  const el = document.getElementById('cr-recent-courses');
+  if (!el) return;
+  try {
+    const snap = await getDocs(query(
+      collection(db, 'casualRounds'),
+      where('playerId', '==', currentUser.uid),
+      orderBy('date', 'desc'),
+      limit(30)
+    ));
+    const seen = new Set();
+    const recent = [];
+    snap.docs.forEach(d => {
+      const name = d.data().course;
+      if (name && !seen.has(name) && recent.length < 10) {
+        seen.add(name);
+        recent.push(name);
+      }
+    });
+    if (recent.length) {
+      el.innerHTML = recent.map(name =>
+        `<button class="recent-course-btn" onclick="selectRecentCourse('${name.replace(/'/g,"\'")}')">⛳ ${name}</button>`
+      ).join('');
+    } else {
+      el.innerHTML = '<span style="font-size:0.78rem;color:var(--text-light);font-style:italic;">No recent rounds yet</span>';
+    }
+  } catch(e) {}
 }
 
+// ── SCORING COLOR KEY ──
+function getScoreClass(score, par) {
+  if (!score || !par) return '';
+  const diff = score - par;
+  if (diff <= -3) return 'score-albatross';
+  if (diff === -2) return 'score-eagle';
+  if (diff === -1) return 'score-birdie';
+  if (diff === 0)  return 'score-par';
+  if (diff === 1)  return 'score-bogey';
+  if (diff === 2)  return 'score-double';
+  if (diff === 3)  return 'score-triple';
+  return 'score-snowman';
+}
 
 // ── ADMIN: COURSE LIBRARY ──
 async function showAdminLibrary() {
   const cont = document.getElementById('admin-content');
   if (!cont) return;
-  _libraryCache = null; // force refresh
+  _courseLibrary = null; // force refresh
   const courses = await loadCourseLibrary();
-
   cont.innerHTML = `
     <div class="card">
-      <h3>📚 Course Library</h3>
-      <p style="font-size:0.82rem;color:var(--text-light);margin-bottom:1rem;">Add courses your group plays. Players can select from this list when logging rounds.</p>
+      <h3 style="font-family:'Playfair Display',serif;font-size:1.1rem;color:var(--forest);margin-bottom:0.8rem;">📚 Course Library</h3>
+      <p style="font-size:0.82rem;color:var(--text-light);margin-bottom:1rem;">${courses.length} courses · Players search this when logging casual rounds.</p>
       <button class="btn btn-gold btn-full" onclick="showAddCourseForm()" style="margin-bottom:1rem;">+ Add New Course</button>
-      <div id="course-library-list">
-        ${courses.length ? courses.map(c => `
-          <div class="history-row">
-            <div class="hr-left">
+      <div id="lib-course-list">
+        ${courses.length ? courses.map(c => {
+          const tees = (c.tees||[]).map(t=>t.name).join(' / ');
+          return `<div class="history-row" style="align-items:flex-start;">
+            <div class="hr-left" style="flex:1;">
               <div class="name">${c.name}</div>
-              <div class="meta">${c.city||''} · ${c.state||''} · Par ${c.par||72}</div>
+              <div class="meta">${c.city||''}${c.state?', '+c.state:''} · Par ${c.par} · ${tees||'No tees'}</div>
             </div>
-            <div class="hr-right">
-              <button class="btn btn-ghost btn-sm" onclick="editCourseLibrary('${c.id}')">Edit</button>
-              <button class="btn btn-danger btn-sm" onclick="deleteCourseLibrary('${c.id}','${c.name.replace(/'/g,'')}')">Delete</button>
+            <div class="hr-right" style="display:flex;gap:6px;flex-shrink:0;">
+              <button class="btn btn-ghost btn-sm" onclick="showAddCourseForm('${c.id}')">✏️</button>
+              <button class="btn btn-danger btn-sm" onclick="deleteCourseFromLibrary('${c.id}','${c.name.replace(/'/g,'')}')">🗑️</button>
             </div>
-          </div>`).join('') : '<div class="empty"><div class="ei">⛳</div><p>No courses yet. Add your first course!</p></div>'}
+          </div>`;
+        }).join('') : '<div class="empty"><div class="ei">⛳</div><p>No courses yet. Add your first course!</p></div>'}
       </div>
     </div>`;
 }
 window.showAdminLibrary = showAdminLibrary;
+window._real_showAdminLibrary = showAdminLibrary;
 
-window.showAddCourseForm = function(existing) {
+window.showAddCourseForm = async function(id) {
   const cont = document.getElementById('admin-content');
-  const c = existing || {};
-  const pars = c.holePars || DEFAULT_PARS;
+  let c = {};
+  if (id) {
+    const snap = await getDoc(doc(db, 'courseLibrary', id));
+    if (snap.exists()) c = {id: snap.id, ...snap.data()};
+  }
+  const tees = c.tees || [{name:'White',rating:'',slope:'',totalYards:'',holes:Array.from({length:18},(_,i)=>({hole:i+1,par:4,yards:''}))}];
+  const isEdit = !!id;
+
+  const makeTeeBlock = (tee, idx) => {
+    const holes = tee.holes || Array.from({length:18},(_,i)=>({hole:i+1,par:4,yards:''}));
+    const front = holes.slice(0,9);
+    const back = holes.slice(9,18);
+    const makeRow = (h) =>
+      `<div style="text-align:center;">
+        <div style="font-size:0.65rem;color:var(--text-light);margin-bottom:2px;">H${h.hole}</div>
+        <input type="number" id="tee${idx}-par-${h.hole}" value="${h.par||4}" min="3" max="6"
+          style="width:100%;text-align:center;border:1px solid var(--cream-dark);border-radius:5px;padding:3px 0;font-size:0.8rem;"
+          oninput="updateTeeTotal(${idx})">
+        <input type="number" id="tee${idx}-yds-${h.hole}" value="${h.yards||''}" min="0" max="700" placeholder="yds"
+          style="width:100%;text-align:center;border:1px solid var(--cream-dark);border-radius:5px;padding:3px 0;font-size:0.72rem;margin-top:2px;color:var(--text-light);"
+          oninput="updateTeeTotal(${idx})">
+      </div>`;
+
+    return `<div class="tee-block-form" id="tee-block-${idx}" style="background:white;border-radius:10px;padding:1rem;margin-bottom:0.8rem;border:1.5px solid var(--cream-dark);">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.8rem;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <select id="tee${idx}-name" style="padding:4px 8px;border-radius:6px;border:1.5px solid var(--cream-dark);font-weight:700;font-size:0.82rem;">
+            ${['White','Blue','Gold','Red','Green','Black','Silver'].map(n=>`<option${n===tee.name?' selected':''}>${n}</option>`).join('')}
+          </select>
+          <span style="font-size:0.82rem;font-weight:700;color:var(--forest);">Tees</span>
+        </div>
+        <button class="btn btn-danger btn-sm" onclick="document.getElementById('tee-block-${idx}').remove()">✕</button>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:0.8rem;">
+        <div><label style="font-size:0.7rem;font-weight:700;color:var(--text-light);text-transform:uppercase;">Rating</label>
+          <input type="number" id="tee${idx}-rating" value="${tee.rating||''}" step="0.1" placeholder="68.8"
+            style="width:100%;border:1px solid var(--cream-dark);border-radius:6px;padding:6px;font-size:0.82rem;"></div>
+        <div><label style="font-size:0.7rem;font-weight:700;color:var(--text-light);text-transform:uppercase;">Slope</label>
+          <input type="number" id="tee${idx}-slope" value="${tee.slope||''}" placeholder="127"
+            style="width:100%;border:1px solid var(--cream-dark);border-radius:6px;padding:6px;font-size:0.82rem;"></div>
+        <div><label style="font-size:0.7rem;font-weight:700;color:var(--text-light);text-transform:uppercase;">Total Yards</label>
+          <div id="tee${idx}-total" style="padding:6px;background:var(--cream);border-radius:6px;font-size:0.82rem;font-weight:700;color:var(--forest);border:1px solid var(--cream-dark);">${tee.totalYards||'—'}</div>
+        </div>
+      </div>
+      <div style="font-size:0.72rem;font-weight:700;color:var(--text-light);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;">Front 9 — Par / Yards</div>
+      <div style="display:grid;grid-template-columns:repeat(9,1fr);gap:4px;margin-bottom:6px;">${front.map(makeRow).join('')}</div>
+      <div style="font-size:0.72rem;font-weight:700;color:var(--text-light);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;">Back 9 — Par / Yards</div>
+      <div style="display:grid;grid-template-columns:repeat(9,1fr);gap:4px;">${back.map(makeRow).join('')}</div>
+    </div>`;
+  };
+
   cont.innerHTML = `
     <div class="card">
-      <h3>${existing ? 'Edit' : 'Add'} Course</h3>
-      <div class="two-col">
-        <div class="fg"><label>Course Name</label><input type="text" id="cl-name" value="${c.name||''}" placeholder="e.g. Pebble Beach Golf Links"></div>
-        <div class="fg"><label>City</label><input type="text" id="cl-city" value="${c.city||''}" placeholder="City"></div>
+      <h3 style="font-family:'Playfair Display',serif;font-size:1.1rem;color:var(--forest);margin-bottom:1rem;">${isEdit?'✏️ Edit':'➕ Add'} Course</h3>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:0.8rem;">
+        <div><label style="font-size:0.72rem;font-weight:700;color:var(--text-light);text-transform:uppercase;">Course Name</label>
+          <input type="text" id="cl-name" value="${c.name||''}" placeholder="e.g. Seascape Golf Club"
+            style="width:100%;border:1.5px solid var(--cream-dark);border-radius:8px;padding:8px;font-size:0.88rem;margin-top:3px;"></div>
+        <div><label style="font-size:0.72rem;font-weight:700;color:var(--text-light);text-transform:uppercase;">City</label>
+          <input type="text" id="cl-city" value="${c.city||''}" placeholder="Aptos"
+            style="width:100%;border:1.5px solid var(--cream-dark);border-radius:8px;padding:8px;font-size:0.88rem;margin-top:3px;"></div>
       </div>
-      <div class="two-col">
-        <div class="fg"><label>State</label><input type="text" id="cl-state" value="${c.state||''}" placeholder="CA"></div>
-        <div class="fg"><label>Total Par</label><input type="number" id="cl-par" value="${c.par||72}" min="60" max="80"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:1rem;">
+        <div><label style="font-size:0.72rem;font-weight:700;color:var(--text-light);text-transform:uppercase;">State</label>
+          <input type="text" id="cl-state" value="${c.state||''}" placeholder="CA" maxlength="2"
+            style="width:100%;border:1.5px solid var(--cream-dark);border-radius:8px;padding:8px;font-size:0.88rem;margin-top:3px;text-transform:uppercase;"></div>
+        <div><label style="font-size:0.72rem;font-weight:700;color:var(--text-light);text-transform:uppercase;">Type</label>
+          <select id="cl-type" style="width:100%;border:1.5px solid var(--cream-dark);border-radius:8px;padding:8px;font-size:0.88rem;margin-top:3px;">
+            ${['Public','Private','Semi-Private','Resort','Municipal'].map(t=>`<option${(c.type||'Public')===t?' selected':''}>${t}</option>`).join('')}
+          </select></div>
       </div>
-      <div class="two-col">
-        <div class="fg"><label>Slope Rating</label><input type="number" id="cl-slope" value="${c.slope||113}" min="55" max="155"></div>
-        <div class="fg"><label>Course Rating</label><input type="number" id="cl-rating" value="${c.rating||72}" step="0.1"></div>
+      <div id="tees-form-container">
+        ${tees.map((t,i) => makeTeeBlock(t,i)).join('')}
       </div>
-      <div class="section-title" style="margin:1rem 0 0.5rem;">Hole Pars</div>
-      <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin-bottom:1rem;">
-        ${Array.from({length:18},(_,i) => `
-          <div style="text-align:center;">
-            <div style="font-size:0.7rem;color:var(--text-light);margin-bottom:2px;">H${i+1}</div>
-            <input type="number" id="cl-hole-${i+1}" value="${pars[i]||4}" min="3" max="6"
-              style="width:100%;text-align:center;border:1px solid var(--cream-dark);border-radius:6px;padding:4px 0;font-size:0.9rem;">
-          </div>`).join('')}
-      </div>
-      <div style="display:flex;gap:8px;margin-top:1rem;">
-        <button class="btn btn-gold" onclick="saveCourseLibrary('${c.id||''}')">Save Course</button>
+      <button class="btn btn-ghost" onclick="addTeeToForm()" style="margin-bottom:1rem;width:100%;">+ Add Another Tee</button>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-gold" style="flex:1;" onclick="saveCourseToLibrary('${c.id||''}')">💾 Save Course</button>
         <button class="btn btn-ghost" onclick="showAdminLibrary()">Cancel</button>
       </div>
+      <div id="cl-save-status" style="margin-top:0.6rem;"></div>
     </div>`;
+  window._teeFormCount = tees.length;
 };
 
-window.editCourseLibrary = async function(id) {
-  const snap = await getDoc(doc(db, 'courseLibrary', id));
-  if (!snap.exists()) return;
-  window.showAddCourseForm({id, ...snap.data()});
-};
-
-window.saveCourseLibrary = async function(id) {
-  const name = document.getElementById('cl-name')?.value.trim();
-  if (!name) { toast('Course name is required.'); return; }
-  const holePars = Array.from({length:18}, (_,i) => parseInt(document.getElementById(`cl-hole-${i+1}`)?.value)||4);
-  const data = {
-    name,
-    city: document.getElementById('cl-city')?.value.trim() || '',
-    state: document.getElementById('cl-state')?.value.trim() || '',
-    par: holePars.reduce((a,b)=>a+b,0),
-    slope: parseFloat(document.getElementById('cl-slope')?.value)||113,
-    rating: parseFloat(document.getElementById('cl-rating')?.value)||72,
-    holePars,
-    updatedAt: serverTimestamp()
-  };
-  if (id) {
-    await updateDoc(doc(db,'courseLibrary',id), data);
-  } else {
-    data.createdAt = serverTimestamp();
-    await addDoc(collection(db,'courseLibrary'), data);
+window.updateTeeTotal = function(idx) {
+  let total = 0;
+  for (let h = 1; h <= 18; h++) {
+    total += parseInt(document.getElementById(`tee${idx}-yds-${h}`)?.value) || 0;
   }
-  _libraryCache = null;
-  toast('✅ Course saved to library!');
-  showAdminLibrary();
+  const el = document.getElementById(`tee${idx}-total`);
+  if (el) el.textContent = total > 0 ? total.toLocaleString() + 'y' : '—';
 };
 
-window.deleteCourseLibrary = async function(id, name) {
-  if (!confirm(`Delete ${name} from the library?`)) return;
+window.addTeeToForm = function() {
+  const container = document.getElementById('tees-form-container');
+  const idx = window._teeFormCount || 1;
+  const blankTee = {name:'Blue',rating:'',slope:'',totalYards:'',holes:Array.from({length:18},(_,i)=>({hole:i+1,par:4,yards:''}))};
+  const tempDiv = document.createElement('div');
+  // Re-use showAddCourseForm's makeTeeBlock logic inline
+  window._teeFormCount = idx + 1;
+  container.insertAdjacentHTML('beforeend', `<div class="tee-block-form" id="tee-block-${idx}" style="background:white;border-radius:10px;padding:1rem;margin-bottom:0.8rem;border:1.5px solid var(--cream-dark);">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.8rem;">
+      <select id="tee${idx}-name" style="padding:4px 8px;border-radius:6px;border:1.5px solid var(--cream-dark);font-weight:700;font-size:0.82rem;">
+        ${['White','Blue','Gold','Red','Green','Black','Silver'].map(n=>`<option${n==='Blue'?' selected':''}>${n}</option>`).join('')}
+      </select>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:0.8rem;">
+      <div><label style="font-size:0.7rem;font-weight:700;color:var(--text-light);text-transform:uppercase;">Rating</label><input type="number" id="tee${idx}-rating" placeholder="68.8" style="width:100%;border:1px solid var(--cream-dark);border-radius:6px;padding:6px;font-size:0.82rem;"></div>
+      <div><label style="font-size:0.7rem;font-weight:700;color:var(--text-light);text-transform:uppercase;">Slope</label><input type="number" id="tee${idx}-slope" placeholder="127" style="width:100%;border:1px solid var(--cream-dark);border-radius:6px;padding:6px;font-size:0.82rem;"></div>
+      <div><label style="font-size:0.7rem;font-weight:700;color:var(--text-light);text-transform:uppercase;">Total Yards</label><div id="tee${idx}-total" style="padding:6px;background:var(--cream);border-radius:6px;font-size:0.82rem;font-weight:700;color:var(--forest);border:1px solid var(--cream-dark);">—</div></div>
+    </div>
+    <div style="font-size:0.72rem;font-weight:700;color:var(--text-light);text-transform:uppercase;margin-bottom:4px;">Front 9</div>
+    <div style="display:grid;grid-template-columns:repeat(9,1fr);gap:4px;margin-bottom:6px;">
+      ${Array.from({length:9},(_,i)=>`<div style="text-align:center;"><div style="font-size:0.65rem;color:var(--text-light);">H${i+1}</div><input type="number" id="tee${idx}-par-${i+1}" value="4" min="3" max="6" style="width:100%;text-align:center;border:1px solid var(--cream-dark);border-radius:5px;padding:3px 0;font-size:0.8rem;" oninput="updateTeeTotal(${idx})"><input type="number" id="tee${idx}-yds-${i+1}" placeholder="yds" style="width:100%;text-align:center;border:1px solid var(--cream-dark);border-radius:5px;padding:3px 0;font-size:0.72rem;margin-top:2px;" oninput="updateTeeTotal(${idx})"></div>`).join('')}
+    </div>
+    <div style="font-size:0.72rem;font-weight:700;color:var(--text-light);text-transform:uppercase;margin-bottom:4px;">Back 9</div>
+    <div style="display:grid;grid-template-columns:repeat(9,1fr);gap:4px;">
+      ${Array.from({length:9},(_,i)=>`<div style="text-align:center;"><div style="font-size:0.65rem;color:var(--text-light);">H${i+10}</div><input type="number" id="tee${idx}-par-${i+10}" value="4" min="3" max="6" style="width:100%;text-align:center;border:1px solid var(--cream-dark);border-radius:5px;padding:3px 0;font-size:0.8rem;" oninput="updateTeeTotal(${idx})"><input type="number" id="tee${idx}-yds-${i+10}" placeholder="yds" style="width:100%;text-align:center;border:1px solid var(--cream-dark);border-radius:5px;padding:3px 0;font-size:0.72rem;margin-top:2px;" oninput="updateTeeTotal(${idx})"></div>`).join('')}
+    </div>
+    <button class="btn btn-danger btn-sm" onclick="document.getElementById('tee-block-${idx}').remove()" style="margin-top:0.8rem;">✕ Remove Tee</button>
+  </div>`);
+};
+
+window.saveCourseToLibrary = async function(existingId) {
+  const name = document.getElementById('cl-name')?.value.trim();
+  if (!name) { document.getElementById('cl-save-status').innerHTML='<div style="color:red;font-size:0.82rem;">Course name required.</div>'; return; }
+  const teeBlocks = document.querySelectorAll('.tee-block-form');
+  const tees = [];
+  let idx = 0;
+  teeBlocks.forEach(block => {
+    const id = block.id.replace('tee-block-','');
+    const holes = [];
+    for (let h = 1; h <= 18; h++) {
+      holes.push({hole:h, par:parseInt(document.getElementById(`tee${id}-par-${h}`)?.value)||4, yards:parseInt(document.getElementById(`tee${id}-yds-${h}`)?.value)||0});
+    }
+    const totalYards = holes.reduce((s,h)=>s+h.yards,0);
+    tees.push({name:document.getElementById(`tee${id}-name`)?.value||'White', rating:parseFloat(document.getElementById(`tee${id}-rating`)?.value)||0, slope:parseInt(document.getElementById(`tee${id}-slope`)?.value)||113, totalYards, holes});
+    idx++;
+  });
+  if (!tees.length) { document.getElementById('cl-save-status').innerHTML='<div style="color:red;font-size:0.82rem;">Add at least one tee set.</div>'; return; }
+  const whiteTee = tees.find(t=>t.name==='White')||tees[0];
+  const holePars = whiteTee.holes.map(h=>h.par);
+  const par = holePars.reduce((a,b)=>a+b,0);
+  const data = {name, city:document.getElementById('cl-city')?.value.trim()||'', state:document.getElementById('cl-state')?.value.trim().toUpperCase()||'', type:document.getElementById('cl-type')?.value||'Public', par, holePars, tees, updatedAt:serverTimestamp()};
+  try {
+    if (existingId) { await updateDoc(doc(db,'courseLibrary',existingId), data); }
+    else { data.createdAt = serverTimestamp(); await addDoc(collection(db,'courseLibrary'), data); }
+    _courseLibrary = null;
+    toast('✅ Course saved!');
+    showAdminLibrary();
+  } catch(e) { document.getElementById('cl-save-status').innerHTML=`<div style="color:red;font-size:0.82rem;">Error: ${e.message}</div>`; }
+};
+
+window.deleteCourseFromLibrary = async function(id, name) {
+  if (!confirm(`Delete "${name}" from the library?`)) return;
   await deleteDoc(doc(db,'courseLibrary',id));
-  _libraryCache = null;
+  _courseLibrary = null;
   toast('🗑️ Course removed.');
   showAdminLibrary();
 };
