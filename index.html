@@ -437,7 +437,7 @@ hr.div{border:none;border-top:1px solid var(--cream-dark);margin:1rem 0;}
       </div>
       <div class="pad">
         <div class="admin-grid">
-          <div class="admin-tile" onclick="window._real_openModal('modal-create-tourney')">
+          <div class="admin-tile" onclick="window._real_openModal('modal-create-tourney'); var f=document.getElementById('ct-course'); if(f){f.value='';} var d=document.getElementById('ct-course-drop'); if(d){d.style.display='none';}">
             <div class="t-icon">🏆</div>
             <div class="t-label">New Tournament</div>
             <div class="t-sub">Create event</div>
@@ -1975,6 +1975,7 @@ function crLoadRecent() {
 document.addEventListener('input', function(e) {
   var id = e.target.id;
   if (id !== 'cr-course' && id !== 'ct-course') return;
+  console.log('[CourseSearch] input event fired on:', id, 'value:', e.target.value);
   var isTourney = (id === 'ct-course');
   var dropId = isTourney ? 'ct-course-drop' : 'cr-course-drop';
   var drop = document.getElementById(dropId);
