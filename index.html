@@ -500,7 +500,7 @@ hr.div{border:none;border-top:1px solid var(--cream-dark);margin:1rem 0;}
       <div class="fg"><label>Date</label><input type="date" id="ct-date"></div>
       <div class="fg" style="position:relative;"><label>Course</label>
         <input type="text" id="ct-course" placeholder="Search course library..." autocomplete="off">
-        <div id="ct-course-drop" style="position:absolute;top:100%;left:0;right:0;background:white;border-radius:0 0 10px 10px;box-shadow:0 8px 24px rgba(0,0,0,0.15);z-index:200;max-height:200px;overflow-y:auto;border:1px solid var(--cream-dark);border-top:none;display:none;"></div>
+        <div id="ct-course-drop" style="position:fixed;background:white;border-radius:10px;box-shadow:0 8px 32px rgba(0,0,0,0.2);z-index:9999;max-height:200px;overflow-y:auto;border:1px solid var(--cream-dark);display:none;min-width:280px;"></div>
       </div>
     </div>
     <div class="two-col">
@@ -2020,6 +2020,20 @@ document.addEventListener('input', function(e) {
       };
       drop.appendChild(item);
     });
+    // Position ct-course-drop relative to input (fixed positioning bypasses modal overflow)
+    if (isTourney) {
+      var rect = e.target.getBoundingClientRect();
+      drop.style.top = (rect.bottom + 2) + 'px';
+      drop.style.left = rect.left + 'px';
+      drop.style.width = rect.width + 'px';
+    }
+    // For tournament dropdown (position:fixed), calculate position from input rect
+    if (isTourney) {
+      var rect = e.target.getBoundingClientRect();
+      drop.style.top  = (rect.bottom + 2) + 'px';
+      drop.style.left = rect.left + 'px';
+      drop.style.width = rect.width + 'px';
+    }
     drop.style.display = 'block';
   });
 });
