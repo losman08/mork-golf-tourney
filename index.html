@@ -89,16 +89,6 @@ html,body{height:100%;font-family:'Inter',sans-serif;background:var(--forest);co
 
 /* ── CARDS ── */
 .card{background:var(--cream);border-radius:var(--radius);padding:1.5rem;box-shadow:var(--shadow);}
-.course-drop-item{padding:10px 14px;cursor:pointer;font-size:0.85rem;border-bottom:1px solid var(--cream-dark);transition:background 0.15s;}
-.course-drop-item:last-child{border-bottom:none;}
-.course-drop-item:hover{background:var(--gold-pale);}
-.course-drop-name{font-weight:600;color:var(--text-dark);}
-.course-drop-meta{font-size:0.75rem;color:var(--text-light);margin-top:2px;}
-#cr-course-drop{position:absolute;top:100%;left:0;right:0;background:white;border-radius:0 0 10px 10px;box-shadow:0 8px 24px rgba(0,0,0,0.15);z-index:100;max-height:220px;overflow-y:auto;border:1px solid var(--cream-dark);border-top:none;display:none;}
-.recent-course-btn{background:var(--forest);color:var(--gold);border:none;border-radius:8px;padding:6px 12px;font-size:0.78rem;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;transition:background 0.15s;white-space:nowrap;margin:0 4px 4px 0;}
-.recent-course-btn:hover{background:var(--forest-mid);}
-.tee-tab{padding:5px 14px;border-radius:8px;font-size:0.8rem;font-weight:700;cursor:pointer;border:1.5px solid var(--cream-dark);background:var(--cream);color:var(--text-mid);transition:all 0.15s;font-family:'Inter',sans-serif;}
-.tee-tab.active{background:var(--forest);color:var(--gold);border-color:var(--forest);}.score-albatross{background:#fff8e1!important;color:#7a5c00!important;border-color:#daa520!important;}.score-eagle{background:#e8eaf6!important;color:#283593!important;border-color:#5c6bc0!important;}.score-birdie{background:#e8f5e9!important;color:#1b5e20!important;border-color:#4caf50!important;}.score-par{background:white!important;}.score-bogey{background:#fff3e0!important;color:#e65100!important;border-color:#ff9800!important;}.score-double{background:#fce4ec!important;color:#b71c1c!important;border-color:#f44336!important;}.score-triple{background:#f3e5f5!important;color:#4a148c!important;border-color:#ab47bc!important;}.score-snowman{background:#212121!important;color:white!important;border-color:#424242!important;}
 .card-sm{padding:1rem 1.2rem;}
 .card h3{font-family:'Playfair Display',serif;font-size:1.15rem;color:var(--forest);margin-bottom:1rem;padding-bottom:0.7rem;border-bottom:2px solid var(--cream-dark);}
 .section-title{font-family:'Playfair Display',serif;font-size:1.3rem;color:var(--cream);font-weight:700;margin-bottom:0.3rem;}
@@ -460,11 +450,6 @@ hr.div{border:none;border-top:1px solid var(--cream-dark);margin:1rem 0;}
             <div class="t-label">Export Results</div>
             <div class="t-sub">CSV download</div>
           </div>
-          <div class="admin-tile" onclick="window._real_showAdminLibrary()">
-            <div class="t-icon">📚</div>
-            <div class="t-label">Course Library</div>
-            <div class="t-sub">Add &amp; manage courses</div>
-          </div>
         </div>
         <div id="admin-content" style="margin-top:1rem;"></div>
       </div>
@@ -545,7 +530,7 @@ const _shimmed = ['doLogin','doRegister','doForgotPassword','doSignOut',
   'switchAuthTab','showScreen','navTo','navCasual','openModal','closeModal',
   'loadLeaderboard','switchLbTab','populateLbSelect','submitScorecard',
   'loadProfile','createTournament','showAdminPlayers','showAdminScores',
-  'showAdminPeoria','showAdminLock','showAdminExport','showAdminLibrary','loadAdmin',
+  'showAdminPeoria','showAdminLock','showAdminExport','loadAdmin',
   'loadPlayerScoresForEdit','saveEditedScores','loadHistory','loadHistoryDetail',
   'loadCasualRound','saveCasualRound','loadCasualHistory','loadStatsScreen',
   'showAdminSettings','toggleAdminRole','togglePeoriaHole','savePeoriaHoles',
@@ -571,7 +556,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/fireba
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword,
   signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import { getFirestore, doc, setDoc, getDoc, getDocs, addDoc, updateDoc, deleteDoc,
-  collection, query, where, orderBy, limit, onSnapshot, serverTimestamp, writeBatch }
+  collection, query, where, orderBy, onSnapshot, serverTimestamp, writeBatch }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -656,7 +641,7 @@ window._real_loadHome=loadHome;
 window._real_loadScorecard=loadScorecard;
 window._real_createTournament=createTournament; window._real_showAdminPlayers=showAdminPlayers;
 window._real_showAdminScores=showAdminScores; window._real_showAdminPeoria=showAdminPeoria;
-window._real_showAdminLock=showAdminLock; window._real_showAdminExport=showAdminExport; window._real_showAdminLibrary=showAdminLibrary; window._real_loadAdmin=loadAdmin;
+window._real_showAdminLock=showAdminLock; window._real_showAdminExport=showAdminExport; window._real_loadAdmin=loadAdmin;
 window._real_loadPlayerScoresForEdit=loadPlayerScoresForEdit; window._real_saveEditedScores=saveEditedScores;
 
 // ── AUTH ──
@@ -740,8 +725,11 @@ onAuthStateChanged(auth, async (user)=>{
     }
     try { await loadGlobalData(); } catch(e){ console.warn('Data load error:',e.message); }
     const authEl = document.getElementById('screen-auth');
-    authEl.classList.remove('active');
-    authEl.style.display='none';
+    authEl.classList.add('fade-out');
+    setTimeout(() => {
+      authEl.classList.remove('active','visible','fade-out');
+      authEl.style.display='none';
+    }, 350);
     document.getElementById('bottom-nav').style.display='block';
     if(userProfile.role==='admin') document.getElementById('admin-nav-btn').style.display='flex';
     showScreen('home'); loadHome();
@@ -1535,8 +1523,6 @@ async function loadCasualRound() {
   html += `</div>`;
   cont.innerHTML = html;
   document.getElementById('cr-date').valueAsDate = new Date();
-  initCourseSearch();
-  loadRecentCourses();
 }
 window._real_loadCasualRound = loadCasualRound;
 
@@ -1835,363 +1821,6 @@ if (adminGrid) {
 
 // ── REAL-TIME SCORE COLORING ON SCORECARD ──
 // Enhanced hole card click-to-set via buttons (already wired), add keyboard support
-
-// ── SCORING COLOR ──
-function getScoreClass(score, par) {
-  if (!score || !par) return '';
-  var diff = score - par;
-  if (diff <= -3) return 'score-albatross';
-  if (diff === -2) return 'score-eagle';
-  if (diff === -1) return 'score-birdie';
-  if (diff === 0)  return 'score-par';
-  if (diff === 1)  return 'score-bogey';
-  if (diff === 2)  return 'score-double';
-  if (diff === 3)  return 'score-triple';
-  return 'score-snowman';
-}
-
-// ── COURSE LIBRARY ──
-var _courseLibrary = null;
-
-async function loadCourseLibrary() {
-  if (_courseLibrary) return _courseLibrary;
-  try {
-    var snap = await getDocs(query(collection(db, 'courseLibrary'), orderBy('name')));
-    _courseLibrary = snap.docs.map(function(d) { return Object.assign({id: d.id}, d.data()); });
-    return _courseLibrary;
-  } catch(e) { console.warn('Library load error:', e); return []; }
-}
-
-function applyToCasualRound(course, teeName) {
-  if (!course || !course.tees || !course.tees.length) return;
-  var tee = course.tees.find(function(t){return t.name===teeName;}) ||
-            course.tees.find(function(t){return t.name==='White';}) ||
-            course.tees[0];
-  if (!tee) return;
-  window._activeCourse = course;
-  window._activeTee = tee;
-
-  // Update tee tabs
-  var tabsEl = document.getElementById('cr-tee-tabs');
-  if (tabsEl) {
-    tabsEl.innerHTML = course.tees.map(function(t) {
-      return '<button class="tee-tab' + (t.name===tee.name?' active':'') + '"' +
-        ' onclick="applyToCasualRound(window._activeCourse,\'' + t.name + '\')">' + t.name + '</button>';
-    }).join('');
-  }
-
-  // Update stats bar
-  var statsEl = document.getElementById('cr-course-stats');
-  if (statsEl) {
-    var tp = tee.holes ? tee.holes.reduce(function(s,h){return s+h.par;},0) : course.par;
-    statsEl.innerHTML = 'Par ' + tp + ' &nbsp;·&nbsp; ' + (tee.totalYards||'?') + 'y &nbsp;·&nbsp; Rating ' + (tee.rating||'?') + ' &nbsp;·&nbsp; Slope ' + (tee.slope||'?');
-  }
-
-  // Update par input
-  var parEl = document.getElementById('cr-par');
-  if (parEl && tee.holes) parEl.value = tee.holes.reduce(function(s,h){return s+h.par;},0);
-
-  // Update hole cards
-  if (tee.holes && tee.holes.length === 18) {
-    tee.holes.forEach(function(h) {
-      var card = document.getElementById('cr-hc-' + h.hole);
-      if (!card) return;
-      var labelEl = card.querySelector('.hole-label');
-      var parEl2  = card.querySelector('.hole-par');
-      if (labelEl) labelEl.innerHTML = 'Hole ' + h.hole + (h.yards ? '<span style="font-size:0.65rem;color:var(--text-light);margin-left:3px;">' + h.yards + 'y</span>' : '');
-      if (parEl2)  parEl2.textContent = 'Par ' + h.par;
-    });
-  }
-}
-
-function initCourseSearch() {
-  var inp  = document.getElementById('cr-course');
-  var drop = document.getElementById('cr-course-drop');
-  if (!inp || !drop) return;
-  var timer;
-  inp.addEventListener('input', function() {
-    clearTimeout(timer);
-    var q = inp.value.trim().toLowerCase();
-    if (q.length < 2) { drop.style.display='none'; return; }
-    timer = setTimeout(async function() {
-      var lib = await loadCourseLibrary();
-      var matches = lib.filter(function(c) {
-        return c.name.toLowerCase().includes(q) || (c.city||'').toLowerCase().includes(q);
-      }).slice(0, 8);
-      if (!matches.length) { drop.style.display='none'; return; }
-      drop.innerHTML = matches.map(function(c, i) {
-        return '<div class="course-drop-item" onclick="selectLibCourse(' + i + ')">' +
-          '<div class="course-drop-name">' + c.name + '</div>' +
-          '<div class="course-drop-meta">' + (c.city||'') + (c.state?', '+c.state:'') + ' &nbsp;·&nbsp; Par ' + c.par + '</div></div>';
-      }).join('');
-      drop._matches = matches;
-      drop.style.display = 'block';
-    }, 300);
-  });
-  document.addEventListener('click', function(e) {
-    if (!inp.contains(e.target) && !drop.contains(e.target)) drop.style.display='none';
-  });
-}
-
-window.selectLibCourse = function(idx) {
-  var drop = document.getElementById('cr-course-drop');
-  var inp  = document.getElementById('cr-course');
-  if (!drop || !drop._matches) return;
-  var course = drop._matches[idx];
-  if (!course) return;
-  if (inp) inp.value = course.name;
-  drop.style.display = 'none';
-  applyToCasualRound(course, 'White');
-  toast('⛳ ' + course.name + ' loaded!');
-};
-
-window.selectRecentCourse = async function(name) {
-  var lib = await loadCourseLibrary();
-  var course = lib.find(function(c){return c.name===name;});
-  if (!course) { toast('Course not in library.'); return; }
-  var inp = document.getElementById('cr-course');
-  if (inp) inp.value = course.name;
-  applyToCasualRound(course, 'White');
-  toast('⛳ ' + course.name + ' loaded!');
-};
-
-async function loadRecentCourses() {
-  if (!currentUser) return;
-  var el = document.getElementById('cr-recent-courses');
-  if (!el) return;
-  try {
-    var snap = await getDocs(query(
-      collection(db, 'casualRounds'),
-      where('playerId', '==', currentUser.uid),
-      orderBy('date', 'desc'),
-      limit(30)
-    ));
-    var seen = {};
-    var recent = [];
-    snap.docs.forEach(function(d) {
-      var name = d.data().course;
-      if (name && !seen[name] && recent.length < 10) {
-        seen[name] = true;
-        recent.push(name);
-      }
-    });
-    if (recent.length) {
-      el.innerHTML = recent.map(function(name) {
-        return '<button class="recent-course-btn" onclick="selectRecentCourse(\'' + name.replace(/'/g,"\\'") + '\')">⛳ ' + name + '</button>';
-      }).join('');
-    } else {
-      el.innerHTML = '<span style="font-size:0.78rem;color:var(--text-light);font-style:italic;">No recent rounds yet</span>';
-    }
-  } catch(e) { console.warn('Recent courses error:', e); }
-}
-
-// ── ADMIN COURSE LIBRARY ──
-async function showAdminLibrary() {
-  var cont = document.getElementById('admin-content');
-  if (!cont) return;
-  _courseLibrary = null;
-  var courses = await loadCourseLibrary();
-  var html = '<div class="card"><h3 style="font-family:\'Playfair Display\',serif;font-size:1.1rem;color:var(--forest);margin-bottom:0.8rem;">📚 Course Library</h3>';
-  html += '<p style="font-size:0.82rem;color:var(--text-light);margin-bottom:1rem;">' + courses.length + ' courses · Tap a course in Casual Round to auto-fill hole data.</p>';
-  html += '<button class="btn btn-gold btn-full" onclick="showAddCourseForm(null)" style="margin-bottom:1rem;">+ Add New Course</button>';
-  if (courses.length) {
-    courses.forEach(function(c) {
-      var teeNames = (c.tees||[]).map(function(t){return t.name;}).join(' / ');
-      html += '<div class="history-row" style="align-items:flex-start;">';
-      html += '<div class="hr-left" style="flex:1;"><div class="name">' + c.name + '</div>';
-      html += '<div class="meta">' + (c.city||'') + (c.state?', '+c.state:'') + ' &nbsp;·&nbsp; Par ' + (c.par||'?') + ' &nbsp;·&nbsp; ' + (teeNames||'No tees') + '</div></div>';
-      html += '<div class="hr-right" style="display:flex;gap:6px;">';
-      html += '<button class="btn btn-ghost btn-sm" onclick="showAddCourseForm(\'' + c.id + '\')">✏️</button>';
-      html += '<button class="btn btn-danger btn-sm" onclick="deleteLibraryCourse(\'' + c.id + '\',\'' + c.name.replace(/'/g,'') + '\')">🗑️</button></div></div>';
-    });
-  } else {
-    html += '<div class="empty"><div class="ei">⛳</div><p>No courses yet. Add your first!</p></div>';
-  }
-  html += '</div>';
-  cont.innerHTML = html;
-}
-window.showAdminLibrary = showAdminLibrary;
-window._real_showAdminLibrary = showAdminLibrary;
-
-window.showAddCourseForm = async function(id) {
-  var cont = document.getElementById('admin-content');
-  var c = {};
-  if (id) {
-    try {
-      var snap = await getDoc(doc(db,'courseLibrary',id));
-      if (snap.exists()) c = Object.assign({id:snap.id}, snap.data());
-    } catch(e){}
-  }
-  var tees = c.tees || [{name:'White',rating:'',slope:'',totalYards:'',holes:Array.from({length:18},function(_,i){return {hole:i+1,par:4,yards:''};})}];
-  
-  var html = '<div class="card">';
-  html += '<h3 style="font-family:\'Playfair Display\',serif;font-size:1.1rem;color:var(--forest);margin-bottom:1rem;">' + (id?'✏️ Edit':'➕ Add') + ' Course</h3>';
-  html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:0.8rem;">';
-  html += '<div><label style="font-size:0.72rem;font-weight:700;color:var(--text-light);text-transform:uppercase;display:block;margin-bottom:3px;">Course Name</label>';
-  html += '<input type="text" id="cl-name" value="' + (c.name||'') + '" placeholder="e.g. Seascape Golf Club" style="width:100%;border:1.5px solid var(--cream-dark);border-radius:8px;padding:8px;font-size:0.88rem;"></div>';
-  html += '<div><label style="font-size:0.72rem;font-weight:700;color:var(--text-light);text-transform:uppercase;display:block;margin-bottom:3px;">City</label>';
-  html += '<input type="text" id="cl-city" value="' + (c.city||'') + '" placeholder="Aptos" style="width:100%;border:1.5px solid var(--cream-dark);border-radius:8px;padding:8px;font-size:0.88rem;"></div></div>';
-  html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:1rem;">';
-  html += '<div><label style="font-size:0.72rem;font-weight:700;color:var(--text-light);text-transform:uppercase;display:block;margin-bottom:3px;">State</label>';
-  html += '<input type="text" id="cl-state" value="' + (c.state||'') + '" placeholder="CA" maxlength="2" style="width:100%;border:1.5px solid var(--cream-dark);border-radius:8px;padding:8px;font-size:0.88rem;text-transform:uppercase;"></div>';
-  html += '<div><label style="font-size:0.72rem;font-weight:700;color:var(--text-light);text-transform:uppercase;display:block;margin-bottom:3px;">Type</label>';
-  html += '<select id="cl-type" style="width:100%;border:1.5px solid var(--cream-dark);border-radius:8px;padding:8px;font-size:0.88rem;">';
-  ['Public','Private','Semi-Private','Resort','Municipal'].forEach(function(t) {
-    // Can't use template literals safely here, use string concat
-  });
-  html += '<option>Public</option><option>Private</option><option>Semi-Private</option><option>Resort</option><option>Municipal</option></select></div></div>';
-  html += '<div id="tees-container-form"></div>';
-  html += '<button class="btn btn-ghost" onclick="addTeeBlockToForm()" style="width:100%;margin-bottom:0.8rem;">+ Add Tee</button>';
-  html += '<div style="display:flex;gap:8px;">';
-  html += '<button class="btn btn-gold" style="flex:1;" onclick="saveLibraryCourse(\'' + (id||'') + '\')">💾 Save</button>';
-  html += '<button class="btn btn-ghost" onclick="showAdminLibrary()">Cancel</button></div>';
-  html += '<div id="cl-status" style="margin-top:0.5rem;font-size:0.82rem;"></div></div>';
-  cont.innerHTML = html;
-
-  // Set type select value
-  var typeEl = document.getElementById('cl-type');
-  if (typeEl && c.type) typeEl.value = c.type;
-
-  // Add tee blocks
-  window._teeIdx = 0;
-  tees.forEach(function(t) { addTeeBlockToForm(t); });
-};
-
-window.addTeeBlockToForm = function(teeData) {
-  var container = document.getElementById('tees-container-form');
-  if (!container) return;
-  var idx = window._teeIdx || 0;
-  window._teeIdx = idx + 1;
-  var tee = teeData || {name:'Blue',rating:'',slope:'',totalYards:'',holes:Array.from({length:18},function(_,i){return {hole:i+1,par:4,yards:''};})};
-  var holes = tee.holes || Array.from({length:18},function(_,i){return {hole:i+1,par:4,yards:''};});
-
-  var div = document.createElement('div');
-  div.id = 'tee-block-' + idx;
-  div.style.cssText = 'background:white;border-radius:10px;padding:1rem;margin-bottom:0.8rem;border:1.5px solid var(--cream-dark);';
-
-  // Header
-  var header = document.createElement('div');
-  header.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:0.8rem;';
-  var sel = document.createElement('select');
-  sel.id = 'tee' + idx + '-name';
-  sel.style.cssText = 'padding:4px 8px;border-radius:6px;border:1.5px solid var(--cream-dark);font-weight:700;font-size:0.82rem;';
-  ['White','Blue','Gold','Red','Green','Black','Silver'].forEach(function(n) {
-    var opt = document.createElement('option');
-    opt.value = n; opt.textContent = n;
-    if (n === tee.name) opt.selected = true;
-    sel.appendChild(opt);
-  });
-  var removeBtn = document.createElement('button');
-  removeBtn.className = 'btn btn-danger btn-sm';
-  removeBtn.textContent = '✕ Remove';
-  removeBtn.onclick = function() { div.remove(); };
-  header.appendChild(sel);
-  header.appendChild(removeBtn);
-  div.appendChild(header);
-
-  // Rating/Slope/Total
-  var grid = document.createElement('div');
-  grid.style.cssText = 'display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:0.8rem;';
-  [['Rating','tee'+idx+'-rating',tee.rating||'','68.8'],
-   ['Slope','tee'+idx+'-slope',tee.slope||'','127'],
-   ['Total Yards','tee'+idx+'-total',tee.totalYards||'','auto']].forEach(function(f) {
-    var cell = document.createElement('div');
-    var lbl = document.createElement('label');
-    lbl.style.cssText = 'font-size:0.7rem;font-weight:700;color:var(--text-light);text-transform:uppercase;display:block;margin-bottom:2px;';
-    lbl.textContent = f[0];
-    cell.appendChild(lbl);
-    if (f[0] === 'Total Yards') {
-      var totalDiv = document.createElement('div');
-      totalDiv.id = f[1];
-      totalDiv.style.cssText = 'padding:6px;background:var(--cream);border-radius:6px;font-size:0.82rem;font-weight:700;color:var(--forest);border:1px solid var(--cream-dark);';
-      totalDiv.textContent = f[2] ? f[2]+'y' : '—';
-      cell.appendChild(totalDiv);
-    } else {
-      var inp = document.createElement('input');
-      inp.type = 'number'; inp.id = f[1]; inp.value = f[2]; inp.placeholder = f[3];
-      inp.style.cssText = 'width:100%;border:1px solid var(--cream-dark);border-radius:6px;padding:6px;font-size:0.82rem;';
-      cell.appendChild(inp);
-    }
-    grid.appendChild(cell);
-  });
-  div.appendChild(grid);
-
-  // Hole inputs - front and back 9
-  ['Front 9','Back 9'].forEach(function(label, half) {
-    var lbl = document.createElement('div');
-    lbl.style.cssText = 'font-size:0.72rem;font-weight:700;color:var(--text-light);text-transform:uppercase;margin-bottom:4px;';
-    lbl.textContent = label;
-    div.appendChild(lbl);
-    var holeGrid = document.createElement('div');
-    holeGrid.style.cssText = 'display:grid;grid-template-columns:repeat(9,1fr);gap:3px;margin-bottom:6px;';
-    for (var h = half*9+1; h <= half*9+9; h++) {
-      var holeData = holes[h-1] || {hole:h,par:4,yards:''};
-      var cell = document.createElement('div');
-      cell.style.textAlign = 'center';
-      var hnum = document.createElement('div');
-      hnum.style.cssText = 'font-size:0.62rem;color:var(--text-light);';
-      hnum.textContent = 'H'+h;
-      var parInp = document.createElement('input');
-      parInp.type='number'; parInp.id='tee'+idx+'-par-'+h; parInp.value=holeData.par||4; parInp.min=3; parInp.max=6;
-      parInp.style.cssText='width:100%;text-align:center;border:1px solid var(--cream-dark);border-radius:4px;padding:2px 0;font-size:0.78rem;';
-      var ydsInp = document.createElement('input');
-      ydsInp.type='number'; ydsInp.id='tee'+idx+'-yds-'+h; ydsInp.value=holeData.yards||''; ydsInp.placeholder='yds';
-      ydsInp.style.cssText='width:100%;text-align:center;border:1px solid var(--cream-dark);border-radius:4px;padding:2px 0;font-size:0.68rem;margin-top:2px;color:var(--text-light);';
-      var tidx = idx;
-      parInp.oninput = ydsInp.oninput = (function(ti) { return function() { updateTeeTotalYards(ti); }; })(tidx);
-      cell.appendChild(hnum); cell.appendChild(parInp); cell.appendChild(ydsInp);
-      holeGrid.appendChild(cell);
-    }
-    div.appendChild(holeGrid);
-  });
-  container.appendChild(div);
-};
-
-window.updateTeeTotalYards = function(idx) {
-  var total = 0;
-  for (var h=1;h<=18;h++) {
-    total += parseInt(document.getElementById('tee'+idx+'-yds-'+h)?.value)||0;
-  }
-  var el = document.getElementById('tee'+idx+'-total');
-  if (el) el.textContent = total>0 ? total.toLocaleString()+'y' : '—';
-};
-
-window.saveLibraryCourse = async function(existingId) {
-  var name = document.getElementById('cl-name')?.value.trim();
-  if (!name) { document.getElementById('cl-status').textContent='Course name required.'; return; }
-  var teeBlocks = document.querySelectorAll('[id^="tee-block-"]');
-  var tees = [];
-  teeBlocks.forEach(function(block) {
-    var idx = block.id.replace('tee-block-','');
-    var holes = [];
-    for (var h=1;h<=18;h++) {
-      holes.push({hole:h, par:parseInt(document.getElementById('tee'+idx+'-par-'+h)?.value)||4, yards:parseInt(document.getElementById('tee'+idx+'-yds-'+h)?.value)||0});
-    }
-    var totalYards = holes.reduce(function(s,h){return s+h.yards;},0);
-    tees.push({name:document.getElementById('tee'+idx+'-name')?.value||'White', rating:parseFloat(document.getElementById('tee'+idx+'-rating')?.value)||0, slope:parseInt(document.getElementById('tee'+idx+'-slope')?.value)||113, totalYards:totalYards, holes:holes});
-  });
-  if (!tees.length) { document.getElementById('cl-status').textContent='Add at least one tee.'; return; }
-  var whiteTee = tees.find(function(t){return t.name==='White';})||tees[0];
-  var holePars = whiteTee.holes.map(function(h){return h.par;});
-  var par = holePars.reduce(function(a,b){return a+b;},0);
-  var data = {name:name, city:document.getElementById('cl-city')?.value.trim()||'', state:document.getElementById('cl-state')?.value.trim().toUpperCase()||'', type:document.getElementById('cl-type')?.value||'Public', par:par, holePars:holePars, tees:tees, updatedAt:serverTimestamp()};
-  try {
-    if (existingId) { await updateDoc(doc(db,'courseLibrary',existingId),data); }
-    else { data.createdAt=serverTimestamp(); await addDoc(collection(db,'courseLibrary'),data); }
-    _courseLibrary=null;
-    toast('✅ Course saved!');
-    showAdminLibrary();
-  } catch(e) { document.getElementById('cl-status').textContent='Error: '+e.message; }
-};
-
-window.deleteLibraryCourse = async function(id,name) {
-  if (!confirm('Delete "'+name+'" from the library?')) return;
-  await deleteDoc(doc(db,'courseLibrary',id));
-  _courseLibrary=null;
-  toast('🗑️ Course removed.');
-  showAdminLibrary();
-};
-
 document.addEventListener('keydown', e => {
   // Digit keys 1-9 on a focused hole input sets score directly
   if (e.target.classList.contains('hole-val')) {
