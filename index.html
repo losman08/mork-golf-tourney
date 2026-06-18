@@ -89,6 +89,23 @@ html,body{height:100%;font-family:'Inter',sans-serif;background:var(--forest);co
 
 /* ── CARDS ── */
 .card{background:var(--cream);border-radius:var(--radius);padding:1.5rem;box-shadow:var(--shadow);}
+.cr-search-wrap{position:relative;margin-bottom:0.5rem;}
+#cr-course-drop{position:absolute;top:100%;left:0;right:0;background:white;border-radius:0 0 10px 10px;box-shadow:0 8px 24px rgba(0,0,0,0.15);z-index:100;max-height:220px;overflow-y:auto;border:1px solid var(--cream-dark);border-top:none;display:none;}
+.cr-drop-item{padding:9px 12px;cursor:pointer;font-size:0.82rem;border-bottom:1px solid var(--cream-dark);}
+.cr-drop-item:last-child{border-bottom:none;}
+.cr-drop-item:hover,.cr-drop-item:active{background:var(--gold-pale);}
+.cr-drop-name{font-weight:600;color:var(--text-dark);}
+.cr-drop-meta{font-size:0.72rem;color:var(--text-light);margin-top:1px;}
+.cr-recent-wrap{margin-bottom:0.6rem;}
+.cr-recent-label{font-size:0.72rem;font-weight:700;color:var(--text-mid);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.4rem;}
+.cr-recent-btns{display:flex;flex-wrap:wrap;gap:5px;}
+.cr-recent-btn{background:var(--forest);color:var(--gold);border:none;border-radius:7px;padding:5px 10px;font-size:0.74rem;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;white-space:nowrap;}
+.cr-recent-btn:active{background:var(--forest-mid);}
+.cr-tee-tabs{display:flex;gap:5px;flex-wrap:wrap;margin:0.4rem 0;}
+.cr-tee-tab{padding:4px 12px;border-radius:7px;font-size:0.76rem;font-weight:700;cursor:pointer;border:1.5px solid var(--cream-dark);background:var(--cream);color:var(--text-mid);font-family:'Inter',sans-serif;}
+.cr-tee-tab.active{background:var(--forest);color:var(--gold);border-color:var(--forest);}
+.cr-stats{font-size:0.74rem;color:var(--text-light);margin-bottom:0.4rem;}
+.hole-yds{font-size:0.62rem;color:var(--text-light);margin-left:2px;}
 .card-sm{padding:1rem 1.2rem;}
 .card h3{font-family:'Playfair Display',serif;font-size:1.15rem;color:var(--forest);margin-bottom:1rem;padding-bottom:0.7rem;border-bottom:2px solid var(--cream-dark);}
 .section-title{font-family:'Playfair Display',serif;font-size:1.3rem;color:var(--cream);font-weight:700;margin-bottom:0.3rem;}
@@ -450,6 +467,11 @@ hr.div{border:none;border-top:1px solid var(--cream-dark);margin:1rem 0;}
             <div class="t-label">Export Results</div>
             <div class="t-sub">CSV download</div>
           </div>
+          <div class="admin-tile" onclick="window.open('admin-courses.html','_blank')">
+            <div class="t-icon">📚</div>
+            <div class="t-label">Course Library</div>
+            <div class="t-sub">Add &amp; manage courses</div>
+          </div>
         </div>
         <div id="admin-content" style="margin-top:1rem;"></div>
       </div>
@@ -556,7 +578,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/fireba
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword,
   signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import { getFirestore, doc, setDoc, getDoc, getDocs, addDoc, updateDoc, deleteDoc,
-  collection, query, where, orderBy, onSnapshot, serverTimestamp, writeBatch }
+  collection, query, where, orderBy, limit, onSnapshot, serverTimestamp, writeBatch }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -1494,7 +1516,7 @@ async function loadCasualRound() {
   let html = `
     <div class="card card-sm" style="margin-bottom:1rem;">
       <div class="two-col">
-        <div class="fg"><label>Course</label><input type="text" id="cr-course" placeholder="Course name"></div>
+        <div class="cr-search-wrap"><div class="fg"><label>Course</label><input type="text" id="cr-course" placeholder="Search course library..." autocomplete="off"><div id="cr-course-drop"></div></div></div><div class="cr-tee-tabs" id="cr-tee-tabs" style="display:none;"></div><div class="cr-stats" id="cr-stats"></div>
         <div class="fg"><label>Date</label><input type="date" id="cr-date"></div>
       </div>
       <div class="two-col">
@@ -1523,6 +1545,8 @@ async function loadCasualRound() {
   html += `</div>`;
   cont.innerHTML = html;
   document.getElementById('cr-date').valueAsDate = new Date();
+  crInitSearch();
+  crLoadRecent();
 }
 window._real_loadCasualRound = loadCasualRound;
 
@@ -1821,6 +1845,176 @@ if (adminGrid) {
 
 // ── REAL-TIME SCORE COLORING ON SCORECARD ──
 // Enhanced hole card click-to-set via buttons (already wired), add keyboard support
+
+// ── COURSE LIBRARY SEARCH (Casual Round) ──
+var _crLibCache = null;
+
+function crLoadLibrary(cb) {
+  if (_crLibCache) { cb(_crLibCache); return; }
+  getDocs(query(collection(db, 'courseLibrary'), orderBy('name')))
+    .then(function(snap) {
+      _crLibCache = snap.docs.map(function(d) { return Object.assign({id:d.id}, d.data()); });
+      cb(_crLibCache);
+    })
+    .catch(function() { cb([]); });
+}
+
+function crApplyTee(course, teeName) {
+  if (!course) return;
+  window._crActiveCourse = course;
+  var tees = course.tees || [];
+  var tee = tees.find(function(t){return t.name===teeName;}) ||
+            tees.find(function(t){return t.name==='White';}) ||
+            tees[0];
+  if (!tee && course.holePars) {
+    // Old format - pars only, no tee data
+    var parEl = document.getElementById('cr-par');
+    if (parEl) parEl.value = course.par || 72;
+    var statsEl = document.getElementById('cr-stats');
+    if (statsEl) statsEl.textContent = 'Par ' + (course.par||72) + (course.rating ? ' · Rating ' + course.rating : '') + (course.slope ? ' · Slope ' + course.slope : '');
+    return;
+  }
+  if (!tee) return;
+  window._crActiveTee = tee;
+
+  // Update tee tabs
+  var tabsEl = document.getElementById('cr-tee-tabs');
+  if (tabsEl && tees.length > 1) {
+    tabsEl.style.display = 'flex';
+    tabsEl.innerHTML = '';
+    tees.forEach(function(t) {
+      var btn = document.createElement('button');
+      btn.className = 'cr-tee-tab' + (t.name === tee.name ? ' active' : '');
+      btn.textContent = t.name;
+      btn.onclick = function() { crApplyTee(window._crActiveCourse, t.name); };
+      tabsEl.appendChild(btn);
+    });
+  }
+
+  // Update stats
+  var statsEl = document.getElementById('cr-stats');
+  if (statsEl) {
+    var tp = tee.holes ? tee.holes.reduce(function(s,h){return s+h.par;},0) : course.par;
+    statsEl.textContent = 'Par ' + tp +
+      (tee.totalYards ? ' · ' + tee.totalYards + 'y' : '') +
+      (tee.rating ? ' · Rating ' + tee.rating : '') +
+      (tee.slope ? ' · Slope ' + tee.slope : '');
+  }
+
+  // Update par input
+  if (tee.holes) {
+    var parEl = document.getElementById('cr-par');
+    if (parEl) parEl.value = tee.holes.reduce(function(s,h){return s+h.par;},0);
+  }
+
+  // Update hole cards
+  if (tee.holes && tee.holes.length === 18) {
+    tee.holes.forEach(function(h) {
+      var card = document.getElementById('cr-hc-' + h.hole);
+      if (!card) return;
+      var labelEl = card.querySelector('.hole-label');
+      var parEl2 = card.querySelector('.hole-par');
+      if (labelEl) {
+        labelEl.innerHTML = 'Hole ' + h.hole +
+          (h.yards ? '<span class="hole-yds">' + h.yards + 'y</span>' : '');
+      }
+      if (parEl2) parEl2.textContent = 'Par ' + h.par;
+    });
+  }
+}
+
+function crInitSearch() {
+  var inp = document.getElementById('cr-course');
+  var drop = document.getElementById('cr-course-drop');
+  if (!inp || !drop) return;
+  var timer;
+  inp.addEventListener('input', function() {
+    clearTimeout(timer);
+    var q = inp.value.trim().toLowerCase();
+    if (q.length < 2) { drop.style.display = 'none'; return; }
+    timer = setTimeout(function() {
+      crLoadLibrary(function(lib) {
+        var matches = lib.filter(function(c) {
+          return (c.name||'').toLowerCase().includes(q) ||
+                 (c.city||'').toLowerCase().includes(q);
+        }).slice(0, 8);
+        if (!matches.length) { drop.style.display = 'none'; return; }
+        drop.innerHTML = '';
+        matches.forEach(function(c, i) {
+          var item = document.createElement('div');
+          item.className = 'cr-drop-item';
+          var name = document.createElement('div');
+          name.className = 'cr-drop-name';
+          name.textContent = c.name;
+          var meta = document.createElement('div');
+          meta.className = 'cr-drop-meta';
+          meta.textContent = (c.city||'') + (c.state?', '+c.state:'') + ' · Par ' + (c.par||'?');
+          item.appendChild(name);
+          item.appendChild(meta);
+          item.onclick = (function(course) {
+            return function() {
+              inp.value = course.name;
+              drop.style.display = 'none';
+              crApplyTee(course, 'White');
+              toast('⛳ ' + course.name + ' loaded!');
+            };
+          })(c);
+          drop.appendChild(item);
+        });
+        drop.style.display = 'block';
+      });
+    }, 300);
+  });
+  document.addEventListener('click', function(e) {
+    if (drop && !inp.contains(e.target) && !drop.contains(e.target)) {
+      drop.style.display = 'none';
+    }
+  });
+}
+
+function crLoadRecent() {
+  if (!currentUser) return;
+  getDocs(query(
+    collection(db, 'casualRounds'),
+    where('playerId', '==', currentUser.uid),
+    orderBy('date', 'desc'),
+    limit(30)
+  )).then(function(snap) {
+    var seen = {};
+    var recent = [];
+    snap.docs.forEach(function(d) {
+      var name = d.data().course;
+      if (name && !seen[name] && recent.length < 10) {
+        seen[name] = true;
+        recent.push(name);
+      }
+    });
+    var wrap = document.getElementById('cr-recent-wrap');
+    var btns = document.getElementById('cr-recent-btns');
+    if (!wrap || !btns) return;
+    if (!recent.length) return;
+    wrap.style.display = 'block';
+    btns.innerHTML = '';
+    recent.forEach(function(name) {
+      var btn = document.createElement('button');
+      btn.className = 'cr-recent-btn';
+      btn.textContent = name;
+      btn.onclick = function() {
+        crLoadLibrary(function(lib) {
+          var course = lib.find(function(c){return c.name===name;});
+          var inp = document.getElementById('cr-course');
+          if (inp) inp.value = name;
+          if (course) {
+            crApplyTee(course, 'White');
+            toast('⛳ ' + name + ' loaded!');
+          }
+        });
+      };
+      btns.appendChild(btn);
+    });
+  }).catch(function() {});
+}
+
 document.addEventListener('keydown', e => {
   // Digit keys 1-9 on a focused hole input sets score directly
   if (e.target.classList.contains('hole-val')) {
