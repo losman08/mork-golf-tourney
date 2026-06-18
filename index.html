@@ -1974,6 +1974,7 @@ function crInitSearch() {
     }
   });
 }
+window.ctInitSearch = ctInitSearch;
 
 function crLoadRecent() {
   if (!currentUser) return;
@@ -2073,6 +2074,7 @@ function ctInitSearch() {
     }
   });
 }
+window.ctInitSearch = ctInitSearch;
 
 document.addEventListener('keydown', e => {
   // Digit keys 1-9 on a focused hole input sets score directly
