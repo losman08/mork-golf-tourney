@@ -437,7 +437,7 @@ hr.div{border:none;border-top:1px solid var(--cream-dark);margin:1rem 0;}
       </div>
       <div class="pad">
         <div class="admin-grid">
-          <div class="admin-tile" onclick="window._real_openModal('modal-create-tourney')">
+          <div class="admin-tile" onclick="window._real_openModal('modal-create-tourney'); setTimeout(ctInitSearch, 100);">
             <div class="t-icon">🏆</div>
             <div class="t-label">New Tournament</div>
             <div class="t-sub">Create event</div>
@@ -498,7 +498,10 @@ hr.div{border:none;border-top:1px solid var(--cream-dark);margin:1rem 0;}
     <div class="fg"><label>Tournament Name</label><input type="text" id="ct-name" placeholder="e.g. August Championship 2026"></div>
     <div class="two-col">
       <div class="fg"><label>Date</label><input type="date" id="ct-date"></div>
-      <div class="fg"><label>Course</label><input type="text" id="ct-course" placeholder="Course name"></div>
+      <div class="fg" style="position:relative;"><label>Course</label>
+        <input type="text" id="ct-course" placeholder="Search course library..." autocomplete="off">
+        <div id="ct-course-drop" style="position:absolute;top:100%;left:0;right:0;background:white;border-radius:0 0 10px 10px;box-shadow:0 8px 24px rgba(0,0,0,0.15);z-index:200;max-height:200px;overflow-y:auto;border:1px solid var(--cream-dark);border-top:none;display:none;"></div>
+      </div>
     </div>
     <div class="two-col">
       <div class="fg"><label>Format</label>
@@ -2013,6 +2016,62 @@ function crLoadRecent() {
       btns.appendChild(btn);
     });
   }).catch(function() {});
+}
+
+
+// ── TOURNAMENT COURSE SEARCH ──
+function ctInitSearch() {
+  var inp = document.getElementById('ct-course');
+  var drop = document.getElementById('ct-course-drop');
+  if (!inp || !drop) return;
+  var timer;
+  inp.addEventListener('input', function() {
+    clearTimeout(timer);
+    var q = inp.value.trim().toLowerCase();
+    if (q.length < 2) { drop.style.display = 'none'; return; }
+    timer = setTimeout(function() {
+      crLoadLibrary(function(lib) {
+        var matches = lib.filter(function(c) {
+          return (c.name||'').toLowerCase().includes(q) ||
+                 (c.city||'').toLowerCase().includes(q);
+        }).slice(0, 6);
+        if (!matches.length) { drop.style.display = 'none'; return; }
+        drop.innerHTML = '';
+        matches.forEach(function(c) {
+          var item = document.createElement('div');
+          item.className = 'cr-drop-item';
+          var name = document.createElement('div');
+          name.className = 'cr-drop-name';
+          name.textContent = c.name;
+          var meta = document.createElement('div');
+          meta.className = 'cr-drop-meta';
+          meta.textContent = (c.city||'') + (c.state?', '+c.state:'') + ' · Par ' + (c.par||'?');
+          item.appendChild(name);
+          item.appendChild(meta);
+          item.onclick = function() {
+            inp.value = c.name;
+            drop.style.display = 'none';
+            // Auto-fill par and slope if available
+            var parEl = document.getElementById('ct-par');
+            var slopeEl = document.getElementById('ct-slope');
+            if (parEl && c.par) parEl.value = c.par;
+            if (slopeEl) {
+              var whiteTee = (c.tees||[]).find(function(t){return t.name==='White';}) || (c.tees||[])[0];
+              if (whiteTee && whiteTee.slope) slopeEl.value = whiteTee.slope;
+              else if (c.slope) slopeEl.value = c.slope;
+            }
+          };
+          drop.appendChild(item);
+        });
+        drop.style.display = 'block';
+      });
+    }, 300);
+  });
+  document.addEventListener('click', function(e) {
+    if (drop && !inp.contains(e.target) && !drop.contains(e.target)) {
+      drop.style.display = 'none';
+    }
+  });
 }
 
 document.addEventListener('keydown', e => {
