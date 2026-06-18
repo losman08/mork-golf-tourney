@@ -437,7 +437,7 @@ hr.div{border:none;border-top:1px solid var(--cream-dark);margin:1rem 0;}
       </div>
       <div class="pad">
         <div class="admin-grid">
-          <div class="admin-tile" onclick="window._real_openModal('modal-create-tourney'); var f=document.getElementById('ct-course'); if(f){f.value='';} var d=document.getElementById('ct-course-drop'); if(d){d.style.display='none';}">
+          <div class="admin-tile" onclick="window._real_openModal('modal-create-tourney'); var f=document.getElementById('ct-course'); if(f){f.value='';}">
             <div class="t-icon">🏆</div>
             <div class="t-label">New Tournament</div>
             <div class="t-sub">Create event</div>
@@ -498,9 +498,8 @@ hr.div{border:none;border-top:1px solid var(--cream-dark);margin:1rem 0;}
     <div class="fg"><label>Tournament Name</label><input type="text" id="ct-name" placeholder="e.g. August Championship 2026"></div>
     <div class="two-col">
       <div class="fg"><label>Date</label><input type="date" id="ct-date"></div>
-      <div class="fg" style="position:relative;"><label>Course</label>
+      <div class="fg"><label>Course</label>
         <input type="text" id="ct-course" placeholder="Search course library..." autocomplete="off">
-        <div id="ct-course-drop" style="position:fixed;background:white;border-radius:10px;box-shadow:0 8px 32px rgba(0,0,0,0.2);z-index:9999;max-height:200px;overflow-y:auto;border:1px solid var(--cream-dark);display:none;min-width:280px;"></div>
       </div>
     </div>
     <div class="two-col">
@@ -1970,15 +1969,10 @@ function crLoadRecent() {
 }
 
 
-// ── COURSE SEARCH — EVENT DELEGATION (handles both casual + tournament) ──
-// One listener handles both cr-course and ct-course inputs
+// ── COURSE SEARCH — CASUAL ROUND (inline dropdown, confirmed working) ──
 document.addEventListener('input', function(e) {
-  var id = e.target.id;
-  if (id !== 'cr-course' && id !== 'ct-course') return;
-  console.log('[CourseSearch] input event fired on:', id, 'value:', e.target.value);
-  var isTourney = (id === 'ct-course');
-  var dropId = isTourney ? 'ct-course-drop' : 'cr-course-drop';
-  var drop = document.getElementById(dropId);
+  if (e.target.id !== 'cr-course') return;
+  var drop = document.getElementById('cr-course-drop');
   if (!drop) return;
   var q = e.target.value.trim().toLowerCase();
   if (q.length < 2) { drop.style.display = 'none'; return; }
@@ -1986,69 +1980,131 @@ document.addEventListener('input', function(e) {
     var matches = lib.filter(function(c) {
       return (c.name||'').toLowerCase().includes(q) ||
              (c.city||'').toLowerCase().includes(q);
-    }).slice(0, isTourney ? 6 : 8);
+    }).slice(0, 8);
     if (!matches.length) { drop.style.display = 'none'; return; }
     drop.innerHTML = '';
     matches.forEach(function(c) {
       var item = document.createElement('div');
       item.className = 'cr-drop-item';
-      var name = document.createElement('div');
-      name.className = 'cr-drop-name';
-      name.textContent = c.name;
-      var meta = document.createElement('div');
-      meta.className = 'cr-drop-meta';
-      meta.textContent = (c.city||'') + (c.state ? ', '+c.state : '') + ' · Par ' + (c.par||'?');
-      item.appendChild(name);
-      item.appendChild(meta);
-      item.onclick = function() {
+      var nameEl = document.createElement('div');
+      nameEl.className = 'cr-drop-name';
+      nameEl.textContent = c.name;
+      var metaEl = document.createElement('div');
+      metaEl.className = 'cr-drop-meta';
+      metaEl.textContent = (c.city||'') + (c.state ? ', '+c.state : '') + ' · Par ' + (c.par||'?');
+      item.appendChild(nameEl);
+      item.appendChild(metaEl);
+      item.onmousedown = function(ev) {
+        ev.preventDefault();
         e.target.value = c.name;
         drop.style.display = 'none';
-        if (isTourney) {
-          // Auto-fill par and slope for tournament
-          var parEl  = document.getElementById('ct-par');
-          var slopeEl = document.getElementById('ct-slope');
-          if (parEl && c.par) parEl.value = c.par;
-          if (slopeEl) {
-            var wt = (c.tees||[]).find(function(t){return t.name==='White';}) || (c.tees||[])[0];
-            if (wt && wt.slope) slopeEl.value = wt.slope;
-            else if (c.slope) slopeEl.value = c.slope;
-          }
-        } else {
-          // Apply course data to casual round
-          crApplyTee(c, 'White');
-          toast('⛳ ' + c.name + ' loaded!');
-        }
+        crApplyTee(c, 'White');
+        toast('⛳ ' + c.name + ' loaded!');
       };
       drop.appendChild(item);
     });
-    // Position ct-course-drop relative to input (fixed positioning bypasses modal overflow)
-    if (isTourney) {
-      var rect = e.target.getBoundingClientRect();
-      drop.style.top = (rect.bottom + 2) + 'px';
-      drop.style.left = rect.left + 'px';
-      drop.style.width = rect.width + 'px';
-    }
-    // For tournament dropdown (position:fixed), calculate position from input rect
-    if (isTourney) {
-      var rect = e.target.getBoundingClientRect();
-      drop.style.top  = (rect.bottom + 2) + 'px';
-      drop.style.left = rect.left + 'px';
-      drop.style.width = rect.width + 'px';
-    }
     drop.style.display = 'block';
   });
 });
 
-// Close dropdowns when clicking outside
-document.addEventListener('click', function(e) {
-  ['cr-course-drop','ct-course-drop'].forEach(function(id) {
-    var drop = document.getElementById(id);
-    var inp  = document.getElementById(id.replace('-drop',''));
-    if (drop && inp && !inp.contains(e.target) && !drop.contains(e.target)) {
-      drop.style.display = 'none';
-    }
+// ── COURSE SEARCH — TOURNAMENT MODAL ──
+// Dropdown appended to document.body to escape modal stacking context
+var _ctBodyDrop = null;
+
+function ctRemoveDrop() {
+  if (_ctBodyDrop && _ctBodyDrop.parentNode) {
+    _ctBodyDrop.parentNode.removeChild(_ctBodyDrop);
+  }
+  _ctBodyDrop = null;
+}
+
+function ctBuildDrop(inp, courses) {
+  ctRemoveDrop();
+  var rect = inp.getBoundingClientRect();
+  var drop = document.createElement('div');
+  drop.style.cssText = 'position:fixed;top:' + (rect.bottom + 2) + 'px;' +
+    'left:' + rect.left + 'px;width:' + rect.width + 'px;' +
+    'background:white;border-radius:10px;' +
+    'box-shadow:0 8px 32px rgba(0,0,0,0.3);' +
+    'z-index:99999;max-height:220px;overflow-y:auto;' +
+    'border:1px solid #e8e0cc;font-family:Inter,sans-serif;';
+  courses.forEach(function(c) {
+    var item = document.createElement('div');
+    item.style.cssText = 'padding:9px 12px;cursor:pointer;font-size:0.82rem;' +
+      'border-bottom:1px solid #e8e0cc;';
+    var nameEl = document.createElement('div');
+    nameEl.style.cssText = 'font-weight:600;color:#1a1a1a;';
+    nameEl.textContent = c.name;
+    var metaEl = document.createElement('div');
+    metaEl.style.cssText = 'font-size:0.72rem;color:#8a8a8a;margin-top:1px;';
+    metaEl.textContent = (c.city||'') + (c.state ? ', '+c.state : '') + ' · Par ' + (c.par||'?');
+    item.appendChild(nameEl);
+    item.appendChild(metaEl);
+    item.onmouseover = function() { item.style.background = '#fffbe6'; };
+    item.onmouseout  = function() { item.style.background = 'white'; };
+    item.onmousedown = function(ev) {
+      ev.preventDefault();
+      inp.value = c.name;
+      var parEl   = document.getElementById('ct-par');
+      var slopeEl = document.getElementById('ct-slope');
+      if (parEl && c.par) parEl.value = c.par;
+      if (slopeEl) {
+        var wt = (c.tees||[]).find(function(t){return t.name==='White';}) || (c.tees||[])[0];
+        if (wt && wt.slope) slopeEl.value = wt.slope;
+        else if (c.slope) slopeEl.value = c.slope;
+      }
+      ctRemoveDrop();
+    };
+    drop.appendChild(item);
   });
+  document.body.appendChild(drop);
+  _ctBodyDrop = drop;
+}
+
+var _ctTimer = null;
+document.addEventListener('input', function(e) {
+  if (e.target.id !== 'ct-course') return;
+  clearTimeout(_ctTimer);
+  var q = e.target.value.trim().toLowerCase();
+  if (q.length < 2) { ctRemoveDrop(); return; }
+  var inp = e.target;
+  _ctTimer = setTimeout(function() {
+    crLoadLibrary(function(lib) {
+      var matches = lib.filter(function(c) {
+        return (c.name||'').toLowerCase().includes(q) ||
+               (c.city||'').toLowerCase().includes(q);
+      }).slice(0, 6);
+      if (!matches.length) { ctRemoveDrop(); return; }
+      ctBuildDrop(inp, matches);
+    });
+  }, 300);
 });
+
+// Close dropdowns on click outside
+document.addEventListener('click', function(e) {
+  var crDrop = document.getElementById('cr-course-drop');
+  var crInp  = document.getElementById('cr-course');
+  if (crDrop && crInp && !crInp.contains(e.target) && !crDrop.contains(e.target)) {
+    crDrop.style.display = 'none';
+  }
+  if (_ctBodyDrop) {
+    var ctInp = document.getElementById('ct-course');
+    if (ctInp && !ctInp.contains(e.target) && !_ctBodyDrop.contains(e.target)) {
+      ctRemoveDrop();
+    }
+  }
+});
+
+// Clean up tournament dropdown when modal closes
+var _origCloseModal = window.closeModal;
+window.closeModal = function(id) {
+  if (id === 'modal-create-tourney') {
+    ctRemoveDrop();
+    var ctInp = document.getElementById('ct-course');
+    if (ctInp) ctInp.value = '';
+  }
+  if (_origCloseModal) _origCloseModal(id);
+};
 
 document.addEventListener('keydown', e => {
   // Digit keys 1-9 on a focused hole input sets score directly
