@@ -437,7 +437,7 @@ hr.div{border:none;border-top:1px solid var(--cream-dark);margin:1rem 0;}
       </div>
       <div class="pad">
         <div class="admin-grid">
-          <div class="admin-tile" onclick="window._real_openModal('modal-create-tourney'); setTimeout(ctInitSearch, 100);">
+          <div class="admin-tile" onclick="window._real_openModal('modal-create-tourney')">
             <div class="t-icon">🏆</div>
             <div class="t-label">New Tournament</div>
             <div class="t-sub">Create event</div>
@@ -1548,7 +1548,6 @@ async function loadCasualRound() {
   html += `</div>`;
   cont.innerHTML = html;
   document.getElementById('cr-date').valueAsDate = new Date();
-  crInitSearch();
   crLoadRecent();
 }
 window._real_loadCasualRound = loadCasualRound;
@@ -1926,55 +1925,6 @@ function crApplyTee(course, teeName) {
   }
 }
 
-function crInitSearch() {
-  var inp = document.getElementById('cr-course');
-  var drop = document.getElementById('cr-course-drop');
-  if (!inp || !drop) return;
-  var timer;
-  inp.addEventListener('input', function() {
-    clearTimeout(timer);
-    var q = inp.value.trim().toLowerCase();
-    if (q.length < 2) { drop.style.display = 'none'; return; }
-    timer = setTimeout(function() {
-      crLoadLibrary(function(lib) {
-        var matches = lib.filter(function(c) {
-          return (c.name||'').toLowerCase().includes(q) ||
-                 (c.city||'').toLowerCase().includes(q);
-        }).slice(0, 8);
-        if (!matches.length) { drop.style.display = 'none'; return; }
-        drop.innerHTML = '';
-        matches.forEach(function(c, i) {
-          var item = document.createElement('div');
-          item.className = 'cr-drop-item';
-          var name = document.createElement('div');
-          name.className = 'cr-drop-name';
-          name.textContent = c.name;
-          var meta = document.createElement('div');
-          meta.className = 'cr-drop-meta';
-          meta.textContent = (c.city||'') + (c.state?', '+c.state:'') + ' · Par ' + (c.par||'?');
-          item.appendChild(name);
-          item.appendChild(meta);
-          item.onclick = (function(course) {
-            return function() {
-              inp.value = course.name;
-              drop.style.display = 'none';
-              crApplyTee(course, 'White');
-              toast('⛳ ' + course.name + ' loaded!');
-            };
-          })(c);
-          drop.appendChild(item);
-        });
-        drop.style.display = 'block';
-      });
-    }, 300);
-  });
-  document.addEventListener('click', function(e) {
-    if (drop && !inp.contains(e.target) && !drop.contains(e.target)) {
-      drop.style.display = 'none';
-    }
-  });
-}
-window.ctInitSearch = ctInitSearch;
 
 function crLoadRecent() {
   if (!currentUser) return;
@@ -2020,61 +1970,70 @@ function crLoadRecent() {
 }
 
 
-// ── TOURNAMENT COURSE SEARCH ──
-function ctInitSearch() {
-  var inp = document.getElementById('ct-course');
-  var drop = document.getElementById('ct-course-drop');
-  if (!inp || !drop) return;
-  var timer;
-  inp.addEventListener('input', function() {
-    clearTimeout(timer);
-    var q = inp.value.trim().toLowerCase();
-    if (q.length < 2) { drop.style.display = 'none'; return; }
-    timer = setTimeout(function() {
-      crLoadLibrary(function(lib) {
-        var matches = lib.filter(function(c) {
-          return (c.name||'').toLowerCase().includes(q) ||
-                 (c.city||'').toLowerCase().includes(q);
-        }).slice(0, 6);
-        if (!matches.length) { drop.style.display = 'none'; return; }
-        drop.innerHTML = '';
-        matches.forEach(function(c) {
-          var item = document.createElement('div');
-          item.className = 'cr-drop-item';
-          var name = document.createElement('div');
-          name.className = 'cr-drop-name';
-          name.textContent = c.name;
-          var meta = document.createElement('div');
-          meta.className = 'cr-drop-meta';
-          meta.textContent = (c.city||'') + (c.state?', '+c.state:'') + ' · Par ' + (c.par||'?');
-          item.appendChild(name);
-          item.appendChild(meta);
-          item.onclick = function() {
-            inp.value = c.name;
-            drop.style.display = 'none';
-            // Auto-fill par and slope if available
-            var parEl = document.getElementById('ct-par');
-            var slopeEl = document.getElementById('ct-slope');
-            if (parEl && c.par) parEl.value = c.par;
-            if (slopeEl) {
-              var whiteTee = (c.tees||[]).find(function(t){return t.name==='White';}) || (c.tees||[])[0];
-              if (whiteTee && whiteTee.slope) slopeEl.value = whiteTee.slope;
-              else if (c.slope) slopeEl.value = c.slope;
-            }
-          };
-          drop.appendChild(item);
-        });
-        drop.style.display = 'block';
-      });
-    }, 300);
+// ── COURSE SEARCH — EVENT DELEGATION (handles both casual + tournament) ──
+// One listener handles both cr-course and ct-course inputs
+document.addEventListener('input', function(e) {
+  var id = e.target.id;
+  if (id !== 'cr-course' && id !== 'ct-course') return;
+  var isTourney = (id === 'ct-course');
+  var dropId = isTourney ? 'ct-course-drop' : 'cr-course-drop';
+  var drop = document.getElementById(dropId);
+  if (!drop) return;
+  var q = e.target.value.trim().toLowerCase();
+  if (q.length < 2) { drop.style.display = 'none'; return; }
+  crLoadLibrary(function(lib) {
+    var matches = lib.filter(function(c) {
+      return (c.name||'').toLowerCase().includes(q) ||
+             (c.city||'').toLowerCase().includes(q);
+    }).slice(0, isTourney ? 6 : 8);
+    if (!matches.length) { drop.style.display = 'none'; return; }
+    drop.innerHTML = '';
+    matches.forEach(function(c) {
+      var item = document.createElement('div');
+      item.className = 'cr-drop-item';
+      var name = document.createElement('div');
+      name.className = 'cr-drop-name';
+      name.textContent = c.name;
+      var meta = document.createElement('div');
+      meta.className = 'cr-drop-meta';
+      meta.textContent = (c.city||'') + (c.state ? ', '+c.state : '') + ' · Par ' + (c.par||'?');
+      item.appendChild(name);
+      item.appendChild(meta);
+      item.onclick = function() {
+        e.target.value = c.name;
+        drop.style.display = 'none';
+        if (isTourney) {
+          // Auto-fill par and slope for tournament
+          var parEl  = document.getElementById('ct-par');
+          var slopeEl = document.getElementById('ct-slope');
+          if (parEl && c.par) parEl.value = c.par;
+          if (slopeEl) {
+            var wt = (c.tees||[]).find(function(t){return t.name==='White';}) || (c.tees||[])[0];
+            if (wt && wt.slope) slopeEl.value = wt.slope;
+            else if (c.slope) slopeEl.value = c.slope;
+          }
+        } else {
+          // Apply course data to casual round
+          crApplyTee(c, 'White');
+          toast('⛳ ' + c.name + ' loaded!');
+        }
+      };
+      drop.appendChild(item);
+    });
+    drop.style.display = 'block';
   });
-  document.addEventListener('click', function(e) {
-    if (drop && !inp.contains(e.target) && !drop.contains(e.target)) {
+});
+
+// Close dropdowns when clicking outside
+document.addEventListener('click', function(e) {
+  ['cr-course-drop','ct-course-drop'].forEach(function(id) {
+    var drop = document.getElementById(id);
+    var inp  = document.getElementById(id.replace('-drop',''));
+    if (drop && inp && !inp.contains(e.target) && !drop.contains(e.target)) {
       drop.style.display = 'none';
     }
   });
-}
-window.ctInitSearch = ctInitSearch;
+});
 
 document.addEventListener('keydown', e => {
   // Digit keys 1-9 on a focused hole input sets score directly
