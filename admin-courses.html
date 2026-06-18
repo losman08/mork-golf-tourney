@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Morks Golf — Course Library</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Inter',sans-serif;background:#1a3a2a;min-height:100vh;color:#1a1a1a;}
+.topbar{background:linear-gradient(135deg,#7a9e5a,#3d6635,#1a3a2a);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #f5d060;position:sticky;top:0;z-index:50;}
+.topbar-title{color:#f5f0e8;font-size:1rem;font-weight:700;}
+.topbar-sub{color:#f5d060;font-size:0.72rem;letter-spacing:0.08em;}
+.topbar-right{display:flex;gap:8px;align-items:center;}
+.user-badge{background:rgba(245,208,96,0.15);color:#f5d060;font-size:0.72rem;padding:4px 10px;border-radius:20px;border:1px solid rgba(245,208,96,0.3);}
+.main{max-width:900px;margin:0 auto;padding:1rem;}
+.card{background:#f5f0e8;border-radius:14px;padding:1.25rem;margin-bottom:1rem;box-shadow:0 4px 20px rgba(0,0,0,0.15);}
+.card-title{font-family:'Playfair Display',serif;font-size:1rem;color:#1a3a2a;margin-bottom:0.8rem;display:flex;align-items:center;gap:8px;}
+.btn{border:none;border-radius:9px;padding:9px 18px;font-size:0.85rem;font-weight:700;font-family:'Inter',sans-serif;cursor:pointer;transition:all 0.15s;display:inline-flex;align-items:center;gap:6px;}
+.btn-gold{background:#f5d060;color:#1a3a2a;}
+.btn-gold:hover{background:#ffe066;}
+.btn-forest{background:#1a3a2a;color:#f5d060;}
+.btn-forest:hover{background:#2d5a3d;}
+.btn-ghost{background:transparent;border:1.5px solid #d8d0c0;color:#4a4a4a;}
+.btn-ghost:hover{border-color:#1a3a2a;color:#1a3a2a;}
+.btn-danger{background:#c0392b;color:white;}
+.btn-danger:hover{background:#e74c3c;}
+.btn-sm{padding:5px 10px;font-size:0.75rem;}
+.btn:disabled{opacity:0.4;cursor:not-allowed;}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:0.8rem;}
+label{display:block;font-size:0.72rem;font-weight:700;color:#4a4a4a;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:3px;}
+input,select,textarea{width:100%;border:1.5px solid #d8d0c0;border-radius:8px;padding:8px 10px;font-size:0.85rem;font-family:'Inter',sans-serif;background:white;color:#1a1a1a;transition:border-color 0.15s;}
+input:focus,select:focus,textarea:focus{outline:none;border-color:#3d6635;}
+input[readonly]{background:#f0ede4;color:#7a7a7a;}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;}
+.grid4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;}
+.fg{margin-bottom:0.7rem;}
+.section-lbl{font-size:0.72rem;font-weight:700;color:#7a7a7a;text-transform:uppercase;letter-spacing:0.06em;margin:0.8rem 0 0.4rem;border-top:1px solid #e8e0cc;padding-top:0.6rem;}
+.status{padding:8px 12px;border-radius:8px;font-size:0.82rem;font-weight:600;margin-top:0.6rem;}
+.status-ok{background:#d4edda;color:#155724;}
+.status-err{background:#f8d7da;color:#721c24;}
+.status-info{background:#d1ecf1;color:#0c5460;}
+.status-warn{background:#fff3cd;color:#856404;}
+.course-row{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;background:white;border-radius:10px;margin-bottom:6px;border:1px solid #e8e0cc;transition:border-color 0.15s;}
+.course-row:hover{border-color:#3d6635;}
+.course-info{flex:1;min-width:0;}
+.course-name{font-size:0.88rem;font-weight:700;color:#1a3a2a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.course-meta{font-size:0.74rem;color:#7a7a7a;margin-top:2px;}
+.course-actions{display:flex;gap:6px;flex-shrink:0;}
+.tee-pill{display:inline-block;padding:1px 7px;border-radius:4px;font-size:0.68rem;font-weight:700;margin:1px;}
+.data-badge{display:inline-block;padding:1px 6px;border-radius:4px;font-size:0.65rem;font-weight:700;margin-left:4px;}
+.badge-full{background:#d4edda;color:#155724;}
+.badge-partial{background:#fff3cd;color:#856404;}
+.tee-block{background:white;border-radius:10px;padding:0.8rem;margin-bottom:0.6rem;border:1.5px solid #d8d0c0;}
+.tee-block-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:0.6rem;}
+.hole-grid-9{display:grid;grid-template-columns:repeat(9,1fr);gap:3px;margin-bottom:4px;}
+.hole-cell{text-align:center;}
+.hole-num{font-size:0.62rem;color:#7a7a7a;margin-bottom:1px;}
+.hole-inp{width:100%;text-align:center;border:1px solid #d8d0c0;border-radius:4px;padding:3px 0;font-size:0.78rem;font-family:'Inter',sans-serif;}
+.hole-inp:focus{outline:none;border-color:#3d6635;}
+.yds-inp{width:100%;text-align:center;border:1px solid #d8d0c0;border-radius:4px;padding:2px 0;font-size:0.68rem;font-family:'Inter',sans-serif;color:#7a7a7a;margin-top:2px;}
+.yds-inp:focus{outline:none;border-color:#3d6635;}
+.total-display{padding:5px 8px;background:#f0ede4;border-radius:6px;font-size:0.8rem;font-weight:700;color:#1a3a2a;border:1px solid #d8d0c0;text-align:center;}
+.search-wrap{position:relative;margin-bottom:0.8rem;}
+.search-inp{width:100%;border:1.5px solid #d8d0c0;border-radius:8px;padding:8px 36px 8px 10px;font-size:0.85rem;font-family:'Inter',sans-serif;}
+.search-inp:focus{outline:none;border-color:#3d6635;}
+.search-icon{position:absolute;right:10px;top:50%;transform:translateY(-50%);color:#7a7a7a;font-size:1rem;}
+.filter-row{display:flex;gap:8px;margin-bottom:0.8rem;flex-wrap:wrap;}
+.filter-btn{background:#e8e0cc;border:none;border-radius:6px;padding:5px 12px;font-size:0.75rem;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;color:#4a4a4a;transition:all 0.15s;}
+.filter-btn.active{background:#1a3a2a;color:#f5d060;}
+.empty{text-align:center;padding:2rem;color:#7a7a7a;font-style:italic;}
+.tab-bar{display:flex;border-bottom:2px solid #d8d0c0;margin-bottom:1rem;}
+.tab{padding:8px 16px;font-size:0.82rem;font-weight:700;cursor:pointer;border:none;background:none;color:#7a7a7a;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:'Inter',sans-serif;transition:all 0.15s;}
+.tab.active{color:#1a3a2a;border-bottom-color:#f5d060;}
+.csv-instructions{background:#e8f5e9;border-radius:8px;padding:10px 14px;font-size:0.78rem;color:#1b5e20;margin-bottom:0.8rem;line-height:1.5;}
+.progress-bar-wrap{background:#e8e0cc;border-radius:4px;height:8px;margin:0.5rem 0;}
+.progress-bar{background:#f5d060;height:100%;border-radius:4px;width:0%;transition:width 0.3s;}
+.auth-wall{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:2rem;}
+.auth-box{background:#f5f0e8;border-radius:16px;padding:2rem;max-width:380px;width:100%;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,0.3);}
+.auth-box h2{font-family:'Playfair Display',serif;color:#1a3a2a;margin-bottom:0.5rem;}
+.auth-box p{font-size:0.82rem;color:#7a7a7a;margin-bottom:1.5rem;}
+@media(max-width:600px){
+  .grid2{grid-template-columns:1fr;}
+  .grid3{grid-template-columns:1fr 1fr;}
+  .grid4{grid-template-columns:repeat(4,1fr);}
+  .hole-inp{font-size:0.72rem;padding:2px 0;}
+  .yds-inp{font-size:0.62rem;}
+  .filter-row{gap:4px;}
+  .filter-btn{padding:4px 8px;font-size:0.7rem;}
+}
+</style>
+</head>
+<body>
+
+<!-- Auth wall shown until Firebase confirms admin -->
+<div id="auth-wall" class="auth-wall">
+  <div class="auth-box">
+    <h2>⛳ Course Library</h2>
+    <p>Checking your admin access...</p>
+    <div id="auth-status" style="font-size:0.82rem;color:#7a7a7a;margin-top:1rem;"></div>
+    <button class="btn btn-forest" style="margin-top:1rem;width:100%;display:none;" id="go-back-btn" onclick="window.close()">← Close This Tab</button>
+  </div>
+</div>
+
+<!-- Main app - hidden until auth confirmed -->
+<div id="main-app" style="display:none;">
+
+<div class="topbar">
+  <div>
+    <div class="topbar-title">📚 Course Library Manager</div>
+    <div class="topbar-sub">MORKS GOLF TOUR — ADMIN ONLY</div>
+  </div>
+  <div class="topbar-right">
+    <div class="user-badge" id="user-badge">Loading...</div>
+    <button class="btn btn-sm" style="background:rgba(255,255,255,0.1);color:#f5f0e8;border:1px solid rgba(255,255,255,0.2);" onclick="window.close()">✕ Close</button>
+  </div>
+</div>
+
+<div class="main">
+
+  <!-- Tab bar -->
+  <div class="tab-bar">
+    <button class="tab active" onclick="switchTab('library')" id="tab-library">📋 Library</button>
+    <button class="tab" onclick="switchTab('add')" id="tab-add">➕ Add Course</button>
+    <button class="tab" onclick="switchTab('csv')" id="tab-csv">📤 CSV Upload</button>
+  </div>
+
+  <!-- ── TAB 1: LIBRARY ── -->
+  <div id="panel-library">
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.8rem;">
+        <div class="card-title" style="margin:0;">Course Library <span id="course-count" style="font-size:0.78rem;color:#7a7a7a;font-family:'Inter',sans-serif;font-weight:400;"></span></div>
+        <button class="btn btn-gold btn-sm" onclick="loadLibrary()">🔄 Refresh</button>
+      </div>
+      <div class="search-wrap">
+        <input class="search-inp" type="text" id="search-inp" placeholder="Search by name, city, or state..." oninput="filterCourses()">
+        <span class="search-icon">🔍</span>
+      </div>
+      <div class="filter-row" id="state-filters"></div>
+      <div id="library-list"><div class="empty">Loading courses...</div></div>
+    </div>
+  </div>
+
+  <!-- ── TAB 2: ADD / EDIT COURSE ── -->
+  <div id="panel-add" style="display:none;">
+    <div class="card">
+      <div class="card-title" id="form-title">➕ Add New Course</div>
+      <input type="hidden" id="editing-id">
+
+      <div class="grid2">
+        <div class="fg"><label>Course Name *</label><input type="text" id="cl-name" placeholder="e.g. Seascape Golf Club"></div>
+        <div class="fg"><label>City *</label><input type="text" id="cl-city" placeholder="Aptos"></div>
+      </div>
+      <div class="grid3">
+        <div class="fg"><label>State *</label><input type="text" id="cl-state" placeholder="CA" maxlength="2" style="text-transform:uppercase;"></div>
+        <div class="fg"><label>Type</label>
+          <select id="cl-type">
+            <option>Public</option><option>Private</option><option>Semi-Private</option><option>Resort</option><option>Municipal</option>
+          </select>
+        </div>
+        <div class="fg"><label>Overall Par (auto)</label><input type="number" id="cl-par" readonly placeholder="Auto-calculated"></div>
+      </div>
+
+      <div class="section-lbl">Tee Boxes</div>
+      <div id="tees-container"></div>
+      <button class="btn btn-ghost" onclick="addTeeBlock(null)" style="width:100%;margin-bottom:0.8rem;">+ Add Another Tee</button>
+
+      <div class="btn-row">
+        <button class="btn btn-gold" onclick="saveCourse()">💾 Save Course</button>
+        <button class="btn btn-ghost" onclick="cancelEdit()">Cancel</button>
+      </div>
+      <div id="form-status"></div>
+    </div>
+  </div>
+
+  <!-- ── TAB 3: CSV UPLOAD ── -->
+  <div id="panel-csv" style="display:none;">
+    <div class="card">
+      <div class="card-title">📥 Download Template</div>
+      <div class="csv-instructions">
+        Download the CSV template, fill it in with course data (one row per tee set), and upload it back to bulk-import courses. Multiple rows with the same course name = multiple tee sets for that course.
+      </div>
+      <button class="btn btn-forest" onclick="downloadTemplate()">⬇️ Download CSV Template</button>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📤 Upload CSV</div>
+      <div class="csv-instructions">
+        <strong>Format:</strong> name, city, state, type, tee_name, rating, slope, h1_par, h1_yds, h2_par, h2_yds ... h18_par, h18_yds<br>
+        <strong>Multiple tees:</strong> Add one row per tee set for the same course.<br>
+        <strong>Mobile:</strong> Save your CSV to Google Drive or Files, then tap Choose File below.
+      </div>
+      <div class="fg">
+        <label>Select CSV File</label>
+        <input type="file" id="csv-file" accept=".csv,.txt" style="padding:6px;">
+      </div>
+      <div style="margin-bottom:0.8rem;">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.82rem;font-weight:400;text-transform:none;letter-spacing:0;">
+          <input type="checkbox" id="csv-overwrite" style="width:auto;"> Overwrite existing courses with same name
+        </label>
+      </div>
+      <button class="btn btn-gold" onclick="uploadCSV()">🚀 Import Courses</button>
+      <div class="progress-bar-wrap" id="csv-progress-wrap" style="display:none;">
+        <div class="progress-bar" id="csv-progress-bar"></div>
+      </div>
+      <div id="csv-status"></div>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getFirestore, collection, doc, getDoc, getDocs, addDoc, updateDoc,
+         deleteDoc, query, orderBy, where, serverTimestamp }
+  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDyAtsNMVVC00M_wuVedqIkBOLclOpp5-0",
+  authDomain: "mork-golf-tourney.firebaseapp.com",
+  projectId: "mork-golf-tourney",
+  storageBucket: "mork-golf-tourney.firebasestorage.app",
+  messagingSenderId: "314668694744",
+  appId: "1:314668694744:web:ca4b10e5db9be5e3d8d0eb"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db   = getFirestore(app);
+
+// ── STATE ──
+var allCourses = [];
+var filteredCourses = [];
+var activeState = 'ALL';
+var teeIdx = 0;
+
+const TEE_COLORS = {
+  White:'#888', Blue:'#1565c0', Gold:'#daa520',
+  Red:'#c62828', Green:'#2e7d32', Black:'#111',
+  Silver:'#aaa', Yellow:'#e6b800'
+};
+
+// ── AUTH ──
+onAuthStateChanged(auth, async function(user) {
+  if (!user) {
+    document.getElementById('auth-status').textContent = 'Not signed in. Please sign into the Morks Golf Tour app first, then open this page.';
+    document.getElementById('go-back-btn').style.display = 'block';
+    return;
+  }
+  // Check admin role
+  try {
+    var snap = await getDoc(doc(db, 'players', user.uid));
+    if (!snap.exists() || snap.data().role !== 'admin') {
+      document.getElementById('auth-status').textContent = 'Access denied. Admin role required.';
+      document.getElementById('go-back-btn').style.display = 'block';
+      return;
+    }
+  } catch(e) {
+    document.getElementById('auth-status').textContent = 'Error checking permissions: ' + e.message;
+    return;
+  }
+  // Admin confirmed
+  document.getElementById('auth-wall').style.display = 'none';
+  document.getElementById('main-app').style.display = 'block';
+  document.getElementById('user-badge').textContent = user.email;
+  loadLibrary();
+  addTeeBlock({name:'White'});
+  addTeeBlock({name:'Blue'});
+});
+
+// ── TAB SWITCHING ──
+window.switchTab = function(tab) {
+  ['library','add','csv'].forEach(function(t) {
+    document.getElementById('panel-'+t).style.display = t===tab ? 'block' : 'none';
+    document.getElementById('tab-'+t).classList.toggle('active', t===tab);
+  });
+};
+
+// ── LOAD LIBRARY ──
+window.loadLibrary = async function() {
+  document.getElementById('library-list').innerHTML = '<div class="empty">Loading...</div>';
+  try {
+    var snap = await getDocs(query(collection(db,'courseLibrary'), orderBy('name')));
+    allCourses = snap.docs.map(function(d) { return Object.assign({id:d.id}, d.data()); });
+    document.getElementById('course-count').textContent = '(' + allCourses.length + ' courses)';
+
+    // Build state filters
+    var states = [...new Set(allCourses.map(function(c){return c.state||'?';}))].sort();
+    var filterHtml = '<button class="filter-btn active" onclick="setStateFilter(\'ALL\',this)">All</button>';
+    states.forEach(function(s) {
+      filterHtml += '<button class="filter-btn" onclick="setStateFilter(\''+s+'\',this)">'+s+'</button>';
+    });
+    document.getElementById('state-filters').innerHTML = filterHtml;
+    filterCourses();
+  } catch(e) {
+    document.getElementById('library-list').innerHTML = '<div class="empty">Error: '+e.message+'</div>';
+  }
+};
+
+window.setStateFilter = function(state, btn) {
+  activeState = state;
+  document.querySelectorAll('.filter-btn').forEach(function(b){b.classList.remove('active');});
+  btn.classList.add('active');
+  filterCourses();
+};
+
+window.filterCourses = function() {
+  var q = document.getElementById('search-inp').value.toLowerCase().trim();
+  filteredCourses = allCourses.filter(function(c) {
+    var matchState = activeState==='ALL' || c.state===activeState;
+    var matchSearch = !q ||
+      (c.name||'').toLowerCase().includes(q) ||
+      (c.city||'').toLowerCase().includes(q) ||
+      (c.state||'').toLowerCase().includes(q);
+    return matchState && matchSearch;
+  });
+  renderLibrary();
+};
+
+function renderLibrary() {
+  if (!filteredCourses.length) {
+    document.getElementById('library-list').innerHTML = '<div class="empty">No courses match your search.</div>';
+    return;
+  }
+  var html = '';
+  filteredCourses.forEach(function(c) {
+    var tees = c.tees || [];
+    var hasFullData = tees.length > 0 && tees[0].holes && tees[0].holes.length === 18 && tees[0].holes[0].yards > 0;
+    var hasParsOnly = c.holePars && c.holePars.length === 18;
+    var badge = hasFullData
+      ? '<span class="data-badge badge-full">Full data</span>'
+      : hasParsOnly
+        ? '<span class="data-badge badge-partial">Pars only</span>'
+        : '<span class="data-badge" style="background:#f8d7da;color:#721c24;">No data</span>';
+    var teeNames = tees.length
+      ? tees.map(function(t){
+          var col = TEE_COLORS[t.name]||'#888';
+          return '<span class="tee-pill" style="background:'+col+'22;color:'+col+'">'+t.name+'</span>';
+        }).join('')
+      : '';
+    html += '<div class="course-row">';
+    html += '<div class="course-info">';
+    html += '<div class="course-name">'+c.name+badge+'</div>';
+    html += '<div class="course-meta">'+(c.city||'')+
+      (c.state?', '+c.state:'')+' &nbsp;·&nbsp; Par '+(c.par||'?')+
+      (c.type?' &nbsp;·&nbsp; '+c.type:'')+
+      (teeNames?' &nbsp;·&nbsp; '+teeNames:'')+'</div>';
+    html += '</div>';
+    html += '<div class="course-actions">';
+    html += '<button class="btn btn-ghost btn-sm" onclick="editCourse(\''+c.id+'\')">✏️</button>';
+    html += '<button class="btn btn-danger btn-sm" onclick="deleteCourse(\''+c.id+'\',\''+c.name.replace(/'/g,'')+'\')">🗑️</button>';
+    html += '</div></div>';
+  });
+  document.getElementById('library-list').innerHTML = html;
+}
+
+// ── ADD TEE BLOCK ──
+window.addTeeBlock = function(teeData) {
+  var idx = teeIdx++;
+  var tee = teeData || {name:'White'};
+  var holes = tee.holes || [];
+  var container = document.getElementById('tees-container');
+  var div = document.createElement('div');
+  div.className = 'tee-block';
+  div.id = 'tee-'+idx;
+
+  // Header
+  var hdr = document.createElement('div');
+  hdr.className = 'tee-block-header';
+  var sel = document.createElement('select');
+  sel.id = 'tee-'+idx+'-name';
+  sel.style.cssText = 'width:auto;padding:4px 10px;border-radius:6px;font-weight:700;font-size:0.82rem;';
+  ['White','Blue','Gold','Red','Green','Black','Silver','Yellow'].forEach(function(n) {
+    var opt = document.createElement('option');
+    opt.value = n; opt.textContent = n + ' Tees';
+    if (n === (tee.name||'White')) opt.selected = true;
+    sel.appendChild(opt);
+  });
+  var removeBtn = document.createElement('button');
+  removeBtn.className = 'btn btn-danger btn-sm';
+  removeBtn.textContent = '✕ Remove';
+  removeBtn.onclick = function() { div.remove(); recalcPar(); };
+  hdr.appendChild(sel);
+  hdr.appendChild(removeBtn);
+  div.appendChild(hdr);
+
+  // Rating / Slope / Total
+  var infoGrid = document.createElement('div');
+  infoGrid.className = 'grid3';
+  infoGrid.style.marginBottom = '0.6rem';
+  [
+    ['Rating','tee-'+idx+'-rating',tee.rating||'','e.g. 68.8','number','0.1'],
+    ['Slope','tee-'+idx+'-slope',tee.slope||'','e.g. 127','number','1'],
+    ['Total Yards','tee-'+idx+'-total',tee.totalYards||'','Auto','text','']
+  ].forEach(function(f) {
+    var cell = document.createElement('div');
+    var lbl = document.createElement('label');
+    lbl.textContent = f[0];
+    cell.appendChild(lbl);
+    var inp = document.createElement('input');
+    inp.id = f[1]; inp.value = f[2]; inp.placeholder = f[3]; inp.type = f[4];
+    if (f[4]==='number' && f[5]) inp.step = f[5];
+    if (f[0]==='Total Yards') inp.readOnly = true;
+    inp.style.marginTop = '3px';
+    cell.appendChild(inp);
+    infoGrid.appendChild(cell);
+  });
+  div.appendChild(infoGrid);
+
+  // Hole inputs - Front 9 then Back 9
+  ['Front 9','Back 9'].forEach(function(label, half) {
+    var sectionLbl = document.createElement('div');
+    sectionLbl.className = 'section-lbl';
+    sectionLbl.textContent = label + ' — Par / Yards';
+    div.appendChild(sectionLbl);
+    var grid = document.createElement('div');
+    grid.className = 'hole-grid-9';
+    for (var i=0; i<9; i++) {
+      var h = half*9 + i + 1;
+      var holeData = holes[h-1] || {par:4, yards:''};
+      var cell = document.createElement('div');
+      cell.className = 'hole-cell';
+      var num = document.createElement('div');
+      num.className = 'hole-num';
+      num.textContent = 'H'+h;
+      var parInp = document.createElement('input');
+      parInp.className = 'hole-inp';
+      parInp.type = 'number'; parInp.min = '3'; parInp.max = '6';
+      parInp.id = 'tee-'+idx+'-par-'+h;
+      parInp.value = holeData.par || 4;
+      parInp.oninput = (function(ti){ return function(){recalcPar();updateTotal(ti);}; })(idx);
+      var ydsInp = document.createElement('input');
+      ydsInp.className = 'yds-inp';
+      ydsInp.type = 'number'; ydsInp.min = '0'; ydsInp.max = '700';
+      ydsInp.id = 'tee-'+idx+'-yds-'+h;
+      ydsInp.value = holeData.yards || '';
+      ydsInp.placeholder = 'yds';
+      ydsInp.oninput = (function(ti){ return function(){updateTotal(ti);}; })(idx);
+      cell.appendChild(num); cell.appendChild(parInp); cell.appendChild(ydsInp);
+      grid.appendChild(cell);
+    }
+    div.appendChild(grid);
+  });
+  container.appendChild(div);
+  recalcPar();
+};
+
+function updateTotal(idx) {
+  var total = 0;
+  for (var h=1;h<=18;h++) {
+    var v = parseInt(document.getElementById('tee-'+idx+'-yds-'+h)?.value)||0;
+    total += v;
+  }
+  var el = document.getElementById('tee-'+idx+'-total');
+  if (el) el.value = total > 0 ? total : '';
+}
+
+function recalcPar() {
+  // Use White tees or first tee block
+  var blocks = document.querySelectorAll('.tee-block');
+  var targetIdx = null;
+  blocks.forEach(function(b) {
+    var id = b.id.replace('tee-','');
+    var name = document.getElementById('tee-'+id+'-name')?.value;
+    if (name==='White' && targetIdx===null) targetIdx = id;
+  });
+  if (targetIdx===null && blocks.length) targetIdx = blocks[0].id.replace('tee-','');
+  if (targetIdx===null) { document.getElementById('cl-par').value=''; return; }
+  var par = 0;
+  for (var h=1;h<=18;h++) {
+    par += parseInt(document.getElementById('tee-'+targetIdx+'-par-'+h)?.value)||0;
+  }
+  document.getElementById('cl-par').value = par || '';
+}
+
+// ── EDIT COURSE ──
+window.editCourse = async function(id) {
+  var c = allCourses.find(function(x){return x.id===id;});
+  if (!c) return;
+
+  document.getElementById('cl-name').value = c.name||'';
+  document.getElementById('cl-city').value = c.city||'';
+  document.getElementById('cl-state').value = c.state||'';
+  document.getElementById('cl-type').value = c.type||'Public';
+  document.getElementById('editing-id').value = id;
+  document.getElementById('form-title').textContent = '✏️ Editing: '+c.name;
+
+  // Clear existing tee blocks
+  document.getElementById('tees-container').innerHTML = '';
+  teeIdx = 0;
+
+  var tees = c.tees || [];
+  if (tees.length) {
+    tees.forEach(function(t) { addTeeBlock(t); });
+  } else if (c.holePars && c.holePars.length===18) {
+    // Convert old format to editable tee block
+    var holes = c.holePars.map(function(par,i){ return {hole:i+1,par:par,yards:0}; });
+    addTeeBlock({name:'White', rating:c.rating||0, slope:c.slope||113, totalYards:0, holes:holes});
+  } else {
+    addTeeBlock({name:'White'});
+  }
+
+  switchTab('add');
+  document.getElementById('form-status').innerHTML = '<div class="status status-info">Editing "'+c.name+'" — update data and save to overwrite.</div>';
+  window.scrollTo(0,0);
+};
+
+// ── SAVE COURSE ──
+window.saveCourse = async function() {
+  var name = document.getElementById('cl-name').value.trim();
+  var city = document.getElementById('cl-city').value.trim();
+  var state = document.getElementById('cl-state').value.trim().toUpperCase();
+  var type = document.getElementById('cl-type').value;
+  var existingId = document.getElementById('editing-id').value;
+
+  if (!name) { setFormStatus('Course name is required.','err'); return; }
+  if (!state) { setFormStatus('State is required.','err'); return; }
+
+  var blocks = document.querySelectorAll('.tee-block');
+  if (!blocks.length) { setFormStatus('Add at least one tee set.','err'); return; }
+
+  var tees = [];
+  blocks.forEach(function(block) {
+    var bid = block.id.replace('tee-','');
+    var holes = [];
+    for (var h=1;h<=18;h++) {
+      holes.push({
+        hole: h,
+        par: parseInt(document.getElementById('tee-'+bid+'-par-'+h)?.value)||4,
+        yards: parseInt(document.getElementById('tee-'+bid+'-yds-'+h)?.value)||0
+      });
+    }
+    var totalYards = holes.reduce(function(s,h){return s+h.yards;},0);
+    tees.push({
+      name: document.getElementById('tee-'+bid+'-name')?.value||'White',
+      rating: parseFloat(document.getElementById('tee-'+bid+'-rating')?.value)||0,
+      slope: parseInt(document.getElementById('tee-'+bid+'-slope')?.value)||113,
+      totalYards: totalYards,
+      holes: holes
+    });
+  });
+
+  var whiteTee = tees.find(function(t){return t.name==='White';})||tees[0];
+  var holePars = whiteTee.holes.map(function(h){return h.par;});
+  var par = holePars.reduce(function(a,b){return a+b;},0);
+
+  var data = {
+    name: name, city: city, state: state, type: type,
+    par: par, holePars: holePars, tees: tees,
+    updatedAt: serverTimestamp()
+  };
+
+  setFormStatus('Saving...','info');
+  try {
+    if (existingId) {
+      await updateDoc(doc(db,'courseLibrary',existingId), data);
+      setFormStatus('✅ "'+name+'" updated successfully!','ok');
+    } else {
+      data.createdAt = serverTimestamp();
+      await addDoc(collection(db,'courseLibrary'), data);
+      setFormStatus('✅ "'+name+'" added to library!','ok');
+    }
+    document.getElementById('editing-id').value = '';
+    document.getElementById('form-title').textContent = '➕ Add New Course';
+    loadLibrary();
+    setTimeout(function(){switchTab('library');},1500);
+  } catch(e) {
+    setFormStatus('Error: '+e.message,'err');
+  }
+};
+
+function setFormStatus(msg, type) {
+  document.getElementById('form-status').innerHTML = '<div class="status status-'+type+'">'+msg+'</div>';
+}
+
+window.cancelEdit = function() {
+  document.getElementById('editing-id').value = '';
+  document.getElementById('form-title').textContent = '➕ Add New Course';
+  document.getElementById('form-status').innerHTML = '';
+  document.getElementById('tees-container').innerHTML = '';
+  teeIdx = 0;
+  addTeeBlock({name:'White'});
+  addTeeBlock({name:'Blue'});
+  switchTab('library');
+};
+
+// ── DELETE COURSE ──
+window.deleteCourse = async function(id, name) {
+  if (!confirm('Delete "'+name+'" from the library?\n\nThis cannot be undone.')) return;
+  try {
+    await deleteDoc(doc(db,'courseLibrary',id));
+    loadLibrary();
+  } catch(e) {
+    alert('Error deleting: '+e.message);
+  }
+};
+
+// ── CSV TEMPLATE DOWNLOAD ──
+window.downloadTemplate = function() {
+  var headers = ['name','city','state','type','tee_name','rating','slope'];
+  for (var h=1;h<=18;h++) { headers.push('h'+h+'_par','h'+h+'_yds'); }
+
+  var exampleRows = [
+    ['Seascape Golf Club','Aptos','CA','Semi-Private','White','68.8','127',
+     '4','345','4','312','3','148','5','462','4','328','4','356','3','155','4','298','4','365',
+     '4','388','3','142','4','335','4','310','3','175','5','478','4','322','4','358','4','292'],
+    ['Seascape Golf Club','Aptos','CA','Semi-Private','Blue','69.7','129',
+     '4','387','4','334','3','165','5','498','4','356','4','378','3','172','4','321','4','389',
+     '4','412','3','158','4','352','4','328','3','191','5','501','4','341','4','379','4','315']
+  ];
+
+  var csv = headers.join(',') + '\n';
+  exampleRows.forEach(function(row) { csv += row.join(',') + '\n'; });
+  csv += '\n// Add your courses below. One row per tee set. Same course name = same course.\n';
+
+  var blob = new Blob([csv], {type:'text/csv'});
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'morks-course-template.csv';
+  a.click();
+};
+
+// ── CSV UPLOAD ──
+window.uploadCSV = async function() {
+  var file = document.getElementById('csv-file').files[0];
+  if (!file) { setCsvStatus('Please select a CSV file first.','warn'); return; }
+  var overwrite = document.getElementById('csv-overwrite').checked;
+
+  var text = await file.text();
+  var lines = text.split('\n').filter(function(l){ return l.trim() && !l.trim().startsWith('//') && !l.trim().startsWith('#'); });
+  if (!lines.length) { setCsvStatus('CSV file is empty or invalid.','err'); return; }
+
+  // Parse header
+  var headerLine = lines[0];
+  var headers = headerLine.split(',').map(function(h){return h.trim().replace(/"/g,'').toLowerCase();});
+
+  // Validate required headers
+  var required = ['name','city','state','tee_name'];
+  var missing = required.filter(function(r){return !headers.includes(r);});
+  if (missing.length) { setCsvStatus('Missing required columns: '+missing.join(', '),'err'); return; }
+
+  // Parse data rows
+  var dataLines = lines.slice(1).filter(function(l){return l.trim();});
+  if (!dataLines.length) { setCsvStatus('No data rows found after header.','err'); return; }
+
+  // Group rows by course name
+  var courseMap = {};
+  var parseErrors = [];
+  dataLines.forEach(function(line, lineIdx) {
+    var vals = parseCSVLine(line);
+    var row = {};
+    headers.forEach(function(h,i){ row[h] = (vals[i]||'').trim().replace(/"/g,''); });
+    if (!row.name) return;
+
+    if (!courseMap[row.name]) courseMap[row.name] = {name:row.name, city:row.city||'', state:(row.state||'').toUpperCase(), type:row.type||'Public', tees:[]};
+
+    var holes = [];
+    for (var h=1;h<=18;h++) {
+      var par = parseInt(row['h'+h+'_par'])||4;
+      var yds = parseInt(row['h'+h+'_yds'])||0;
+      holes.push({hole:h, par:par, yards:yds});
+    }
+    var totalYards = holes.reduce(function(s,h){return s+h.yards;},0);
+    courseMap[row.name].tees.push({
+      name: row.tee_name||'White',
+      rating: parseFloat(row.rating)||0,
+      slope: parseInt(row.slope)||113,
+      totalYards: totalYards,
+      holes: holes
+    });
+  });
+
+  var courses = Object.values(courseMap);
+  if (!courses.length) { setCsvStatus('No valid courses found in CSV.','err'); return; }
+
+  setCsvStatus('Importing '+courses.length+' courses...','info');
+  document.getElementById('csv-progress-wrap').style.display = 'block';
+
+  // Get existing courses for overwrite check
+  var existingSnap = await getDocs(collection(db,'courseLibrary'));
+  var existingMap = {};
+  existingSnap.docs.forEach(function(d){ existingMap[d.data().name] = d.id; });
+
+  var count = 0;
+  var skipped = 0;
+  for (var i=0; i<courses.length; i++) {
+    var c = courses[i];
+    var whiteTee = c.tees.find(function(t){return t.name==='White';})||c.tees[0];
+    var holePars = whiteTee ? whiteTee.holes.map(function(h){return h.par;}) : Array(18).fill(4);
+    var par = holePars.reduce(function(a,b){return a+b;},0);
+    var data = {name:c.name, city:c.city, state:c.state, type:c.type, par:par, holePars:holePars, tees:c.tees, updatedAt:serverTimestamp()};
+
+    try {
+      if (existingMap[c.name] && overwrite) {
+        await updateDoc(doc(db,'courseLibrary',existingMap[c.name]), data);
+      } else if (existingMap[c.name] && !overwrite) {
+        skipped++;
+      } else {
+        data.createdAt = serverTimestamp();
+        await addDoc(collection(db,'courseLibrary'), data);
+      }
+      count++;
+    } catch(e) { parseErrors.push(c.name+': '+e.message); }
+
+    document.getElementById('csv-progress-bar').style.width = ((i+1)/courses.length*100)+'%';
+    setCsvStatus('Importing... '+count+' of '+courses.length,'info');
+  }
+
+  var msg = count+' courses imported successfully.';
+  if (skipped) msg += ' '+skipped+' skipped (already exist — check Overwrite to replace).';
+  if (parseErrors.length) msg += ' Errors: '+parseErrors.join('; ');
+  setCsvStatus(msg, parseErrors.length ? 'warn' : 'ok');
+  loadLibrary();
+};
+
+function parseCSVLine(line) {
+  var result = []; var cur = ''; var inQ = false;
+  for (var i=0;i<line.length;i++) {
+    var ch = line[i];
+    if (ch==='"') { inQ=!inQ; }
+    else if (ch===',' && !inQ) { result.push(cur); cur=''; }
+    else { cur+=ch; }
+  }
+  result.push(cur);
+  return result;
+}
+
+function setCsvStatus(msg, type) {
+  document.getElementById('csv-status').innerHTML = '<div class="status status-'+type+'">'+msg+'</div>';
+}
+
+</script>
+</body>
+</html>
