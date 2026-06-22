@@ -170,11 +170,14 @@ td.pname{font-weight:600;font-family:'Playfair Display',serif;font-size:0.95rem;
 .hole-input-row button{width:28px;height:28px;border-radius:6px;border:none;background:var(--cream-dark);font-size:1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;font-weight:700;transition:background 0.15s;}
 .hole-input-row button:hover{background:var(--cream);}
 .hole-val{width:36px;text-align:center;font-size:1.2rem;font-weight:700;color:var(--forest);border:none;outline:none;font-family:'Inter',sans-serif;background:transparent;-webkit-text-size-adjust:100%;}
-.score-eagle{background:#1a3a8a;color:white;border-color:#1a3a8a;}
-.score-birdie{background:#e8c84a;color:var(--forest);border-color:#c9a227;}
-.score-par{border-color:var(--forest-light);}
-.score-bogey{background:#f8d7da;border-color:#c0392b;}
-.score-double{background:#f8d7da;border-color:#8e1a10;}
+.score-albatross{background:#fff8e1;border-color:#daa520!important;border-width:2px!important;}
+.score-eagle{background:#e8eaf6;color:#283593;border-color:#5c6bc0!important;border-width:2px!important;}
+.score-birdie{background:#e8f5e9;color:#1b5e20;border-color:#4caf50!important;border-width:2px!important;}
+.score-par{background:white;border-color:var(--forest-light)!important;}
+.score-bogey{background:#fff3e0;color:#e65100;border-color:#ff9800!important;border-width:2px!important;}
+.score-double{background:#fce4ec;color:#b71c1c;border-color:#f44336!important;border-width:2px!important;}
+.score-triple{background:#f3e5f5;color:#4a148c;border-color:#ab47bc!important;border-width:2px!important;}
+.score-snowman{background:#212121;color:white;border-color:#424242!important;border-width:2px!important;}
 
 .scorecard-summary{background:var(--cream);border-radius:var(--radius);padding:1rem 1.2rem;display:flex;justify-content:space-around;box-shadow:var(--shadow);margin-bottom:1rem;}
 .sc-stat{text-align:center;}
@@ -410,7 +413,18 @@ hr.div{border:none;border-top:1px solid var(--cream-dark);margin:1rem 0;}
           <div class="sc-stat"><div class="val" id="sc-vs-par">—</div><div class="lbl">vs Par</div></div>
           <div class="sc-stat"><div class="val" id="sc-holes">0</div><div class="lbl">Holes</div></div>
         </div>
-        <div class="section-title" style="font-size:1rem;margin-bottom:0.8rem;">Front 9</div>
+        <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:0.8rem;align-items:center;">
+  <span style="font-size:0.65rem;color:var(--text-light);margin-right:2px;text-transform:uppercase;letter-spacing:0.05em;">Score key:</span>
+  <span style="background:#fff8e1;border:1.5px solid #daa520;border-radius:4px;padding:1px 6px;font-size:0.65rem;font-weight:700;">Albatross</span>
+  <span style="background:#e8eaf6;border:1.5px solid #5c6bc0;border-radius:4px;padding:1px 6px;font-size:0.65rem;font-weight:700;color:#283593;">Eagle</span>
+  <span style="background:#e8f5e9;border:1.5px solid #4caf50;border-radius:4px;padding:1px 6px;font-size:0.65rem;font-weight:700;color:#1b5e20;">Birdie</span>
+  <span style="background:white;border:1.5px solid #7a9e5a;border-radius:4px;padding:1px 6px;font-size:0.65rem;font-weight:700;">Par</span>
+  <span style="background:#fff3e0;border:1.5px solid #ff9800;border-radius:4px;padding:1px 6px;font-size:0.65rem;font-weight:700;color:#e65100;">Bogey</span>
+  <span style="background:#fce4ec;border:1.5px solid #f44336;border-radius:4px;padding:1px 6px;font-size:0.65rem;font-weight:700;color:#b71c1c;">Double</span>
+  <span style="background:#f3e5f5;border:1.5px solid #ab47bc;border-radius:4px;padding:1px 6px;font-size:0.65rem;font-weight:700;color:#4a148c;">Triple</span>
+  <span style="background:#212121;border:1.5px solid #424242;border-radius:4px;padding:1px 6px;font-size:0.65rem;font-weight:700;color:white;">8+</span>
+</div>
+<div class="section-title" style="font-size:1rem;margin-bottom:0.8rem;">Front 9</div>
         <div class="hole-grid" id="holes-front"></div>
         <div class="section-title" style="font-size:1rem;margin:1rem 0 0.8rem;">Back 9</div>
         <div class="hole-grid" id="holes-back"></div>
@@ -1187,11 +1201,14 @@ function renderHoles() {
 
 function getScoreClass(score, par) {
   const d=score-par;
-  if(d<=-2) return 'score-eagle';
+  if(d<=-3) return 'score-albatross';
+  if(d===-2) return 'score-eagle';
   if(d===-1) return 'score-birdie';
   if(d===0)  return 'score-par';
   if(d===1)  return 'score-bogey';
-  return 'score-double';
+  if(d===2)  return 'score-double';
+  if(d===3)  return 'score-triple';
+  return 'score-snowman';
 }
 
 window._real_adjustHole=function(hole, delta) {
@@ -1548,7 +1565,18 @@ async function loadCasualRound() {
       <div class="sc-stat"><div class="val" id="cr-vs-par">—</div><div class="lbl">vs Par</div></div>
       <div class="sc-stat"><div class="val" id="cr-holes">0</div><div class="lbl">Holes</div></div>
     </div>
-    <div class="section-title" style="font-size:1rem;margin-bottom:0.8rem;">Front 9</div>
+    <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:0.8rem;align-items:center;">
+  <span style="font-size:0.65rem;color:var(--text-light);margin-right:2px;text-transform:uppercase;letter-spacing:0.05em;">Score key:</span>
+  <span style="background:#fff8e1;border:1.5px solid #daa520;border-radius:4px;padding:1px 6px;font-size:0.65rem;font-weight:700;">Albatross</span>
+  <span style="background:#e8eaf6;border:1.5px solid #5c6bc0;border-radius:4px;padding:1px 6px;font-size:0.65rem;font-weight:700;color:#283593;">Eagle</span>
+  <span style="background:#e8f5e9;border:1.5px solid #4caf50;border-radius:4px;padding:1px 6px;font-size:0.65rem;font-weight:700;color:#1b5e20;">Birdie</span>
+  <span style="background:white;border:1.5px solid #7a9e5a;border-radius:4px;padding:1px 6px;font-size:0.65rem;font-weight:700;">Par</span>
+  <span style="background:#fff3e0;border:1.5px solid #ff9800;border-radius:4px;padding:1px 6px;font-size:0.65rem;font-weight:700;color:#e65100;">Bogey</span>
+  <span style="background:#fce4ec;border:1.5px solid #f44336;border-radius:4px;padding:1px 6px;font-size:0.65rem;font-weight:700;color:#b71c1c;">Double</span>
+  <span style="background:#f3e5f5;border:1.5px solid #ab47bc;border-radius:4px;padding:1px 6px;font-size:0.65rem;font-weight:700;color:#4a148c;">Triple</span>
+  <span style="background:#212121;border:1.5px solid #424242;border-radius:4px;padding:1px 6px;font-size:0.65rem;font-weight:700;color:white;">8+</span>
+</div>
+<div class="section-title" style="font-size:1rem;margin-bottom:0.8rem;">Front 9</div>
     <div class="hole-grid">`;
   for (let h = 1; h <= 9; h++) {
     const par = pars[h-1] || 4;
@@ -1592,7 +1620,8 @@ window._real_adjustCasualHole = function(h, delta) {
 window._real_onCasualChange = function(h) {
   const val = parseInt(document.getElementById('cr-hole-' + h)?.value) || 0;
   if (val > 0) casualHoles[h] = val; else delete casualHoles[h];
-  const par = (DEFAULT_PARS[h-1] || 4);
+  const parEl = document.getElementById('cr-hc-' + h)?.querySelector('.hole-par');
+  const par = parEl ? parseInt(parEl.textContent.replace('Par ','')) : (DEFAULT_PARS[h-1] || 4);
   const hc = document.getElementById('cr-hc-' + h);
   if (hc) { hc.className = 'hole-card' + (val ? ` filled ${getScoreClass(val, par)}` : ''); }
   updateCasualSummary();
