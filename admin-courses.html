@@ -188,7 +188,8 @@ input[readonly]{background:#f0ede4;color:#7a7a7a;}
     <div class="card">
       <div class="card-title">📤 Upload CSV</div>
       <div class="csv-instructions">
-        <strong>Format:</strong> name, city, state, type, tee_name, rating, slope, h1_par, h1_yds, h2_par, h2_yds ... h18_par, h18_yds<br>
+        <strong>Format:</strong> name, city, state, type, tee_name, rating, slope, h1_par, h1_yds, h1_hcp, h2_par, h2_yds, h2_hcp ... h18_par, h18_yds, h18_hcp<br>
+        <strong>Stroke index:</strong> h#_hcp = hole handicap ranking (1–18, each once), same across a course's tees.<br>
         <strong>Multiple tees:</strong> Add one row per tee set for the same course.<br>
         <strong>Mobile:</strong> Save your CSV to Google Drive or Files, then tap Choose File below.
       </div>
@@ -363,6 +364,8 @@ window.addTeeBlock = function(teeData) {
   var idx = teeIdx++;
   var tee = teeData || {name:'White'};
   var holes = tee.holes || [];
+  if(!window._teeHcp) window._teeHcp={};
+  window._teeHcp[idx] = holes.map(function(h){ return (h&&h.hcp)||0; });
   var container = document.getElementById('tees-container');
   var div = document.createElement('div');
   div.className = 'tee-block';
@@ -531,7 +534,8 @@ window.saveCourse = async function() {
       holes.push({
         hole: h,
         par: parseInt(document.getElementById('tee-'+bid+'-par-'+h)?.value)||4,
-        yards: parseInt(document.getElementById('tee-'+bid+'-yds-'+h)?.value)||0
+        yards: parseInt(document.getElementById('tee-'+bid+'-yds-'+h)?.value)||0,
+        hcp: (window._teeHcp && window._teeHcp[bid] && window._teeHcp[bid][h-1]) || 0
       });
     }
     var totalYards = holes.reduce(function(s,h){return s+h.yards;},0);
@@ -546,11 +550,12 @@ window.saveCourse = async function() {
 
   var whiteTee = tees.find(function(t){return t.name==='White';})||tees[0];
   var holePars = whiteTee.holes.map(function(h){return h.par;});
+  var holeHcp = whiteTee.holes.map(function(h){return h.hcp||0;});
   var par = holePars.reduce(function(a,b){return a+b;},0);
 
   var data = {
     name: name, city: city, state: state, type: type,
-    par: par, holePars: holePars, tees: tees,
+    par: par, holePars: holePars, holeHcp: holeHcp, tees: tees,
     updatedAt: serverTimestamp()
   };
 
@@ -602,20 +607,22 @@ window.deleteCourse = async function(id, name) {
 // ── CSV TEMPLATE DOWNLOAD ──
 window.downloadTemplate = function() {
   var headers = ['name','city','state','type','tee_name','rating','slope'];
-  for (var h=1;h<=18;h++) { headers.push('h'+h+'_par','h'+h+'_yds'); }
+  for (var h=1;h<=18;h++) { headers.push('h'+h+'_par','h'+h+'_yds','h'+h+'_hcp'); }
 
+  // Stroke index (1-18) is per-course, so it's identical across tees of the same course.
   var exampleRows = [
     ['Seascape Golf Club','Aptos','CA','Semi-Private','White','68.8','127',
-     '4','345','4','312','3','148','5','462','4','328','4','356','3','155','4','298','4','365',
-     '4','388','3','142','4','335','4','310','3','175','5','478','4','322','4','358','4','292'],
+     '4','345','5','4','312','11','3','148','17','5','462','1','4','328','7','4','356','3','3','155','15','4','298','13','4','365','9',
+     '4','388','6','3','142','12','4','335','18','4','310','2','3','175','8','5','478','4','4','322','16','4','358','10','4','292','14'],
     ['Seascape Golf Club','Aptos','CA','Semi-Private','Blue','69.7','129',
-     '4','387','4','334','3','165','5','498','4','356','4','378','3','172','4','321','4','389',
-     '4','412','3','158','4','352','4','328','3','191','5','501','4','341','4','379','4','315']
+     '4','387','5','4','334','11','3','165','17','5','498','1','4','356','7','4','378','3','3','172','15','4','321','13','4','389','9',
+     '4','412','6','3','158','12','4','352','18','4','328','2','3','191','8','5','501','4','4','341','16','4','379','10','4','315','14']
   ];
 
   var csv = headers.join(',') + '\n';
   exampleRows.forEach(function(row) { csv += row.join(',') + '\n'; });
   csv += '\n// Add your courses below. One row per tee set. Same course name = same course.\n';
+  csv += '// h#_hcp = stroke index / hole handicap ranking (1-18, each used once). Same across all tees of a course.\n';
 
   var blob = new Blob([csv], {type:'text/csv'});
   var a = document.createElement('a');
@@ -662,7 +669,8 @@ window.uploadCSV = async function() {
     for (var h=1;h<=18;h++) {
       var par = parseInt(row['h'+h+'_par'])||4;
       var yds = parseInt(row['h'+h+'_yds'])||0;
-      holes.push({hole:h, par:par, yards:yds});
+      var hcp = parseInt(row['h'+h+'_hcp'])||0;
+      holes.push({hole:h, par:par, yards:yds, hcp:hcp});
     }
     var totalYards = holes.reduce(function(s,h){return s+h.yards;},0);
     courseMap[row.name].tees.push({
@@ -687,12 +695,23 @@ window.uploadCSV = async function() {
 
   var count = 0;
   var skipped = 0;
+  var siWarnings = [];
   for (var i=0; i<courses.length; i++) {
     var c = courses[i];
     var whiteTee = c.tees.find(function(t){return t.name==='White';})||c.tees[0];
     var holePars = whiteTee ? whiteTee.holes.map(function(h){return h.par;}) : Array(18).fill(4);
+    var holeHcp = whiteTee ? whiteTee.holes.map(function(h){return h.hcp||0;}) : Array(18).fill(0);
     var par = holePars.reduce(function(a,b){return a+b;},0);
-    var data = {name:c.name, city:c.city, state:c.state, type:c.type, par:par, holePars:holePars, tees:c.tees, updatedAt:serverTimestamp()};
+    // Soft-validate stroke index (still imports either way)
+    var siVals = holeHcp.filter(function(v){return v>0;});
+    if (siVals.length>0 && siVals.length<18) {
+      siWarnings.push(c.name+' (partial stroke index)');
+    } else if (siVals.length===18) {
+      var seen={}, okSI=true;
+      siVals.forEach(function(v){ if(v<1||v>18||seen[v]) okSI=false; seen[v]=true; });
+      if(!okSI) siWarnings.push(c.name+' (stroke index not a clean 1-18)');
+    }
+    var data = {name:c.name, city:c.city, state:c.state, type:c.type, par:par, holePars:holePars, holeHcp:holeHcp, tees:c.tees, updatedAt:serverTimestamp()};
 
     try {
       if (existingMap[c.name] && overwrite) {
@@ -712,8 +731,9 @@ window.uploadCSV = async function() {
 
   var msg = count+' courses imported successfully.';
   if (skipped) msg += ' '+skipped+' skipped (already exist — check Overwrite to replace).';
+  if (siWarnings.length) msg += ' ⚠️ Stroke index check: '+siWarnings.join('; ')+'.';
   if (parseErrors.length) msg += ' Errors: '+parseErrors.join('; ');
-  setCsvStatus(msg, parseErrors.length ? 'warn' : 'ok');
+  setCsvStatus(msg, (parseErrors.length||siWarnings.length) ? 'warn' : 'ok');
   loadLibrary();
 };
 
