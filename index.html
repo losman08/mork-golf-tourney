@@ -474,7 +474,7 @@ hr.div{border:none;border-top:1px solid var(--cream-dark);margin:1rem 0;}
           <div class="admin-tile" onclick="window._real_showAdminPeoria()">
             <div class="t-icon">🎲</div>
             <div class="t-label">Blind Peoria</div>
-            <div class="t-sub">Select secret holes</div>
+            <div class="t-sub">Draw after the round</div>
           </div>
           <div class="admin-tile" onclick="window._real_showAdminLock()">
             <div class="t-icon">🔒</div>
@@ -576,7 +576,7 @@ const _shimmed = ['doLogin','doRegister','doForgotPassword','doSignOut',
   'showAdminPeoria','showAdminLock','showAdminExport','loadAdmin',
   'loadPlayerScoresForEdit','saveEditedScores','loadHistory','loadHistoryDetail',
   'loadCasualRound','saveCasualRound','loadCasualHistory','loadStatsScreen',
-  'showAdminSettings','toggleAdminRole','togglePeoriaHole','savePeoriaHoles',
+  'showAdminSettings','toggleAdminRole',
   'setActiveTourney','setTourneyStatus'];
 _shimmed.forEach(fn => {
   window[fn] = function(...args) {
@@ -1136,7 +1136,7 @@ function renderLeaderboardContent() {
     if(!rows.length){ el.innerHTML=`<div class="empty"><div class="ei">⏳</div><p>System 36 requires all 18 holes.</p></div>`; return; }
   } else if(currentLbTab==='peoria'){
     const selectedHoles=t?.peoriaHoles||[];
-    if(!selectedHoles.length){ el.innerHTML=`<div class="empty"><div class="ei">🎲</div><p>Admin must select 6 secret holes in Admin → Blind Peoria.</p></div>`; return; }
+    if(!selectedHoles.length){ el.innerHTML=`<div class="empty"><div class="ei">🎲</div><p>Secret holes haven't been drawn yet. The draw happens live after the round.</p></div>`; return; }
     const ranked=[...scores].filter(s=>s.holesPlayed===18).map(s=>{
       const bp=calcBlindPeoria(s.holes, selectedHoles, par);
       return {...s, peoriaNet:bp?.net||s.gross, peoriaHcp:bp?.hcp||0};
@@ -1387,28 +1387,62 @@ async function saveEditedScores() {
 
 async function showAdminPeoria() {
   const t=activeTournament||allTournaments[0]; if(!t){ toast('No tournament.'); return; }
-  const selected=new Set(t.peoriaHoles||[]);
-  let html=`<div class="card"><h3>🎲 Blind Peoria — Select 6 Secret Holes</h3>
-    <div class="info-bar">Select exactly 6 holes. Scores will be used to calculate each player's Peoria handicap and net score.</div>
-    <div class="blind-hole-grid" id="peoria-grid">`;
-  for(let h=1;h<=18;h++) html+=`<div class="blind-hole ${selected.has(h)?'selected':''}" id="ph-${h}" onclick="window._real_togglePeoriaHole(${h})">${h}</div>`;
-  html+=`</div><button class="btn btn-gold btn-full" style="margin-top:1rem;" onclick="window._real_savePeoriaHoles('${t.id}')">Save Secret Holes</button></div>`;
-  document.getElementById('admin-content').innerHTML=html;
-  window._peoriaSelected=new Set(selected);
+  const el=document.getElementById('admin-content'); el.innerHTML='';
+  const drawn=Array.isArray(t.peoriaHoles)&&t.peoriaHoles.length===6;
+  const card=document.createElement('div'); card.className='card';
+  const h3=document.createElement('h3'); h3.textContent='🎲 Blind Peoria — Random Hole Draw'; card.appendChild(h3);
+  const info=document.createElement('div'); info.className='info-bar';
+  const grid=document.createElement('div'); grid.className='blind-hole-grid'; grid.id='peoria-draw-stage';
+  if(drawn){
+    let when=''; try{ if(t.peoriaDrawnAt&&t.peoriaDrawnAt.toDate) when=t.peoriaDrawnAt.toDate().toLocaleString(); }catch(e){}
+    info.textContent='Secret holes were drawn'+(when?(' on '+when):'')+' and are locked in for net scoring.';
+    card.appendChild(info);
+    t.peoriaHoles.forEach(function(h){ const d=document.createElement('div'); d.className='blind-hole selected'; d.textContent=h; grid.appendChild(d); });
+    card.appendChild(grid);
+    const reset=document.createElement('button'); reset.className='btn btn-ghost btn-full'; reset.style.marginTop='1rem';
+    reset.textContent='Clear & Redraw'; reset.onclick=function(){ window._real_resetPeoriaHoles(t.id); };
+    card.appendChild(reset);
+  } else {
+    info.textContent='Draw 6 random holes AFTER the round is over, live in front of the group. No one — not even the organizer — should know the holes until this draw. Once drawn they lock in for net scoring.';
+    card.appendChild(info);
+    for(let i=0;i<6;i++){ const d=document.createElement('div'); d.className='blind-hole'; d.textContent='?'; grid.appendChild(d); }
+    card.appendChild(grid);
+    const btn=document.createElement('button'); btn.className='btn btn-gold btn-full'; btn.style.marginTop='1rem'; btn.id='peoria-draw-btn';
+    btn.textContent='🎲 Draw 6 Secret Holes'; btn.onclick=function(){ window._real_drawPeoriaHoles(t.id); };
+    card.appendChild(btn);
+  }
+  el.appendChild(card);
 }
-window._real_togglePeoriaHole=function(h){
-  if(!window._peoriaSelected) window._peoriaSelected=new Set();
-  const s=window._peoriaSelected;
-  const el=document.getElementById('ph-'+h);
-  if(s.has(h)){ s.delete(h); el.classList.remove('selected'); }
-  else if(s.size<6){ s.add(h); el.classList.add('selected'); }
-  else { toast('Select exactly 6 holes.'); }
+window._real_drawPeoriaHoles=function(tid){
+  const stage=document.getElementById('peoria-draw-stage'); const btn=document.getElementById('peoria-draw-btn');
+  if(!stage) return;
+  if(btn){ btn.disabled=true; btn.textContent='Drawing…'; }
+  const pool=[]; for(let h=1;h<=18;h++) pool.push(h);
+  for(let i=pool.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); const tmp=pool[i]; pool[i]=pool[j]; pool[j]=tmp; }
+  const chosen=pool.slice(0,6).sort(function(a,b){return a-b;});
+  const cells=Array.prototype.slice.call(stage.children);
+  let idx=0;
+  function settle(){
+    if(idx>=6){ commit(); return; }
+    const cell=cells[idx]; let ticks=0;
+    const spin=setInterval(function(){
+      cell.textContent=1+Math.floor(Math.random()*18); ticks++;
+      if(ticks>=10){ clearInterval(spin); cell.textContent=chosen[idx]; cell.classList.add('selected'); idx++; setTimeout(settle,250); }
+    },60);
+  }
+  async function commit(){
+    try{
+      await updateDoc(doc(db,'tournaments',tid),{peoriaHoles:chosen,peoriaDrawnAt:serverTimestamp()});
+      await loadGlobalData(); toast('🎲 Holes drawn: '+chosen.join(', '));
+      if(btn){ btn.textContent='✓ Locked in — '+chosen.join(', '); }
+    }catch(e){ toast('Draw failed — try again.'); if(btn){ btn.disabled=false; btn.textContent='🎲 Draw 6 Secret Holes'; } }
+  }
+  settle();
 };
-window._real_savePeoriaHoles=async function(tid){
-  const holes=Array.from(window._peoriaSelected||[]);
-  if(holes.length!==6){ toast('Select exactly 6 holes.'); return; }
-  await updateDoc(doc(db,'tournaments',tid),{peoriaHoles:holes.sort((a,b)=>a-b)});
-  await loadGlobalData(); toast('🎲 Secret holes saved!');
+window._real_resetPeoriaHoles=async function(tid){
+  if(!confirm('Clear the drawn holes and allow a new draw? Only do this if the previous draw was a genuine mistake — redrawing undermines the blind format.')) return;
+  await updateDoc(doc(db,'tournaments',tid),{peoriaHoles:[],peoriaDrawnAt:null});
+  await loadGlobalData(); toast('Cleared — you can redraw.'); window._real_showAdminPeoria();
 };
 
 async function showAdminLock() {
@@ -1853,6 +1887,12 @@ async function showAdminSettings() {
       </select>
     </div>
     <button class="btn btn-forest" onclick="window._real_setTourneyStatus()">Update Status</button>
+    <hr class="div">
+    <div class="section-title" style="font-size:0.95rem;margin-bottom:0.8rem;color:var(--clay,#b00020);">Danger Zone</div>
+    <div class="fg"><label>Delete Tournament</label>
+      <select id="delete-sel">${allTournaments.map(t2=>`<option value="${t2.id}">${t2.name}</option>`).join('')}</select>
+    </div>
+    <button class="btn btn-danger btn-full" onclick="window._real_deleteTournament()">Delete Tournament &amp; All Scores</button>
   </div>`;
 }
 window._real_showAdminSettings = showAdminSettings;
@@ -1876,6 +1916,29 @@ window._real_setTourneyStatus = async function() {
   await updateDoc(doc(db, 'tournaments', tid), { status });
   await loadGlobalData();
   toast(`Status updated to "${status}"`);
+};
+
+window._real_deleteTournament = async function() {
+  const sel=document.getElementById('delete-sel'); if(!sel) return;
+  const tid=sel.value;
+  const t=allTournaments.find(function(x){return x.id===tid;});
+  const name=t?t.name:'this tournament';
+  if(!confirm('Delete "'+name+'"? This permanently removes the tournament and every score in it. This cannot be undone.')) return;
+  if(!confirm('Final check: this will erase ALL hole scores for "'+name+'". Proceed?')) return;
+  try{
+    const snap=await getDocs(query(collection(db,'holeScores'),where('tournamentId','==',tid)));
+    const docs=snap.docs;
+    for(let i=0;i<docs.length;i+=450){
+      const batch=writeBatch(db);
+      docs.slice(i,i+450).forEach(function(d){ batch.delete(d.ref); });
+      await batch.commit();
+    }
+    await deleteDoc(doc(db,'tournaments',tid));
+    if(activeTournament&&activeTournament.id===tid) activeTournament=null;
+    await loadGlobalData();
+    toast('🗑️ Tournament deleted.');
+    window._real_showAdminSettings();
+  }catch(e){ console.error(e); toast('Delete failed — see console.'); }
 };
 
 // Add Settings tile to admin grid
