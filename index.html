@@ -442,6 +442,9 @@ hr.div{border:none;border-top:1px solid var(--cream-dark);margin:1rem 0;}
       <div class="pad">
         <div class="profile-header" id="profile-header"></div>
         <div class="stats-grid" id="profile-stats"></div>
+        <div class="card" id="profile-handicap-card">
+          <div id="profile-handicap"></div>
+        </div>
         <div class="card">
           <h3>Tournament History</h3>
           <div id="profile-history"></div>
@@ -532,7 +535,10 @@ hr.div{border:none;border-top:1px solid var(--cream-dark);margin:1rem 0;}
       </div>
       <div class="fg"><label>Course Par</label><input type="number" id="ct-par" value="72" min="60" max="80"></div>
     </div>
-    <div class="fg"><label>Slope Rating (for hdcp calc)</label><input type="number" id="ct-slope" value="113" min="55" max="155"></div>
+    <div class="two-col">
+      <div class="fg"><label>Course Rating</label><input type="number" id="ct-rating" value="72" step="0.1" min="55" max="80"></div>
+      <div class="fg"><label>Slope Rating</label><input type="number" id="ct-slope" value="113" min="55" max="155"></div>
+    </div>
     <div class="fg">
       <label>Season Points (1st/2nd/3rd)</label>
       <div class="two-col">
@@ -1277,6 +1283,7 @@ async function loadProfile() {
     <div class="stat-box"><div class="n">${st.seasonPoints||0}</div><div class="l">Pts</div></div>
     <div class="stat-box"><div class="n">${st.bestRound||'—'}</div><div class="l">Best</div></div>
     <div class="stat-box"><div class="n">${st.avgGross?Math.round(st.avgGross):'—'}</div><div class="l">Avg</div></div>`;
+  renderProfileHandicap();
   // History
   const myTourneys=allTournaments.filter(t=>(t.results||[]).some(r=>r.playerId===currentUser.uid));
   const hist=document.getElementById('profile-history');
@@ -1288,6 +1295,144 @@ async function loadProfile() {
       <div class="hr-right"><div class="score">${res?.grossScore||'—'}</div><div class="pos">${res?`Finished ${res.rank}${res.rank===1?'st':res.rank===2?'nd':res.rank===3?'rd':'th'}`:'—'}</div></div>
     </div>`;
   }).join('');
+}
+
+// ── HANDICAP INDEX (GHIN / WHS-style) ──
+// Selection table: # of eligible rounds (capped at 20) -> # of lowest differentials averaged.
+function _hcpTable(n){
+  // [number of lowest differentials to average, adjustment] per USGA/WHS Rule 5.2a
+  if(n<3) return [0,0];
+  if(n===3) return [1,-2.0];
+  if(n===4) return [1,-1.0];
+  if(n===5) return [1,0];
+  if(n===6) return [2,-1.0];
+  if(n<=8) return [2,0];
+  if(n<=11) return [3,0];
+  if(n<=14) return [4,0];
+  if(n<=16) return [5,0];
+  if(n<=18) return [6,0];
+  if(n===19) return [7,0];
+  return [8,0];
+}
+
+function roundDifferential(gross, rating, slope){
+  return Math.round(((gross - rating) * 113 / (slope||113)) * 10) / 10;
+}
+
+function calcHandicapIndex(rounds){
+  const eligible = rounds.filter(function(r){return r.holesPlayed===18 && r.gross>0 && r.diff!=null;})
+    .sort(function(a,b){return (b.date||'').localeCompare(a.date||'');});
+  const window20 = eligible.slice(0,20);
+  const n = window20.length;
+  const tbl = _hcpTable(n);
+  const useCount = tbl[0], adjustment = tbl[1];
+  if(useCount===0) return { index:null, n:n, window20:window20 };
+  const byDiff = window20.slice().sort(function(a,b){return a.diff-b.diff;});
+  const used = byDiff.slice(0,useCount);
+  const avg = used.reduce(function(s,r){return s+r.diff;},0)/useCount;
+  let index = Math.round((avg + adjustment) * 10) / 10;
+  if(index<0) index=0; if(index>54) index=54;
+  const usedSet = {};
+  used.forEach(function(r){ usedSet[r._id]=true; });
+  return { index:index, n:n, useCount:useCount, adjustment:adjustment, window20:window20, usedSet:usedSet };
+}
+
+async function gatherPlayerRounds(uid){
+  const rounds=[];
+  const tSnap=await getDocs(query(collection(db,'holeScores'),where('playerId','==',uid)));
+  const byT={};
+  tSnap.docs.forEach(function(d){ const x=d.data(); (byT[x.tournamentId]=byT[x.tournamentId]||[]).push(x); });
+  Object.keys(byT).forEach(function(tid){
+    const holes=byT[tid];
+    if(holes.length!==18) return;
+    const t=allTournaments.find(function(tt){return tt.id===tid;})||{};
+    const gross=holes.reduce(function(s,h){return s+h.score;},0);
+    const hasRating=t.rating!=null && Number(t.rating)>0;
+    const hasSlope=t.slope!=null && Number(t.slope)>0;
+    const rating=hasRating ? Number(t.rating) : (Number(t.par)||72);
+    const slope=hasSlope ? Number(t.slope) : 113;
+    const estimated=!(hasRating && hasSlope);
+    rounds.push({ _id:'t_'+tid, source:'Tournament', date:t.date||'', course:t.course||t.name||'Tournament', gross:gross, holesPlayed:18, rating:rating, slope:slope, estimated:estimated, diff:roundDifferential(gross,rating,slope) });
+  });
+  const cSnap=await getDocs(query(collection(db,'casualRounds'),where('playerId','==',uid)));
+  cSnap.docs.forEach(function(d){
+    const r=d.data();
+    if(r.holesPlayed!==18) return;
+    const hasRating=r.rating!=null && Number(r.rating)>0;
+    const hasSlope=r.slope!=null && Number(r.slope)>0;
+    const rating=hasRating ? Number(r.rating) : (Number(r.par)||72);
+    const slope=hasSlope ? Number(r.slope) : 113;
+    const estimated=!(hasRating && hasSlope);
+    rounds.push({ _id:'c_'+d.id, source:'Casual', date:r.date||'', course:r.course||'Casual round', gross:r.gross, holesPlayed:18, rating:rating, slope:slope, estimated:estimated, diff:roundDifferential(r.gross,rating,slope) });
+  });
+  return rounds;
+}
+
+async function renderProfileHandicap(){
+  const host=document.getElementById('profile-handicap');
+  if(!host) return;
+  host.innerHTML='<div class="loading"><div class="spinner"></div></div>';
+  let rounds=[];
+  try{ rounds=await gatherPlayerRounds(currentUser.uid); }
+  catch(e){ console.error(e); host.textContent='Could not load handicap.'; return; }
+  const r=calcHandicapIndex(rounds);
+  host.innerHTML='';
+
+  const head=document.createElement('div');
+  head.style.cssText='display:flex;align-items:center;justify-content:space-between;';
+  const title=document.createElement('h3'); title.textContent='Handicap Index'; title.style.margin='0';
+  const big=document.createElement('div');
+  big.style.cssText='font-size:2rem;font-weight:800;color:var(--gold);line-height:1;';
+  big.textContent = r.index!=null ? r.index.toFixed(1) : '—';
+  head.appendChild(title); head.appendChild(big);
+  host.appendChild(head);
+
+  const sub=document.createElement('div');
+  sub.style.cssText='font-size:0.8rem;color:var(--text-light);margin-top:4px;';
+  if(r.index==null){
+    sub.textContent=(r.n||0)+' of 3 rounds needed to establish a handicap.';
+    host.appendChild(sub); return;
+  }
+  const anyEst=r.window20.some(function(rd){return rd.estimated;});
+  sub.textContent='Best '+r.useCount+' of last '+r.n+' differentials'+(r.adjustment?(' ('+(r.adjustment>0?'+':'')+r.adjustment.toFixed(1)+' adj.)'):'')+(anyEst?' · estimated (WHS-style)':' · USGA/WHS method');
+  host.appendChild(sub);
+
+  const toggle=document.createElement('button');
+  toggle.className='btn btn-ghost btn-sm'; toggle.style.marginTop='0.7rem';
+  toggle.textContent='Show breakdown ▾';
+  const panel=document.createElement('div'); panel.style.display='none'; panel.style.marginTop='0.8rem';
+  toggle.onclick=function(){
+    const open=panel.style.display!=='none';
+    panel.style.display=open?'none':'block';
+    toggle.textContent=open?'Show breakdown ▾':'Hide breakdown ▴';
+  };
+  host.appendChild(toggle); host.appendChild(panel);
+
+  const wrap=document.createElement('div'); wrap.style.overflowX='auto';
+  const table=document.createElement('table'); table.style.minWidth='460px'; table.style.fontSize='0.78rem';
+  const thead=document.createElement('thead');
+  thead.innerHTML='<tr><th>Date</th><th>Course</th><th class="c">Gross</th><th class="c">Rtg</th><th class="c">Slope</th><th class="c">Diff</th></tr>';
+  table.appendChild(thead);
+  const tbody=document.createElement('tbody');
+  function mkTd(txt,cls){ const c=document.createElement('td'); if(cls) c.className=cls; c.textContent=txt; return c; }
+  r.window20.forEach(function(rd){
+    const tr=document.createElement('tr');
+    const counts=r.usedSet&&r.usedSet[rd._id];
+    if(counts){ tr.style.fontWeight='700'; tr.style.background='rgba(201,162,39,0.10)'; }
+    tr.appendChild(mkTd((counts?'✓ ':'')+(rd.date||'—')));
+    tr.appendChild(mkTd(rd.course||''));
+    tr.appendChild(mkTd(rd.gross,'c'));
+    tr.appendChild(mkTd(rd.rating+(rd.estimated?'*':''),'c'));
+    tr.appendChild(mkTd(rd.slope,'c'));
+    tr.appendChild(mkTd(rd.diff!=null?rd.diff.toFixed(1):'—','c'));
+    tbody.appendChild(tr);
+  });
+  table.appendChild(tbody); wrap.appendChild(table); panel.appendChild(wrap);
+
+  const note=document.createElement('div');
+  note.style.cssText='font-size:0.7rem;color:var(--text-light);margin-top:0.5rem;';
+  note.textContent=(anyEst?'* No course rating on record — par used as the rating estimate and slope set to 113. Loads exactly once real ratings are added. ':'')+'Highlighted rows count toward your index. Differential = (gross − rating) × 113 ÷ slope.';
+  panel.appendChild(note);
 }
 
 // ── ADMIN ──
@@ -1304,11 +1449,12 @@ async function createTournament() {
   const format=document.getElementById('ct-format').value;
   const par=Number(document.getElementById('ct-par').value)||72;
   const slope=Number(document.getElementById('ct-slope').value)||113;
+  const rating=Number(document.getElementById('ct-rating').value)||par;
   const pts=[Number(document.getElementById('ct-pts1').value)||100,Number(document.getElementById('ct-pts2').value)||80,Number(document.getElementById('ct-pts3').value)||60];
   var holePars = window._ctHolePars || DEFAULT_PARS;
   window._ctHolePars = null;
   await addDoc(collection(db,'tournaments'),{
-    name, date, course, format, par, slope, holePars:holePars,
+    name, date, course, format, par, slope, rating, holePars:holePars,
     status:'active', pointsMap:{ 1:pts[0],2:pts[1],3:pts[2],4:45,5:30,6:20,7:15,8:10 },
     createdBy:currentUser.uid, createdAt:serverTimestamp(), results:[], peoriaHoles:[]
   });
@@ -1679,9 +1825,12 @@ async function saveCasualRound() {
   const par = Number(document.getElementById('cr-par').value) || 72;
   const tees = document.getElementById('cr-tees').value;
   const gross = entries.reduce((s, [, v]) => s + v, 0);
+  const _at = window._crActiveTee || null;
+  const ccRating = (_at && _at.rating) ? Number(_at.rating) : null;
+  const ccSlope = (_at && _at.slope) ? Number(_at.slope) : null;
   const roundRef = await addDoc(collection(db, 'casualRounds'), {
     playerId: currentUser.uid,
-    course, date, par, tees, gross,
+    course, date, par, tees, gross, rating: ccRating, slope: ccSlope,
     holesPlayed: entries.length,
     holes: Object.fromEntries(entries.map(([h, s]) => [h, { score: s, par: DEFAULT_PARS[h-1] || 4 }])),
     createdAt: serverTimestamp()
@@ -2159,11 +2308,17 @@ function ctBuildDrop(inp, courses) {
       inp.value = c.name;
       var parEl   = document.getElementById('ct-par');
       var slopeEl = document.getElementById('ct-slope');
+      var ratingEl = document.getElementById('ct-rating');
       if (parEl && c.par) parEl.value = c.par;
+      var wt = (c.tees||[]).find(function(t){return t.name==='White';}) || (c.tees||[])[0];
       if (slopeEl) {
-        var wt = (c.tees||[]).find(function(t){return t.name==='White';}) || (c.tees||[])[0];
         if (wt && wt.slope) slopeEl.value = wt.slope;
         else if (c.slope) slopeEl.value = c.slope;
+      }
+      if (ratingEl) {
+        if (wt && wt.rating) ratingEl.value = wt.rating;
+        else if (c.rating) ratingEl.value = c.rating;
+        else if (c.par) ratingEl.value = c.par;
       }
       // Store holePars for tournament creation
       window._ctHolePars = c.holePars || null;
