@@ -1645,6 +1645,7 @@ async function loadHistory() {
   const cont = document.getElementById('history-content');
   if (!cont) return;
   cont.innerHTML = `<div class="loading"><div class="spinner"></div></div>`;
+  try {
   await loadGlobalData();
   if (!allTournaments.length) {
     cont.innerHTML = `<div class="empty"><div class="ei">📋</div><p>No tournaments yet</p></div>`;
@@ -1662,6 +1663,7 @@ async function loadHistory() {
       ${winner ? `<div style="margin-top:0.6rem;display:flex;align-items:center;gap:8px;"><span style="font-size:1.2rem;">🏆</span><span style="font-size:0.88rem;font-weight:600;color:var(--forest);">${winner.name}</span><span style="font-size:0.8rem;color:var(--text-light);">· ${winner.grossScore||'—'} gross · ${winner.points||0} pts</span></div>` : ''}
     </div>`;
   }).join('');
+  } catch(e){ console.error(e); cont.innerHTML = `<div class="empty"><div class="ei">⚠️</div><p>Couldn't load history (${e.code||e.message||'error'}).</p></div>`; }
 }
 window._real_loadHistory = loadHistory;
 
@@ -2512,6 +2514,16 @@ window._real_navCasual = function(btn) {
   if (window._real_showScreen) window._real_showScreen('casual');
   if (window._real_loadCasualRound) window._real_loadCasualRound();
 };
+
+// Build/version stamp — confirms which version is actually running (catches stale cache)
+var APP_BUILD = '2026.06.27 · spinner-fix';
+console.log('%cMorks Golf Tour build: ' + APP_BUILD, 'color:#c9a227;font-weight:bold;font-size:14px;');
+try {
+  var _bt = document.createElement('div');
+  _bt.textContent = 'build ' + APP_BUILD;
+  _bt.style.cssText = 'position:fixed;bottom:2px;right:5px;font-size:9px;color:rgba(0,0,0,0.32);z-index:99999;pointer-events:none;font-family:sans-serif;';
+  document.body.appendChild(_bt);
+} catch(e) {}
 </script>
 
 </body>
