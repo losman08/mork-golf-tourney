@@ -1858,39 +1858,67 @@ window._real_saveCasualRound = saveCasualRound;
 async function loadCasualHistory() {
   const cont = document.getElementById('casual-history-content');
   if (!cont) return;
-  const snap = await getDocs(query(collection(db, 'casualRounds'), where('playerId', '==', currentUser.uid), orderBy('date', 'desc')));
-  if (!snap.docs.length) {
-    cont.innerHTML = `<div class="empty"><div class="ei">⛳</div><p>No casual rounds logged yet</p></div>`;
-    return;
-  }
-  const rounds = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-  const avgGross = Math.round(rounds.reduce((s, r) => s + r.gross, 0) / rounds.length);
-  const best = Math.min(...rounds.map(r => r.gross));
-  cont.innerHTML = `
-    <div class="stats-grid" style="margin-bottom:1rem;">
-      <div class="stat-box"><div class="n">${rounds.length}</div><div class="l">Rounds</div></div>
-      <div class="stat-box"><div class="n">${avgGross}</div><div class="l">Avg Score</div></div>
-      <div class="stat-box"><div class="n">${best}</div><div class="l">Best Round</div></div>
-    </div>
-    ${rounds.map(r => `
-      <div class="history-row">
-        <div class="hr-left">
-          <div class="name">${r.course||'Unknown'}</div>
-          <div class="meta">${r.date||''} · ${r.holesPlayed||18} holes · ${r.tees||''} tees · Par ${r.par||72}</div>
-        </div>
-        <div class="hr-right">
-          <div class="score">${r.gross}</div>
-          <div class="pos">${vsPar(r.gross, r.par||72).replace(/<[^>]+>/g,'').trim()} vs par</div>
-        </div>
-      </div>`).join('')}`;
+  cont.innerHTML = `<div class="loading"><div class="spinner"></div></div>`;
+  try {
+    const snap = await getDocs(query(collection(db, 'casualRounds'), where('playerId', '==', currentUser.uid)));
+    if (!snap.docs.length) {
+      cont.innerHTML = `<div class="empty"><div class="ei">⛳</div><p>No casual rounds logged yet</p></div>`;
+      return;
+    }
+    const rounds = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+    const avgGross = Math.round(rounds.reduce((s, r) => s + r.gross, 0) / rounds.length);
+    const best = Math.min(...rounds.map(r => r.gross));
+    cont.innerHTML = `
+      <div class="stats-grid" style="margin-bottom:1rem;">
+        <div class="stat-box"><div class="n">${rounds.length}</div><div class="l">Rounds</div></div>
+        <div class="stat-box"><div class="n">${avgGross}</div><div class="l">Avg Score</div></div>
+        <div class="stat-box"><div class="n">${best}</div><div class="l">Best Round</div></div>
+      </div>
+      ${rounds.map(r => `
+        <div class="history-row">
+          <div class="hr-left">
+            <div class="name">${r.course||'Unknown'}</div>
+            <div class="meta">${r.date||''} · ${r.holesPlayed||18} holes · ${r.tees||''} tees · Par ${r.par||72}</div>
+          </div>
+          <div class="hr-right">
+            <div class="score">${r.gross}</div>
+            <div class="pos">${vsPar(r.gross, r.par||72).replace(/<[^>]+>/g,'').trim()} vs par</div>
+          </div>
+          <button class="btn btn-ghost btn-sm" style="margin-left:8px;align-self:center;" onclick="window._real_deleteCasualRound('${r.id}',${r.gross})">🗑</button>
+        </div>`).join('')}`;
+  } catch(e){ console.error(e); cont.innerHTML = `<div class="empty"><div class="ei">⚠️</div><p>Couldn't load rounds (${e.code||e.message||'error'}). Try again.</p></div>`; }
 }
 window._real_loadCasualHistory = loadCasualHistory;
+
+window._real_deleteCasualRound = async function(rid, gross){
+  if(!confirm('Delete this casual round? This cannot be undone.')) return;
+  try {
+    await deleteDoc(doc(db,'casualRounds',rid));
+    const pRef=doc(db,'players',currentUser.uid);
+    const pSnap=await getDoc(pRef);
+    if(pSnap.exists()){
+      const st=pSnap.data().stats||{};
+      const prevRounds=st.roundsPlayed||1;
+      const rounds=Math.max(0,prevRounds-1);
+      let avgGross=0;
+      if(rounds>0 && st.avgGross) avgGross=(st.avgGross*prevRounds - gross)/rounds;
+      const newStats = rounds>0
+        ? {...st, roundsPlayed:rounds, avgGross:avgGross}
+        : {...st, roundsPlayed:0, avgGross:0, bestRound:null, worstRound:null};
+      await updateDoc(pRef,{stats:newStats});
+      if(userProfile) userProfile.stats=newStats;
+    }
+    toast('🗑️ Round deleted.');
+    loadCasualHistory();
+  } catch(e){ console.error(e); toast('Delete failed — see console.'); }
+};
 
 // ── STATS ENGINE ──
 async function loadStatsScreen() {
   const cont = document.getElementById('stats-content-main');
   if (!cont) return;
   cont.innerHTML = `<div class="loading"><div class="spinner"></div></div>`;
+  try {
   // Fetch all tournament scores for current user
   const tSnap = await getDocs(query(collection(db, 'holeScores'), where('playerId', '==', currentUser.uid)));
   const byTourney = {};
@@ -1995,6 +2023,7 @@ async function loadStatsScreen() {
       <div style="font-size:0.78rem;color:var(--text-light);margin-top:4px;">strokes vs first 3 rounds</div>
       <div style="font-size:0.82rem;color:${trend < 0 ? '#27ae60' : '#c0392b'};margin-top:6px;font-weight:600;">${trend < 0 ? '📈 Improving!' : trend > 0 ? '📉 Room to grow' : '⛳ Steady'}</div>
     </div>` : ''}`;
+  } catch(e){ console.error(e); cont.innerHTML = `<div class="empty"><div class="ei">⚠️</div><p>Couldn't load stats (${e.code||e.message||'error'}).</p></div>`; }
 }
 window._real_loadStatsScreen = loadStatsScreen;
 window._shimFlush();
@@ -2190,14 +2219,15 @@ function crLoadRecent() {
   if (!currentUser) return;
   getDocs(query(
     collection(db, 'casualRounds'),
-    where('playerId', '==', currentUser.uid),
-    orderBy('date', 'desc'),
-    limit(30)
+    where('playerId', '==', currentUser.uid)
   )).then(function(snap) {
+    var docs = snap.docs.map(function(d){ return d.data(); })
+      .sort(function(a,b){ return (b.date||'').localeCompare(a.date||''); })
+      .slice(0, 30);
     var seen = {};
     var recent = [];
-    snap.docs.forEach(function(d) {
-      var name = d.data().course;
+    docs.forEach(function(data) {
+      var name = data.course;
       if (name && !seen[name] && recent.length < 10) {
         seen[name] = true;
         recent.push(name);
