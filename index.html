@@ -442,6 +442,7 @@ hr.div{border:none;border-top:1px solid var(--cream-dark);margin:1rem 0;}
       <div class="pad">
         <div class="profile-header" id="profile-header"></div>
         <div class="stats-grid" id="profile-stats"></div>
+        <button class="btn btn-ghost btn-full" style="margin-bottom:1rem;" onclick="window._real_navTo('casual-history',null)">📋 View / Edit My Rounds</button>
         <div class="card" id="profile-handicap-card">
           <div id="profile-handicap"></div>
         </div>
@@ -685,6 +686,7 @@ function navTo(name, btn) {
   if(name==='admin') loadAdmin();
   if(name==='history') loadHistory();
   if(name==='stats') loadStatsScreen();
+  if(name==='casual-history') loadCasualHistory();
 }
 function switchAuthTab(tab) {
   document.querySelectorAll('.auth-tab').forEach((t,i)=>{
@@ -2558,6 +2560,7 @@ document.addEventListener('DOMContentLoaded', () => {
   <div id="screen-stats" class="screen">
     <div class="topbar">
       <div><div class="topbar-title">My Stats</div><div class="topbar-sub">Performance analytics</div></div>
+      <div class="topbar-right"><button class="btn btn-gold btn-sm" onclick="window._real_navTo('casual-history',null)">📋 My Rounds</button></div>
     </div>
     <div class="pad" id="stats-content-main"><div class="loading"><div class="spinner"></div></div></div>
   </div>`);
@@ -2595,7 +2598,7 @@ window._real_navCasual = function(btn) {
 };
 
 // Build/version stamp — confirms which version is actually running (catches stale cache)
-var APP_BUILD = '2026.06.29 · nav-fix';
+var APP_BUILD = '2026.06.29 · my-rounds-access';
 console.log('%cMorks Golf Tour build: ' + APP_BUILD, 'color:#c9a227;font-weight:bold;font-size:14px;');
 try {
   var _bt = document.createElement('div');
