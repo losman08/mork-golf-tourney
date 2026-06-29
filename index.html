@@ -384,11 +384,15 @@ hr.div{border:none;border-top:1px solid var(--cream-dark);margin:1rem 0;}
     <div id="screen-leaderboard" class="screen">
       <div class="topbar topbar-lb">
         <div><div class="topbar-title" id="lb-title">Leaderboard</div><div class="topbar-sub" id="lb-sub"></div></div>
-        <div class="topbar-right">
+        <div class="topbar-right" id="lb-sel-wrap">
           <select id="lb-tourney-sel" onchange="window._real_loadLeaderboard()" style="background:rgba(0,0,0,0.2);border:1px solid var(--gold);color:var(--cream);padding:6px 8px;border-radius:6px;font-size:0.82rem;font-family:'Inter',sans-serif;cursor:pointer;"></select>
         </div>
       </div>
-      <div class="lb-tabs">
+      <div class="lb-tabs" id="lb-mode-tabs">
+        <button class="lb-tab active" id="lb-mode-tournament" onclick="window._real_switchLbMode('tournament',this)">🏆 Tournament</button>
+        <button class="lb-tab" id="lb-mode-alltime" onclick="window._real_switchLbMode('alltime',this)">📊 All-Time</button>
+      </div>
+      <div class="lb-tabs" id="lb-format-tabs">
         <button class="lb-tab active" onclick="window._real_switchLbTab('gross',this)">Gross</button>
         <button class="lb-tab" onclick="window._real_switchLbTab('net',this)">Net</button>
         <button class="lb-tab" onclick="window._real_switchLbTab('system36',this)">System 36</button>
@@ -658,6 +662,7 @@ let currentUser = null, userProfile = null;
 let activeTournament = null, allTournaments = [], allPlayers = [];
 let scorecardData = {}; // holeNum -> score
 let currentLbTab = 'gross';
+let lbMode = 'tournament';
 let lbUnsubscribe = null;
 let editingTourneyId = null;
 
@@ -1078,7 +1083,89 @@ function switchLbTab(tab, btn) {
   renderLeaderboardContent();
 }
 
+// ── STANDINGS (season-ready: pass a date window; null/null = all-time) ──
+// Computed live from dated tournament results so a future Season filter is just a date range.
+function computeStandings(startDate, endDate) {
+  const inWindow = allTournaments.filter(function(t){
+    if (t.status !== 'completed' && t.status !== 'locked') return false;
+    var d = t.date || '';
+    if (startDate && d < startDate) return false;
+    if (endDate && d > endDate) return false;
+    return true;
+  });
+  const agg = {};
+  inWindow.forEach(function(t){
+    (t.results || []).forEach(function(r){
+      var a = agg[r.playerId] || (agg[r.playerId] = { playerId:r.playerId, name:r.name, pts:0, wins:0, top3:0, rounds:0, grosses:[] });
+      a.pts += (r.points || 0);
+      if (r.rank === 1) a.wins++;
+      if (r.rank <= 3) a.top3++;
+      a.rounds++;
+      if (typeof r.grossScore === 'number') a.grosses.push(r.grossScore);
+    });
+  });
+  var rows = Object.keys(agg).map(function(k){
+    var a = agg[k];
+    return Object.assign(a, {
+      best: a.grosses.length ? Math.min.apply(null, a.grosses) : null,
+      avg:  a.grosses.length ? Math.round(a.grosses.reduce(function(s,g){return s+g;},0) / a.grosses.length) : null
+    });
+  });
+  rows.sort(function(x,y){ return (y.pts - x.pts) || (y.wins - x.wins) || ((x.avg||999) - (y.avg||999)); });
+  return rows;
+}
+
+function renderAllTimeLeaderboard() {
+  const el = document.getElementById('lb-content');
+  if (!el) return;
+  const rows = computeStandings(null, null); // null window = all-time; a Season filter passes dates here
+  if (!rows.length) {
+    el.innerHTML = `<div class="empty"><div class="ei">📊</div><p>No completed tournaments yet. All-Time standings appear once a tournament is locked.</p></div>`;
+    return;
+  }
+  el.innerHTML = `<div class="lb-table-wrap"><table>
+    <thead><tr><th class="c">#</th><th>Player</th><th class="c">Pts</th><th class="c">Wins</th><th class="c">Best</th><th class="c">Avg</th></tr></thead>
+    <tbody>${rows.map(function(r,i){
+      var me = currentUser && r.playerId === currentUser.uid;
+      return `<tr class="${i===0?'leader':''}"${me?' style="background:rgba(201,162,39,0.16);"':''}>
+        <td class="c"><span class="badge ${badgeClass(i+1)}">${i+1}</span></td>
+        <td class="pname">${r.name}${me?' <span style="font-size:0.7rem;color:var(--gold);font-weight:700;">YOU</span>':''}</td>
+        <td class="c bold">${r.pts}</td>
+        <td class="c">${r.wins}</td>
+        <td class="c">${r.best!=null?r.best:'—'}</td>
+        <td class="c">${r.avg!=null?r.avg:'—'}</td>
+      </tr>`;
+    }).join('')}</tbody>
+  </table></div>
+  <div style="text-align:center;font-size:0.72rem;color:rgba(245,240,232,0.45);margin-top:0.8rem;">All-time totals across every locked tournament · Points & wins are tournament-only</div>`;
+}
+window._real_switchLbMode = function(mode, btn) {
+  lbMode = mode;
+  var mt=document.getElementById('lb-mode-tournament'), ma=document.getElementById('lb-mode-alltime');
+  if(mt) mt.classList.toggle('active', mode==='tournament');
+  if(ma) ma.classList.toggle('active', mode==='alltime');
+  var ft=document.getElementById('lb-format-tabs'), sw=document.getElementById('lb-sel-wrap');
+  if (mode === 'alltime') {
+    if(ft) ft.style.display='none';
+    if(sw) sw.style.display='none';
+    var ttl=document.getElementById('lb-title'); if(ttl) ttl.textContent='All-Time Standings';
+    var sub=document.getElementById('lb-sub'); if(sub) sub.textContent='Across all tournaments';
+    if (lbUnsubscribe) { lbUnsubscribe(); lbUnsubscribe = null; }
+    renderAllTimeLeaderboard();
+  } else {
+    if(ft) ft.style.display='';
+    if(sw) sw.style.display='';
+    loadLeaderboard();
+  }
+};
+
 async function loadLeaderboard() {
+  // Ensure tournament-mode chrome is visible (the All-Time toggle may have hidden it)
+  lbMode = 'tournament';
+  var _mt=document.getElementById('lb-mode-tournament'), _ma=document.getElementById('lb-mode-alltime');
+  if(_mt) _mt.classList.add('active'); if(_ma) _ma.classList.remove('active');
+  var _ft=document.getElementById('lb-format-tabs'); if(_ft) _ft.style.display='';
+  var _sw=document.getElementById('lb-sel-wrap'); if(_sw) _sw.style.display='';
   const tid=document.getElementById('lb-tourney-sel')?.value || activeTournament?.id;
   if(!tid){ document.getElementById('lb-content').innerHTML=`<div class="empty"><div class="ei">⛳</div><p>No tournaments yet</p></div>`; return; }
   const t=allTournaments.find(x=>x.id===tid)||activeTournament;
@@ -2598,7 +2685,7 @@ window._real_navCasual = function(btn) {
 };
 
 // Build/version stamp — confirms which version is actually running (catches stale cache)
-var APP_BUILD = '2026.06.29 · my-rounds-access';
+var APP_BUILD = '2026.06.29 · alltime-leaderboard';
 console.log('%cMorks Golf Tour build: ' + APP_BUILD, 'color:#c9a227;font-weight:bold;font-size:14px;');
 try {
   var _bt = document.createElement('div');
