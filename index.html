@@ -566,6 +566,31 @@ hr.div{border:none;border-top:1px solid var(--cream-dark);margin:1rem 0;}
   </div>
 </div>
 
+<div class="modal-bg" id="modal-edit-profile">
+  <div class="modal">
+    <div class="modal-header"><h3>✏️ Edit Profile</h3><button class="modal-close-btn" onclick="closeModal('modal-edit-profile')">✕</button></div>
+    <div class="fg"><label>Full Name</label><input type="text" id="ep-name"></div>
+    <div class="fg"><label>Nickname</label><input type="text" id="ep-nickname" placeholder="optional"></div>
+    <div class="fg"><label>GHIN Handicap</label><input type="number" id="ep-hcp" step="0.1" min="0" max="54" placeholder="optional"></div>
+    <div style="font-size:0.72rem;color:var(--text-light);margin-top:4px;">Email and password are changed from account settings.</div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="window._real_closeModal('modal-edit-profile')">Cancel</button>
+      <button class="btn btn-gold" onclick="window._real_saveProfileEdit()">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="modal-edit-casual">
+  <div class="modal">
+    <div class="modal-header"><h3>✏️ Edit Round</h3><button class="modal-close-btn" onclick="closeModal('modal-edit-casual')">✕</button></div>
+    <div id="ec-body"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="window._real_closeModal('modal-edit-casual')">Cancel</button>
+      <button class="btn btn-gold" id="ec-save-btn">Save</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast"></div>
 
 <!-- ══ FIREBASE ══ -->
@@ -1274,7 +1299,8 @@ async function loadProfile() {
     <div class="profile-name">${p.name}${p.nickname ? ` <span style="font-size:0.95rem;color:var(--gold);font-weight:400;">"${p.nickname}"</span>` : ""}</div>
     <div class="profile-meta">${p.email||''} · Member since ${p.createdDate?.toDate?.()?.getFullYear()||'2026'}</div>
     ${p.officialHandicap!=null?`<div style="margin-top:8px;"><span class="chip chip-gold">GHIN HCP: ${p.officialHandicap}</span></div>`:''}
-    <div style="margin-top:10px;"><span class="chip chip-${p.role==='admin'?'red':'blue'}">${p.role||'player'}</span></div>`;
+    <div style="margin-top:10px;"><span class="chip chip-${p.role==='admin'?'red':'blue'}">${p.role||'player'}</span></div>
+    <div style="margin-top:12px;"><button class="btn btn-ghost btn-sm" onclick="window._real_editProfile()">✏️ Edit Profile</button></div>`;
   const st=p.stats||{};
   document.getElementById('profile-stats').innerHTML=`
     <div class="stat-box"><div class="n">${st.roundsPlayed||0}</div><div class="l">Rounds</div></div>
@@ -1886,7 +1912,8 @@ async function loadCasualHistory() {
             <div class="score">${r.gross}</div>
             <div class="pos">${vsPar(r.gross, r.par||72).replace(/<[^>]+>/g,'').trim()} vs par</div>
           </div>
-          <button class="btn btn-ghost btn-sm" style="margin-left:8px;align-self:center;" onclick="window._real_deleteCasualRound('${r.id}',${r.gross})">🗑</button>
+          <button class="btn btn-ghost btn-sm" style="margin-left:8px;align-self:center;" onclick="window._real_editCasualRound('${r.id}')">✏️</button>
+          <button class="btn btn-ghost btn-sm" style="margin-left:4px;align-self:center;" onclick="window._real_deleteCasualRound('${r.id}',${r.gross})">🗑</button>
         </div>`).join('')}`;
   } catch(e){ console.error(e); cont.innerHTML = `<div class="empty"><div class="ei">⚠️</div><p>Couldn't load rounds (${e.code||e.message||'error'}). Try again.</p></div>`; }
 }
@@ -1913,6 +1940,80 @@ window._real_deleteCasualRound = async function(rid, gross){
     toast('🗑️ Round deleted.');
     loadCasualHistory();
   } catch(e){ console.error(e); toast('Delete failed — see console.'); }
+};
+
+// ── PROFILE EDIT ──
+window._real_editProfile = function(){
+  if(!userProfile) return;
+  document.getElementById('ep-name').value = userProfile.name || '';
+  document.getElementById('ep-nickname').value = userProfile.nickname || '';
+  document.getElementById('ep-hcp').value = userProfile.officialHandicap!=null ? userProfile.officialHandicap : '';
+  openModal('modal-edit-profile');
+};
+window._real_saveProfileEdit = async function(){
+  const name = document.getElementById('ep-name').value.trim();
+  const nickname = document.getElementById('ep-nickname').value.trim();
+  const hcpRaw = document.getElementById('ep-hcp').value;
+  if(!name){ toast('Name is required.'); return; }
+  try {
+    const upd = { name: name, nickname: nickname||null, officialHandicap: hcpRaw!==''?Number(hcpRaw):null };
+    await updateDoc(doc(db,'players',currentUser.uid), upd);
+    userProfile.name = upd.name; userProfile.nickname = upd.nickname; userProfile.officialHandicap = upd.officialHandicap;
+    closeModal('modal-edit-profile');
+    toast('✅ Profile updated.');
+    loadProfile();
+  } catch(e){ console.error(e); toast('Update failed — see console.'); }
+};
+
+// ── CASUAL ROUND EDIT ──
+window._real_editCasualRound = async function(rid){
+  try {
+    const snap = await getDoc(doc(db,'casualRounds',rid));
+    if(!snap.exists()){ toast('Round not found.'); return; }
+    const r = snap.data();
+    const holes = r.holes || {};
+    const body = document.getElementById('ec-body');
+    let html = '<div style="font-size:0.85rem;color:var(--text-light);margin-bottom:0.8rem;">'+(r.course||'Round')+' · '+(r.date||'')+'</div>';
+    html += '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;max-height:50vh;overflow-y:auto;">';
+    for(let h=1;h<=18;h++){
+      const cur = (holes[h] && holes[h].score!=null) ? holes[h].score : '';
+      const par = (holes[h] && holes[h].par) || DEFAULT_PARS[h-1] || 4;
+      html += '<div class="fg" style="margin:0;"><label style="font-size:0.7rem;">Hole '+h+' (Par '+par+')</label><input type="number" id="ec-h-'+h+'" value="'+cur+'" min="1" max="20" inputmode="numeric" onfocus="this.select()"></div>';
+    }
+    html += '</div>';
+    body.innerHTML = html;
+    document.getElementById('ec-save-btn').onclick = function(){ window._real_saveCasualEdit(rid, r.gross||0); };
+    openModal('modal-edit-casual');
+  } catch(e){ console.error(e); toast('Could not load round.'); }
+};
+window._real_saveCasualEdit = async function(rid, oldGross){
+  try {
+    const snap = await getDoc(doc(db,'casualRounds',rid));
+    const origHoles = (snap.exists() && snap.data().holes) || {};
+    const holes = {}; let gross = 0; let count = 0;
+    for(let h=1;h<=18;h++){
+      const inp = document.getElementById('ec-h-'+h);
+      const v = inp ? parseInt(inp.value) : NaN;
+      const par = (origHoles[h] && origHoles[h].par) || DEFAULT_PARS[h-1] || 4;
+      if(!isNaN(v) && v>0){ holes[h] = { score:v, par:par }; gross += v; count++; }
+    }
+    if(count===0){ toast('Enter at least one score.'); return; }
+    await updateDoc(doc(db,'casualRounds',rid), { holes:holes, gross:gross, holesPlayed:count });
+    const pRef = doc(db,'players',currentUser.uid);
+    const pSnap = await getDoc(pRef);
+    if(pSnap.exists()){
+      const st = pSnap.data().stats || {};
+      const rounds = st.roundsPlayed || 1;
+      let avgGross = st.avgGross || 0;
+      if(rounds>0 && st.avgGross) avgGross = (st.avgGross*rounds - oldGross + gross)/rounds;
+      const newStats = { ...st, avgGross:avgGross };
+      await updateDoc(pRef, { stats:newStats });
+      if(userProfile) userProfile.stats = newStats;
+    }
+    closeModal('modal-edit-casual');
+    toast('✅ Round updated.');
+    loadCasualHistory();
+  } catch(e){ console.error(e); toast('Save failed — see console.'); }
 };
 
 // ── STATS ENGINE ──
@@ -2516,7 +2617,7 @@ window._real_navCasual = function(btn) {
 };
 
 // Build/version stamp — confirms which version is actually running (catches stale cache)
-var APP_BUILD = '2026.06.27 · spinner-fix';
+var APP_BUILD = '2026.06.27 · profile+round-edit';
 console.log('%cMorks Golf Tour build: ' + APP_BUILD, 'color:#c9a227;font-weight:bold;font-size:14px;');
 try {
   var _bt = document.createElement('div');
