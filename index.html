@@ -683,6 +683,8 @@ function navTo(name, btn) {
   if(name==='scorecard') loadScorecard();
   if(name==='profile') loadProfile();
   if(name==='admin') loadAdmin();
+  if(name==='history') loadHistory();
+  if(name==='stats') loadStatsScreen();
 }
 function switchAuthTab(tab) {
   document.querySelectorAll('.auth-tab').forEach((t,i)=>{
@@ -2593,7 +2595,7 @@ window._real_navCasual = function(btn) {
 };
 
 // Build/version stamp — confirms which version is actually running (catches stale cache)
-var APP_BUILD = '2026.06.28 · stats-fix';
+var APP_BUILD = '2026.06.29 · nav-fix';
 console.log('%cMorks Golf Tour build: ' + APP_BUILD, 'color:#c9a227;font-weight:bold;font-size:14px;');
 try {
   var _bt = document.createElement('div');
