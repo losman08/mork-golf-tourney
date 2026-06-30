@@ -613,7 +613,8 @@ const _shimmed = ['doLogin','doRegister','doForgotPassword','doSignOut',
   'loadPlayerScoresForEdit','saveEditedScores','loadHistory','loadHistoryDetail',
   'loadCasualRound','saveCasualRound','loadCasualHistory','loadStatsScreen',
   'showAdminSettings','toggleAdminRole',
-  'setActiveTourney','setTourneyStatus'];
+  'setActiveTourney','setTourneyStatus',
+  'onCasualChange','onHoleChange'];
 _shimmed.forEach(fn => {
   window[fn] = function(...args) {
     if (window._shimReady && typeof window['_real_'+fn] === 'function') {
@@ -2685,7 +2686,7 @@ window._real_navCasual = function(btn) {
 };
 
 // Build/version stamp — confirms which version is actually running (catches stale cache)
-var APP_BUILD = '2026.06.29 · alltime-leaderboard';
+var APP_BUILD = '2026.06.30 · casual-score-fix';
 console.log('%cMorks Golf Tour build: ' + APP_BUILD, 'color:#c9a227;font-weight:bold;font-size:14px;');
 try {
   var _bt = document.createElement('div');
