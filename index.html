@@ -634,7 +634,7 @@ window._shimFlush = function() {
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword,
-  signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+  signOut, onAuthStateChanged, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import { getFirestore, doc, setDoc, getDoc, getDocs, addDoc, updateDoc, deleteDoc,
   collection, query, where, orderBy, limit, onSnapshot, serverTimestamp, writeBatch }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
@@ -1952,7 +1952,12 @@ async function saveCasualRound() {
     playerId: currentUser.uid,
     course, date, par, tees, gross, rating: ccRating, slope: ccSlope,
     holesPlayed: entries.length,
-    holes: Object.fromEntries(entries.map(([h, s]) => [h, { score: s, par: DEFAULT_PARS[h-1] || 4 }])),
+    holes: Object.fromEntries(entries.map(([h, s]) => {
+      var pEl = document.getElementById('cr-hc-' + h);
+      var pl = pEl ? pEl.querySelector('.hole-par') : null;
+      var hp = pl ? (parseInt((pl.textContent || '').replace('Par ', '')) || (DEFAULT_PARS[h-1] || 4)) : (DEFAULT_PARS[h-1] || 4);
+      return [h, { score: s, par: hp }];
+    })),
     createdAt: serverTimestamp()
   });
   // Update player stats
@@ -2686,7 +2691,7 @@ window._real_navCasual = function(btn) {
 };
 
 // Build/version stamp — confirms which version is actually running (catches stale cache)
-var APP_BUILD = '2026.06.30 · casual-score-fix';
+var APP_BUILD = '2026.06.30 · pwreset-import-fix';
 console.log('%cMorks Golf Tour build: ' + APP_BUILD, 'color:#c9a227;font-weight:bold;font-size:14px;');
 try {
   var _bt = document.createElement('div');
