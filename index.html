@@ -1711,6 +1711,8 @@ window._real_resetPeoriaHoles=async function(tid){
 
 async function showAdminLock() {
   const t=activeTournament||allTournaments[0]; if(!t){ toast('No tournament.'); return; }
+  if(t.status==='locked'){ toast('This tournament is already locked — stats were applied once.'); return; }
+  try {
   const scores=await fetchAllScores(t.id);
   const ranked=rankGross(scores,t);
   // Compute results & points
@@ -1744,6 +1746,7 @@ async function showAdminLock() {
     <div style="color:var(--text-light);margin-top:0.5rem;">Results finalized. Player stats updated.</div>
   </div>`;
   toast('🔒 Tournament locked & results saved!');
+  } catch(e){ console.error(e); toast('Lock failed — nothing was changed. Check your connection and try again.'); }
 }
 
 async function showAdminExport() {
@@ -2691,7 +2694,7 @@ window._real_navCasual = function(btn) {
 };
 
 // Build/version stamp — confirms which version is actually running (catches stale cache)
-var APP_BUILD = '2026.06.30 · pwreset-import-fix';
+var APP_BUILD = '2026.06.30 · lock-guard-fix';
 console.log('%cMorks Golf Tour build: ' + APP_BUILD, 'color:#c9a227;font-weight:bold;font-size:14px;');
 try {
   var _bt = document.createElement('div');
