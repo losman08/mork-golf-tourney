@@ -702,6 +702,7 @@ function switchAuthTab(tab) {
   document.getElementById('auth-login').classList.toggle('active', tab==='login');
   document.getElementById('auth-register').classList.toggle('active', tab==='register');
 }
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]; }); }
 function vsPar(score, par) {
   const d=score-par;
   if(d<0) return `<span class="vp under">${d}</span>`;
@@ -1020,7 +1021,7 @@ function renderHomeEvent() {
   const t=activeTournament;
   el.innerHTML=`<div class="home-hero">
     <div class="hero-label">Current Event</div>
-    <div class="hero-title">${t.name}</div>
+    <div class="hero-title">${esc(t.name)}</div>
     <div class="hero-meta">📍 ${t.course||'TBD'} &nbsp;·&nbsp; 📅 ${t.date||''} &nbsp;·&nbsp; Par ${t.par||72}</div>
     <div class="hero-badge">${(t.format||'stroke').toUpperCase()}</div>
     <div class="mini-lb" id="home-mini-lb"><div class="loading"><div class="spinner"></div></div></div>
@@ -1039,7 +1040,7 @@ async function loadMiniLb() {
   el.innerHTML=ranked.slice(0,5).map((r,i)=>`
     <div class="mini-lb-row">
       <div class="mini-rank">${i===0?'🥇':i===1?'🥈':i===2?'🥉':i+1}</div>
-      <div class="mini-name">${r.name}</div>
+      <div class="mini-name">${esc(r.name)}</div>
       <div class="mini-score">${r.gross||'—'}</div>
     </div>`).join('');
 }
@@ -1055,7 +1056,7 @@ function renderHomeSeasonLb() {
   el.innerHTML=`<table><thead><tr><th class="c">#</th><th>Player</th><th class="c">Points</th></tr></thead><tbody>${
     ranked.map(([pid,p],i)=>{
       const name=allPlayers.find(x=>x.id===pid)?.name||'Unknown';
-      return `<tr ${i===0?'class="leader"':''}><td class="c"><span class="badge ${badgeClass(i+1)}">${i+1}</span></td><td class="pname">${name}</td><td class="c bold">${p}</td></tr>`;
+      return `<tr ${i===0?'class="leader"':''}><td class="c"><span class="badge ${badgeClass(i+1)}">${i+1}</span></td><td class="pname">${esc(name)}</td><td class="c bold">${p}</td></tr>`;
     }).join('')
   }</tbody></table>`;
 }
@@ -1066,7 +1067,7 @@ function renderHomeRecent() {
   if(!completed.length){ el.innerHTML=`<div class="empty"><div class="ei">🏌️</div><p>No completed tournaments</p></div>`; return; }
   el.innerHTML=completed.map(t=>`
     <div class="history-row">
-      <div class="hr-left"><div class="name">${t.name}</div><div class="meta">${t.date||''} · ${t.course||''} · <span class="chip ${chipStatus(t.status)}">${t.status}</span></div></div>
+      <div class="hr-left"><div class="name">${esc(t.name)}</div><div class="meta">${t.date||''} · ${t.course||''} · <span class="chip ${chipStatus(t.status)}">${t.status}</span></div></div>
       <div class="hr-right"><div class="score">${(t.results||[])[0]?.name||'—'}</div><div class="pos">Winner</div></div>
     </div>`).join('');
 }
@@ -1074,7 +1075,7 @@ function renderHomeRecent() {
 // ── LEADERBOARD ──
 function populateLbSelect() {
   const sel=document.getElementById('lb-tourney-sel');
-  sel.innerHTML=allTournaments.map(t=>`<option value="${t.id}" ${activeTournament?.id===t.id?'selected':''}>${t.name}</option>`).join('');
+  sel.innerHTML=allTournaments.map(t=>`<option value="${t.id}" ${activeTournament?.id===t.id?'selected':''}>${esc(t.name)}</option>`).join('');
 }
 
 function switchLbTab(tab, btn) {
@@ -1130,7 +1131,7 @@ function renderAllTimeLeaderboard() {
       var me = currentUser && r.playerId === currentUser.uid;
       return `<tr class="${i===0?'leader':''}"${me?' style="background:rgba(201,162,39,0.16);"':''}>
         <td class="c"><span class="badge ${badgeClass(i+1)}">${i+1}</span></td>
-        <td class="pname">${r.name}${me?' <span style="font-size:0.7rem;color:var(--gold);font-weight:700;">YOU</span>':''}</td>
+        <td class="pname">${esc(r.name)}${me?' <span style="font-size:0.7rem;color:var(--gold);font-weight:700;">YOU</span>':''}</td>
         <td class="c bold">${r.pts}</td>
         <td class="c">${r.wins}</td>
         <td class="c">${r.best!=null?r.best:'—'}</td>
@@ -1275,7 +1276,7 @@ function renderLeaderboardContent() {
     <thead><tr>${headers}</tr></thead>
     <tbody>${rows.map(r=>`<tr class="${r.leader?'leader':''}">
       <td class="c"><span class="badge ${badgeClass(r.rank)}">${r.rank}</span></td>
-      <td class="pname">${r.name}</td>${r.cols}</tr>`).join('')}
+      <td class="pname">${esc(r.name)}</td>${r.cols}</tr>`).join('')}
     </tbody></table></div>`;
 }
 
@@ -1388,7 +1389,7 @@ async function loadProfile() {
   const p=userProfile;
   document.getElementById('profile-header').innerHTML=`
     <div class="profile-avatar">${p.name?.[0]||'?'}</div>
-    <div class="profile-name">${p.name}${p.nickname ? ` <span style="font-size:0.95rem;color:var(--gold);font-weight:400;">"${p.nickname}"</span>` : ""}</div>
+    <div class="profile-name">${esc(p.name)}${p.nickname ? ` <span style="font-size:0.95rem;color:var(--gold);font-weight:400;">"${esc(p.nickname)}"</span>` : ""}</div>
     <div class="profile-meta">${p.email||''} · Member since ${p.createdDate?.toDate?.()?.getFullYear()||'2026'}</div>
     ${p.officialHandicap!=null?`<div style="margin-top:8px;"><span class="chip chip-gold">GHIN HCP: ${p.officialHandicap}</span></div>`:''}
     <div style="margin-top:10px;"><span class="chip chip-${p.role==='admin'?'red':'blue'}">${p.role||'player'}</span></div>
@@ -1409,7 +1410,7 @@ async function loadProfile() {
   hist.innerHTML=myTourneys.map(t=>{
     const res=(t.results||[]).find(r=>r.playerId===currentUser.uid);
     return `<div class="history-row">
-      <div class="hr-left"><div class="name">${t.name}</div><div class="meta">${t.date||''} · ${t.course||''}</div></div>
+      <div class="hr-left"><div class="name">${esc(t.name)}</div><div class="meta">${t.date||''} · ${t.course||''}</div></div>
       <div class="hr-right"><div class="score">${res?.grossScore||'—'}</div><div class="pos">${res?`Finished ${res.rank}${res.rank===1?'st':res.rank===2?'nd':res.rank===3?'rd':'th'}`:'—'}</div></div>
     </div>`;
   }).join('');
@@ -1587,7 +1588,7 @@ async function showAdminPlayers() {
   cont.innerHTML=`<div class="card"><h3>👥 All Players</h3><div class="loading"><div class="spinner"></div></div></div>`;
   cont.innerHTML=`<div class="card"><h3>👥 All Players</h3>${allPlayers.map(p=>`
     <div class="player-row">
-      <div><div class="pr-name">${p.name}</div><div class="pr-email">${p.email||''} · <span class="chip chip-${p.role==='admin'?'red':'blue'}">${p.role}</span>${p.officialHandicap!=null?` · HCP ${p.officialHandicap}`:''}</div></div>
+      <div><div class="pr-name">${esc(p.name)}</div><div class="pr-email">${p.email||''} · <span class="chip chip-${p.role==='admin'?'red':'blue'}">${p.role}</span>${p.officialHandicap!=null?` · HCP ${p.officialHandicap}`:''}</div></div>
       <div class="pr-actions">
         <button class="btn btn-ghost btn-sm" onclick="window._real_toggleAdminRole('${p.id}','${p.role}')">${p.role==='admin'?'→ Player':'→ Admin'}</button>
       </div>
@@ -1606,7 +1607,7 @@ async function showAdminScores() {
   const t=allTournaments.find(x=>x.id===tid)||allTournaments[0];
   // populate player select in modal
   const sel=document.getElementById('es-player-sel');
-  sel.innerHTML=allPlayers.map(p=>`<option value="${p.id}">${p.name}</option>`).join('');
+  sel.innerHTML=allPlayers.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('');
   sel.dataset.tid=tid;
   loadPlayerScoresForEdit();
   openModal('modal-edit-score');
@@ -1742,7 +1743,7 @@ async function showAdminLock() {
   await loadGlobalData();
   document.getElementById('admin-content').innerHTML=`<div class="card" style="text-align:center;padding:2rem;">
     <div style="font-size:2.5rem;margin-bottom:1rem;">🔒</div>
-    <div style="font-family:'Playfair Display',serif;font-size:1.2rem;color:var(--forest);">${t.name} Locked</div>
+    <div style="font-family:'Playfair Display',serif;font-size:1.2rem;color:var(--forest);">${esc(t.name)} Locked</div>
     <div style="color:var(--text-light);margin-top:0.5rem;">Results finalized. Player stats updated.</div>
   </div>`;
   toast('🔒 Tournament locked & results saved!');
@@ -1777,11 +1778,11 @@ async function loadHistory() {
     const playerCount = t.playerCount || (t.results || []).length;
     return `<div class="card card-sm gap" onclick="window._real_loadHistoryDetail('${t.id}')" style="cursor:pointer;transition:transform 0.15s;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform=''">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem;">
-        <div style="font-family:'Playfair Display',serif;font-size:1.05rem;font-weight:700;color:var(--forest);">${t.name}</div>
+        <div style="font-family:'Playfair Display',serif;font-size:1.05rem;font-weight:700;color:var(--forest);">${esc(t.name)}</div>
         <span class="chip chip-${chipStatus(t.status)}">${t.status}</span>
       </div>
       <div style="font-size:0.8rem;color:var(--text-light);">📍 ${t.course||'TBD'} &nbsp;·&nbsp; 📅 ${t.date||'—'} &nbsp;·&nbsp; Par ${t.par||72} &nbsp;·&nbsp; ${(t.format||'stroke').toUpperCase()}</div>
-      ${winner ? `<div style="margin-top:0.6rem;display:flex;align-items:center;gap:8px;"><span style="font-size:1.2rem;">🏆</span><span style="font-size:0.88rem;font-weight:600;color:var(--forest);">${winner.name}</span><span style="font-size:0.8rem;color:var(--text-light);">· ${winner.grossScore||'—'} gross · ${winner.points||0} pts</span></div>` : ''}
+      ${winner ? `<div style="margin-top:0.6rem;display:flex;align-items:center;gap:8px;"><span style="font-size:1.2rem;">🏆</span><span style="font-size:0.88rem;font-weight:600;color:var(--forest);">${esc(winner.name)}</span><span style="font-size:0.8rem;color:var(--text-light);">· ${winner.grossScore||'—'} gross · ${winner.points||0} pts</span></div>` : ''}
     </div>`;
   }).join('');
   } catch(e){ console.error(e); cont.innerHTML = `<div class="empty"><div class="ei">⚠️</div><p>Couldn't load history (${e.code||e.message||'error'}).</p></div>`; }
@@ -1799,7 +1800,7 @@ async function loadHistoryDetail(tid) {
   const rHdrs = `<th class="c">#</th><th>Player</th><th class="c">Gross</th><th class="c">vs Par</th>`;
   const rows = ranked.map((r,i) => `<tr class="${i===0?'leader':''}">
     <td class="c"><span class="badge ${badgeClass(i+1)}">${i+1}</span></td>
-    <td class="pname">${r.name}</td>
+    <td class="pname">${esc(r.name)}</td>
     <td class="c bold">${r.gross}</td>
     <td class="c">${vsPar(r.gross, t.par||72)}</td>
   </tr>`).join('');
@@ -1813,7 +1814,7 @@ async function loadHistoryDetail(tid) {
       <thead><tr><th>Player</th>${pars.map((_,i)=>`<th class="c" style="font-size:0.68rem;">${i+1}</th>`).join('')}<th class="c">Total</th></tr></thead>
       <tbody>`;
     ranked.forEach(r => {
-      holeHtml += `<tr><td class="pname" style="font-size:0.82rem;">${r.name}</td>`;
+      holeHtml += `<tr><td class="pname" style="font-size:0.82rem;">${esc(r.name)}</td>`;
       pars.forEach((_,i) => {
         const h = i+1;
         const score = r.holes[h]?.score;
@@ -2694,7 +2695,7 @@ window._real_navCasual = function(btn) {
 };
 
 // Build/version stamp — confirms which version is actually running (catches stale cache)
-var APP_BUILD = '2026.06.30 · lock-guard-fix';
+var APP_BUILD = '2026.06.30 · xss-escape-fix';
 console.log('%cMorks Golf Tour build: ' + APP_BUILD, 'color:#c9a227;font-weight:bold;font-size:14px;');
 try {
   var _bt = document.createElement('div');
