@@ -677,6 +677,9 @@ function toast(msg) {
 function openModal(id) { document.getElementById(id).classList.add('open'); }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
 function showScreen(name) {
+  // Tear down the leaderboard's realtime listener whenever we leave it, so it can't linger in the
+  // background. loadLeaderboard re-attaches a fresh one on return.
+  if(name!=='leaderboard' && lbUnsubscribe){ lbUnsubscribe(); lbUnsubscribe=null; }
   document.querySelectorAll('.screen').forEach(s=>{ s.classList.remove('active'); s.style.display=''; });
   const s = document.getElementById('screen-'+name);
   if(s){ s.classList.add('active'); s.style.display='block'; }
@@ -1178,18 +1181,20 @@ async function loadLeaderboard() {
   document.getElementById('lb-content').innerHTML=`<div class="loading"><div class="spinner"></div><p>Loading...</p></div>`;
   if(lbUnsubscribe) lbUnsubscribe();
   // Real-time listener
-  lbUnsubscribe=onSnapshot(query(collection(db,'holeScores'),where('tournamentId','==',tid)), async ()=>{
-    const scores=await fetchAllScores(tid);
-    window._lbScores=scores; window._lbTourney=t;
-    renderLeaderboardContent();
-  });
+  lbUnsubscribe=onSnapshot(query(collection(db,'holeScores'),where('tournamentId','==',tid)), (snap)=>{
+    // Use the docs the listener already delivered — no re-query — and debounce the redraw so a
+    // burst of hole submissions collapses into one paint instead of one full refetch per write.
+    window._lbScores=groupScores(snap.docs.map(d=>d.data())); window._lbTourney=t;
+    clearTimeout(window._lbRenderTimer);
+    window._lbRenderTimer=setTimeout(renderLeaderboardContent, 120);
+  }, (err)=>{ console.error('leaderboard listener', err); });
 }
 
-async function fetchAllScores(tid) {
-  const snap=await getDocs(query(collection(db,'holeScores'),where('tournamentId','==',tid)));
+// Pure transform: array of holeScore doc-data -> ranked-ready player rows. Shared by the
+// one-shot fetch and the realtime listener, so grouping logic lives in exactly one place.
+function groupScores(rows) {
   const byPlayer={};
-  snap.docs.forEach(d=>{
-    const data=d.data();
+  rows.forEach(data=>{
     if(!byPlayer[data.playerId]) byPlayer[data.playerId]={playerId:data.playerId,holes:{}};
     byPlayer[data.playerId].holes[data.holeNumber]=data;
   });
@@ -1201,6 +1206,10 @@ async function fetchAllScores(tid) {
     const dname=player.nickname?player.name+' ('+player.nickname+')':player.name;
     return { playerId:p.playerId, name:player.name, displayName:dname, holes, gross, holesPlayed, handicap:player.officialHandicap||0 };
   });
+}
+async function fetchAllScores(tid) {
+  const snap=await getDocs(query(collection(db,'holeScores'),where('tournamentId','==',tid)));
+  return groupScores(snap.docs.map(d=>d.data()));
 }
 
 function rankGross(scores, t) {
@@ -2695,7 +2704,7 @@ window._real_navCasual = function(btn) {
 };
 
 // Build/version stamp — confirms which version is actually running (catches stale cache)
-var APP_BUILD = '2026.06.30 · computed-stats-arc';
+var APP_BUILD = '2026.06.30 · realtime-listener-fix';
 console.log('%cMorks Golf Tour build: ' + APP_BUILD, 'color:#c9a227;font-weight:bold;font-size:14px;');
 try {
   var _bt = document.createElement('div');
