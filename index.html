@@ -1394,7 +1394,8 @@ async function loadProfile() {
     ${p.officialHandicap!=null?`<div style="margin-top:8px;"><span class="chip chip-gold">GHIN HCP: ${p.officialHandicap}</span></div>`:''}
     <div style="margin-top:10px;"><span class="chip chip-${p.role==='admin'?'red':'blue'}">${p.role||'player'}</span></div>
     <div style="margin-top:12px;"><button class="btn btn-ghost btn-sm" onclick="window._real_editProfile()">✏️ Edit Profile</button></div>`;
-  const st=p.stats||{};
+  try { if(currentUser) userProfile.stats = await computePlayerStats(currentUser.uid); } catch(e){ console.error('profile stats', e); }
+  const st=userProfile.stats||{};
   document.getElementById('profile-stats').innerHTML=`
     <div class="stat-box"><div class="n">${st.roundsPlayed||0}</div><div class="l">Rounds</div></div>
     <div class="stat-box"><div class="n">${st.wins||0}</div><div class="l">Wins</div></div>
@@ -1941,6 +1942,39 @@ function updateCasualSummary() {
   document.getElementById('cr-holes').textContent = entries.length;
 }
 
+// ── COMPUTED PLAYER STATS (single source of truth; recomputed from records, never incremented) ──
+// Tournament stats derive from locked results (same source as standings/leaderboards);
+// casual stats from casualRounds. Deliberately does NOT read holeScores, which would double-count
+// a tournament round (once from its holes, once from the lock).
+async function computePlayerStats(uid){
+  const cSnap = await getDocs(query(collection(db,'casualRounds'), where('playerId','==',uid)));
+  let casualCount = 0; const casualGrosses = [];
+  cSnap.docs.forEach(function(d){
+    const r = d.data(); casualCount++;
+    if (r.holesPlayed === 18 && typeof r.gross === 'number') casualGrosses.push(r.gross);
+  });
+  const standing = computeStandings(null, null).find(function(s){ return s.playerId === uid; })
+    || { pts:0, wins:0, top3:0, rounds:0, grosses:[] };
+  const grosses = casualGrosses.concat(standing.grosses || []);
+  return {
+    roundsPlayed: casualCount + (standing.rounds || 0),
+    wins: standing.wins || 0,
+    top3: standing.top3 || 0,
+    seasonPoints: standing.pts || 0,
+    avgGross: grosses.length ? (grosses.reduce(function(a,b){return a+b;},0) / grosses.length) : 0,
+    bestRound: grosses.length ? Math.min.apply(null, grosses) : null,
+    worstRound: grosses.length ? Math.max.apply(null, grosses) : null
+  };
+}
+async function refreshMyStats(){
+  if(!currentUser) return;
+  try {
+    const s = await computePlayerStats(currentUser.uid);
+    if(userProfile) userProfile.stats = s;
+    await updateDoc(doc(db,'players',currentUser.uid), { stats: s });
+  } catch(e){ console.error('refreshMyStats', e); }
+}
+
 async function saveCasualRound() {
   const entries = Object.entries(casualHoles);
   if (entries.length < 9) { toast('Enter at least 9 holes.'); return; }
@@ -1964,19 +1998,8 @@ async function saveCasualRound() {
     })),
     createdAt: serverTimestamp()
   });
-  // Update player stats
-  const pSnap = await getDoc(doc(db, 'players', currentUser.uid));
-  if (pSnap.exists()) {
-    const st = pSnap.data().stats || {};
-    const rounds = (st.roundsPlayed || 0) + 1;
-    const avgGross = ((st.avgGross || 0) * (rounds - 1) + gross) / rounds;
-    const best = st.bestRound ? Math.min(st.bestRound, gross) : gross;
-    const worst = st.worstRound ? Math.max(st.worstRound, gross) : gross;
-    await updateDoc(doc(db, 'players', currentUser.uid), {
-      stats: { ...st, roundsPlayed: rounds, avgGross, bestRound: best, worstRound: worst }
-    });
-    userProfile.stats = { ...st, roundsPlayed: rounds, avgGross, bestRound: best, worstRound: worst };
-  }
+  // Recompute stats from source records — single source of truth, no drift
+  await refreshMyStats();
   toast(`✅ Round saved! ${gross} at ${course}`);
   casualHoles = {};
   loadCasualRound();
@@ -2024,20 +2047,7 @@ window._real_deleteCasualRound = async function(rid, gross){
   if(!confirm('Delete this casual round? This cannot be undone.')) return;
   try {
     await deleteDoc(doc(db,'casualRounds',rid));
-    const pRef=doc(db,'players',currentUser.uid);
-    const pSnap=await getDoc(pRef);
-    if(pSnap.exists()){
-      const st=pSnap.data().stats||{};
-      const prevRounds=st.roundsPlayed||1;
-      const rounds=Math.max(0,prevRounds-1);
-      let avgGross=0;
-      if(rounds>0 && st.avgGross) avgGross=(st.avgGross*prevRounds - gross)/rounds;
-      const newStats = rounds>0
-        ? {...st, roundsPlayed:rounds, avgGross:avgGross}
-        : {...st, roundsPlayed:0, avgGross:0, bestRound:null, worstRound:null};
-      await updateDoc(pRef,{stats:newStats});
-      if(userProfile) userProfile.stats=newStats;
-    }
+    await refreshMyStats();
     toast('🗑️ Round deleted.');
     loadCasualHistory();
   } catch(e){ console.error(e); toast('Delete failed — see console.'); }
@@ -2100,17 +2110,7 @@ window._real_saveCasualEdit = async function(rid, oldGross){
     }
     if(count===0){ toast('Enter at least one score.'); return; }
     await updateDoc(doc(db,'casualRounds',rid), { holes:holes, gross:gross, holesPlayed:count });
-    const pRef = doc(db,'players',currentUser.uid);
-    const pSnap = await getDoc(pRef);
-    if(pSnap.exists()){
-      const st = pSnap.data().stats || {};
-      const rounds = st.roundsPlayed || 1;
-      let avgGross = st.avgGross || 0;
-      if(rounds>0 && st.avgGross) avgGross = (st.avgGross*rounds - oldGross + gross)/rounds;
-      const newStats = { ...st, avgGross:avgGross };
-      await updateDoc(pRef, { stats:newStats });
-      if(userProfile) userProfile.stats = newStats;
-    }
+    await refreshMyStats();
     closeModal('modal-edit-casual');
     toast('✅ Round updated.');
     loadCasualHistory();
@@ -2695,7 +2695,7 @@ window._real_navCasual = function(btn) {
 };
 
 // Build/version stamp — confirms which version is actually running (catches stale cache)
-var APP_BUILD = '2026.06.30 · xss-escape-fix';
+var APP_BUILD = '2026.06.30 · computed-stats-arc';
 console.log('%cMorks Golf Tour build: ' + APP_BUILD, 'color:#c9a227;font-weight:bold;font-size:14px;');
 try {
   var _bt = document.createElement('div');
