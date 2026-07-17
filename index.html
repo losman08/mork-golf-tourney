@@ -75,6 +75,8 @@ html,body{height:100%;font-family:'Inter',sans-serif;background:var(--forest);co
 .btn-forest:hover{background:var(--forest);}
 .btn-danger{background:var(--danger);color:white;}
 .btn-ghost{background:transparent;border:2px solid var(--cream-dark);color:var(--text-mid);}
+.btn.btn-ghost-light{color:var(--cream);border-color:var(--gold);}
+.btn.btn-ghost-light:hover{color:#fff;border-color:var(--gold-light);}
 .btn-ghost:hover{border-color:var(--forest-light);color:var(--forest);}
 .btn-full{width:100%;}
 .btn-sm{padding:7px 13px;font-size:0.8rem;}
@@ -188,7 +190,7 @@ td.pname{font-weight:600;font-family:'Playfair Display',serif;font-size:0.95rem;
 .profile-header{background:linear-gradient(160deg,var(--forest-mid),var(--forest));border-radius:var(--radius);padding:1.5rem;text-align:center;margin-bottom:1rem;}
 .profile-avatar{width:72px;height:72px;border-radius:50%;background:var(--gold);display:flex;align-items:center;justify-content:center;font-size:2rem;margin:0 auto 0.8rem;border:3px solid rgba(255,255,255,0.2);}
 .profile-name{font-family:'Playfair Display',serif;font-size:1.4rem;color:var(--cream);font-weight:700;}
-.profile-meta{font-size:0.8rem;color:rgba(245,240,232,0.55);margin-top:4px;}
+.profile-meta{font-size:0.8rem;color:rgba(245,240,232,0.78);margin-top:4px;}
 .stats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:1rem;}
 .stat-box{background:var(--cream);border-radius:10px;padding:0.9rem;text-align:center;box-shadow:var(--shadow);}
 .stat-box .n{font-family:'Playfair Display',serif;font-size:1.6rem;font-weight:900;color:var(--forest);}
@@ -446,7 +448,7 @@ hr.div{border:none;border-top:1px solid var(--cream-dark);margin:1rem 0;}
       <div class="pad">
         <div class="profile-header" id="profile-header"></div>
         <div class="stats-grid" id="profile-stats"></div>
-        <button class="btn btn-ghost btn-full" style="margin-bottom:1rem;" onclick="window._real_navTo('casual-history',null)">📋 View / Edit My Rounds</button>
+        <button class="btn btn-ghost btn-ghost-light btn-full" style="margin-bottom:1rem;" onclick="window._real_navTo('casual-history',null)">📋 View / Edit My Rounds</button>
         <div class="card" id="profile-handicap-card">
           <div id="profile-handicap"></div>
         </div>
@@ -1220,13 +1222,17 @@ function rankGross(scores, t) {
     .map((s,i)=>({...s, rank:i+1, vspar:s.gross-Math.round((s.holesPlayed/18)*par)}));
 }
 
-function calcSystem36(gross, handicap) {
-  // System 36: stableford points based on par 3/4/5
-  // Simplified: estimate from gross score and handicap
-  const net=gross-handicap;
-  // Each hole: points = 2 + (par - net score). Sum across 18 holes
-  // Simplified flat calculation: target is 36 points
-  return Math.round(36 + (72 - net));
+function calcSystem36(holes) {
+  // Real System 36: on each hole, par-or-better = 2 pts, bogey-or-worse = 1 pt.
+  // System 36 handicap = 36 - total points; net = gross - that handicap.
+  // Derived entirely from the round itself — no official/GHIN handicap needed.
+  let pts=0;
+  Object.values(holes||{}).forEach(function(h){
+    if(h && typeof h.score==='number' && typeof h.par==='number'){
+      pts += (h.score <= h.par) ? 2 : 1;
+    }
+  });
+  return { pts:pts, hcp:36-pts };
 }
 
 function calcBlindPeoria(playerHoles, selectedHoles, par) {
@@ -1261,12 +1267,12 @@ function renderLeaderboardContent() {
       rank:i+1, name:s.name, cols:`<td class="c">${s.gross}</td><td class="c">${s.handicap||0}</td><td class="c bold">${s.net}</td>`, leader:i===0
     }));
   } else if(currentLbTab==='system36'){
-    headers=`<th class="c">#</th><th>Player</th><th class="c">Gross</th><th class="c">Pts</th>`;
+    headers=`<th class="c">#</th><th>Player</th><th class="c">Gross</th><th class="c">Pts</th><th class="c">Net</th>`;
     const ranked=[...scores].filter(s=>s.holesPlayed===18)
-      .map(s=>({...s, s36:calcSystem36(s.gross, s.handicap||0)}))
-      .sort((a,b)=>b.s36-a.s36);
+      .map(s=>{ const r=calcSystem36(s.holes); return {...s, s36pts:r.pts, s36net:s.gross-r.hcp}; })
+      .sort((a,b)=>a.s36net-b.s36net);
     rows=ranked.map((s,i)=>({
-      rank:i+1, name:s.name, cols:`<td class="c">${s.gross}</td><td class="c bold">${s.s36} pts</td>`, leader:i===0
+      rank:i+1, name:s.name, cols:`<td class="c">${s.gross}</td><td class="c">${s.s36pts}</td><td class="c bold">${s.s36net}</td>`, leader:i===0
     }));
     if(!rows.length){ el.innerHTML=`<div class="empty"><div class="ei">⏳</div><p>System 36 requires all 18 holes.</p></div>`; return; }
   } else if(currentLbTab==='peoria'){
@@ -1404,7 +1410,7 @@ async function loadProfile() {
     <div class="profile-meta">${p.email||''} · Member since ${p.createdDate?.toDate?.()?.getFullYear()||'2026'}</div>
     ${p.officialHandicap!=null?`<div style="margin-top:8px;"><span class="chip chip-gold">GHIN HCP: ${p.officialHandicap}</span></div>`:''}
     <div style="margin-top:10px;"><span class="chip chip-${p.role==='admin'?'red':'blue'}">${p.role||'player'}</span></div>
-    <div style="margin-top:12px;"><button class="btn btn-ghost btn-sm" onclick="window._real_editProfile()">✏️ Edit Profile</button></div>`;
+    <div style="margin-top:12px;"><button class="btn btn-ghost btn-ghost-light btn-sm" onclick="window._real_editProfile()">✏️ Edit Profile</button></div>`;
   try { if(currentUser) userProfile.stats = await computePlayerStats(currentUser.uid); } catch(e){ console.error('profile stats', e); }
   const st=userProfile.stats||{};
   document.getElementById('profile-stats').innerHTML=`
@@ -2700,7 +2706,7 @@ window._real_navCasual = function(btn) {
 };
 
 // Build/version stamp — confirms which version is actually running (catches stale cache)
-var APP_BUILD = '2026.06.30 · cleanup-bundle';
+var APP_BUILD = '2026.06.30 · system36-real'
 console.log('%cMorks Golf Tour build: ' + APP_BUILD, 'color:#c9a227;font-weight:bold;font-size:14px;');
 try {
   var _bt = document.createElement('div');
