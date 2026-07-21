@@ -1223,13 +1223,14 @@ function rankGross(scores, t) {
 }
 
 function calcSystem36(holes) {
-  // Real System 36: on each hole, par-or-better = 2 pts, bogey-or-worse = 1 pt.
+  // Real System 36: par or better = 2 pts, bogey = 1 pt, double bogey or worse = 0 pts.
   // System 36 handicap = 36 - total points; net = gross - that handicap.
   // Derived entirely from the round itself — no official/GHIN handicap needed.
   let pts=0;
   Object.values(holes||{}).forEach(function(h){
     if(h && typeof h.score==='number' && typeof h.par==='number'){
-      pts += (h.score <= h.par) ? 2 : 1;
+      var over = h.score - h.par;
+      pts += (over <= 0) ? 2 : (over === 1 ? 1 : 0);
     }
   });
   return { pts:pts, hcp:36-pts };
@@ -1986,12 +1987,28 @@ async function computePlayerStats(uid){
     worstRound: grosses.length ? Math.max.apply(null, grosses) : null
   };
 }
+async function computeCasualStats(uid){
+  // Casual-only summary for the Casual Rounds leaderboard. Written to the player's PUBLIC doc so
+  // every member can read it (the casualRounds docs themselves stay private per Firestore rules).
+  const cSnap = await getDocs(query(collection(db,'casualRounds'), where('playerId','==',uid)));
+  let rounds = 0; const grosses = [];
+  cSnap.docs.forEach(function(d){
+    const r = d.data(); rounds++;
+    if (r.holesPlayed === 18 && typeof r.gross === 'number') grosses.push(r.gross);
+  });
+  return {
+    rounds: rounds,
+    avgGross: grosses.length ? Math.round(grosses.reduce(function(a,b){return a+b;},0)/grosses.length) : null,
+    bestRound: grosses.length ? Math.min.apply(null, grosses) : null
+  };
+}
 async function refreshMyStats(){
   if(!currentUser) return;
   try {
     const s = await computePlayerStats(currentUser.uid);
-    if(userProfile) userProfile.stats = s;
-    await updateDoc(doc(db,'players',currentUser.uid), { stats: s });
+    const cs = await computeCasualStats(currentUser.uid);
+    if(userProfile){ userProfile.stats = s; userProfile.casualStats = cs; }
+    await updateDoc(doc(db,'players',currentUser.uid), { stats: s, casualStats: cs });
   } catch(e){ console.error('refreshMyStats', e); }
 }
 
@@ -2706,7 +2723,7 @@ window._real_navCasual = function(btn) {
 };
 
 // Build/version stamp — confirms which version is actually running (catches stale cache)
-var APP_BUILD = '2026.06.30 · system36-real'
+var APP_BUILD = '2026.06.30 · casual-stats-write';
 console.log('%cMorks Golf Tour build: ' + APP_BUILD, 'color:#c9a227;font-weight:bold;font-size:14px;');
 try {
   var _bt = document.createElement('div');
