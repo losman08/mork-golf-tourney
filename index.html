@@ -698,6 +698,7 @@ function navTo(name, btn) {
   if(name==='history') loadHistory();
   if(name==='stats') loadStatsScreen();
   if(name==='casual-history') loadCasualHistory();
+  if(name==='casual-leaderboard' && typeof loadCasualLeaderboard === 'function') loadCasualLeaderboard();
 }
 function switchAuthTab(tab) {
   document.querySelectorAll('.auth-tab').forEach((t,i)=>{
@@ -849,8 +850,8 @@ async function loadGlobalData() {
 // ── HOME ──
 // ── TILE DEFINITIONS ──
 const ALL_TILES = [
-  { id:'leaderboard', icon:'🏆', label:'Leaderboard', sub:'Live standings',   run:function(){ window._real_navTo('leaderboard',null); }, style:'gold' },
-  { id:'scorecard',   icon:'⛳', label:'Enter Scores', sub:'Hole by hole',     run:function(){ window._real_navTo('scorecard',null); },   style:'' },
+  { id:'leaderboard', icon:'🏆', label:'Tournament', sub:'Leaderboard',   run:function(){ window._real_navTo('leaderboard',null); }, style:'gold' },
+  { id:'casual-leaderboard', icon:'📈', label:'Casual Rounds', sub:'Leaderboard', run:function(){ window._real_navTo('casual-leaderboard',null); }, style:'gold' },
   { id:'history',     icon:'📋', label:'History',      sub:'All tournaments',  run:function(){ window._real_navTo('history',null); },     style:'' },
   { id:'casual',      icon:'🕹️', label:'Casual Round', sub:'Log any round',   run:function(){ window._real_navCasual(null); },           style:'' },
   { id:'stats',       icon:'📊', label:'My Stats',     sub:'Performance',      run:function(){ window._real_navTo('stats',null); },       style:'' },
@@ -2723,7 +2724,7 @@ window._real_navCasual = function(btn) {
 };
 
 // Build/version stamp — confirms which version is actually running (catches stale cache)
-var APP_BUILD = '2026.06.30 · casual-stats-write';
+var APP_BUILD = '2026.06.30 · home-tiles-v1';
 console.log('%cMorks Golf Tour build: ' + APP_BUILD, 'color:#c9a227;font-weight:bold;font-size:14px;');
 try {
   var _bt = document.createElement('div');
