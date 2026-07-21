@@ -668,6 +668,7 @@ let currentLbTab = 'gross';
 let lbMode = 'tournament';
 let lbUnsubscribe = null;
 let editingTourneyId = null;
+let currentCasualLbTab = 'rounds';
 
 // ── UTILS ──
 function uid() { return Date.now().toString(36)+Math.random().toString(36).slice(2,5); }
@@ -1168,6 +1169,77 @@ window._real_switchLbMode = function(mode, btn) {
     loadLeaderboard();
   }
 };
+
+// ── CASUAL ROUNDS LEADERBOARD (step 3) ──
+// Reads casualStats already written by refreshMyStats() to each player's public doc — no extra
+// query needed, since allPlayers is already loaded with full doc data via loadGlobalData().
+const CASUAL_LB_MIN_ROUNDS = 3;
+
+async function loadCasualLeaderboard() {
+  await loadGlobalData();
+  renderCasualLeaderboard();
+}
+window._real_loadCasualLeaderboard = loadCasualLeaderboard;
+
+window._real_switchCasualLbTab = function(mode, btn) {
+  currentCasualLbTab = mode;
+  document.querySelectorAll('#cl-tabs .lb-tab').forEach(b=>b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  renderCasualLeaderboard();
+};
+
+function renderCasualLeaderboard() {
+  const el = document.getElementById('cl-content');
+  if (!el) return;
+  const withData = allPlayers.filter(function(p){ return p.casualStats && p.casualStats.rounds > 0; });
+  if (!withData.length) {
+    el.innerHTML = `<div class="empty"><div class="ei">⛳</div><p>No casual rounds logged yet. Log a round to appear here.</p></div>`;
+    return;
+  }
+  let headers = '', rowsHtml = '';
+  if (currentCasualLbTab === 'rounds') {
+    headers = `<th class="c">#</th><th>Player</th><th class="c">Rounds</th>`;
+    const ranked = withData.slice().sort(function(a,b){ return (b.casualStats.rounds||0) - (a.casualStats.rounds||0); });
+    rowsHtml = ranked.map(function(p,i){
+      const me = currentUser && p.id === currentUser.uid;
+      return `<tr class="${i===0?'leader':''}"${me?' style="background:rgba(201,162,39,0.16);"':''}>
+        <td class="c"><span class="badge ${badgeClass(i+1)}">${i+1}</span></td>
+        <td class="pname">${esc(p.name)}${me?' <span style="font-size:0.7rem;color:var(--gold);font-weight:700;">YOU</span>':''}</td>
+        <td class="c bold">${p.casualStats.rounds}</td>
+      </tr>`;
+    }).join('');
+  } else {
+    const key = currentCasualLbTab === 'avg' ? 'avgGross' : 'bestRound';
+    const label = currentCasualLbTab === 'avg' ? 'Avg' : 'Best';
+    const eligible = withData.filter(function(p){ return p.casualStats.rounds >= CASUAL_LB_MIN_ROUNDS && p.casualStats[key] != null; });
+    const notYet   = withData.filter(function(p){ return p.casualStats.rounds < CASUAL_LB_MIN_ROUNDS; });
+    const ranked = eligible.slice().sort(function(a,b){ return a.casualStats[key] - b.casualStats[key]; });
+    headers = `<th class="c">#</th><th>Player</th><th class="c">Rounds</th><th class="c">${label}</th>`;
+    rowsHtml = ranked.map(function(p,i){
+      const me = currentUser && p.id === currentUser.uid;
+      return `<tr class="${i===0?'leader':''}"${me?' style="background:rgba(201,162,39,0.16);"':''}>
+        <td class="c"><span class="badge ${badgeClass(i+1)}">${i+1}</span></td>
+        <td class="pname">${esc(p.name)}${me?' <span style="font-size:0.7rem;color:var(--gold);font-weight:700;">YOU</span>':''}</td>
+        <td class="c">${p.casualStats.rounds}</td>
+        <td class="c bold">${p.casualStats[key]}</td>
+      </tr>`;
+    }).join('');
+    if (notYet.length) {
+      rowsHtml += notYet.slice().sort(function(a,b){ return (b.casualStats.rounds||0) - (a.casualStats.rounds||0); }).map(function(p){
+        const need = CASUAL_LB_MIN_ROUNDS - (p.casualStats.rounds||0);
+        const me = currentUser && p.id === currentUser.uid;
+        return `<tr style="opacity:0.55;">
+          <td class="c"><span class="badge bx">—</span></td>
+          <td class="pname">${esc(p.name)}${me?' <span style="font-size:0.7rem;color:var(--gold);font-weight:700;">YOU</span>':''}</td>
+          <td class="c">${p.casualStats.rounds||0}</td>
+          <td class="c" style="font-size:0.75rem;color:var(--text-light);">${need} more to rank</td>
+        </tr>`;
+      }).join('');
+    }
+  }
+  el.innerHTML = `<div class="lb-table-wrap"><table><thead><tr>${headers}</tr></thead><tbody>${rowsHtml}</tbody></table></div>
+  <div style="text-align:center;font-size:0.72rem;color:rgba(245,240,232,0.45);margin-top:0.8rem;">Casual rounds only · Avg and Best require ${CASUAL_LB_MIN_ROUNDS}+ logged rounds</div>`;
+}
 
 async function loadLeaderboard() {
   // Ensure tournament-mode chrome is visible (the All-Time toggle may have hidden it)
@@ -2700,6 +2772,22 @@ document.addEventListener('DOMContentLoaded', () => {
     <div class="pad" id="stats-content-main"><div class="loading"><div class="spinner"></div></div></div>
   </div>`);
 
+  // Casual Rounds Leaderboard Screen (step 3)
+  screenArea.insertAdjacentHTML('beforeend', `
+  <div id="screen-casual-leaderboard" class="screen">
+    <div class="topbar">
+      <div><div class="topbar-title">Casual Rounds</div><div class="topbar-sub">Non-tournament leaderboard</div></div>
+    </div>
+    <div class="lb-tabs" id="cl-tabs">
+      <button class="lb-tab active" onclick="window._real_switchCasualLbTab('rounds',this)">Rounds</button>
+      <button class="lb-tab" onclick="window._real_switchCasualLbTab('avg',this)">Avg</button>
+      <button class="lb-tab" onclick="window._real_switchCasualLbTab('best',this)">Best</button>
+    </div>
+    <div class="pad" style="padding-top:0.8rem;">
+      <div id="cl-content"><div class="loading"><div class="spinner"></div></div></div>
+    </div>
+  </div>`);
+
   // Add extra nav items to bottom nav
   const bnavInner = document.querySelector('.bnav-inner');
   // Replace scorecard button with a + menu approach — add Casual and History
@@ -2724,7 +2812,7 @@ window._real_navCasual = function(btn) {
 };
 
 // Build/version stamp — confirms which version is actually running (catches stale cache)
-var APP_BUILD = '2026.06.30 · home-tiles-v1';
+var APP_BUILD = '2026.06.30 · casual-leaderboard-v1';
 console.log('%cMorks Golf Tour build: ' + APP_BUILD, 'color:#c9a227;font-weight:bold;font-size:14px;');
 try {
   var _bt = document.createElement('div');
