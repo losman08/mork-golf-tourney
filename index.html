@@ -1826,27 +1826,82 @@ async function showAdminPeoria() {
   }
   el.appendChild(card);
 }
+// ── PEORIA DRAW SOUND (synthesized — no audio files needed) ──
+// A shared AudioContext, created/resumed on the draw button's own click so iOS Safari's
+// autoplay-unlock rule is satisfied by that user gesture.
+let _peoriaAudioCtx=null;
+function _peoriaAudio(){
+  if(!_peoriaAudioCtx){
+    try{ _peoriaAudioCtx=new (window.AudioContext||window.webkitAudioContext)(); }
+    catch(e){ return null; }
+  }
+  if(_peoriaAudioCtx.state==='suspended') _peoriaAudioCtx.resume();
+  return _peoriaAudioCtx;
+}
+function _peoriaTick(freq){
+  const ctx=_peoriaAudio(); if(!ctx) return;
+  const osc=ctx.createOscillator(), gain=ctx.createGain();
+  osc.type='square'; osc.frequency.value=freq||800;
+  gain.gain.setValueAtTime(0.10, ctx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime+0.06);
+  osc.connect(gain); gain.connect(ctx.destination);
+  osc.start(); osc.stop(ctx.currentTime+0.06);
+}
+function _peoriaLand(){
+  const ctx=_peoriaAudio(); if(!ctx) return;
+  const osc=ctx.createOscillator(), gain=ctx.createGain();
+  osc.type='triangle'; osc.frequency.value=520;
+  gain.gain.setValueAtTime(0.18, ctx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime+0.18);
+  osc.connect(gain); gain.connect(ctx.destination);
+  osc.start(); osc.stop(ctx.currentTime+0.18);
+}
+function _peoriaFanfare(){
+  const ctx=_peoriaAudio(); if(!ctx) return;
+  [523.25,659.25,783.99,1046.5].forEach(function(freq,i){
+    const start=ctx.currentTime+i*0.11;
+    const osc=ctx.createOscillator(), gain=ctx.createGain();
+    osc.type='sine'; osc.frequency.value=freq;
+    gain.gain.setValueAtTime(0.0001, start);
+    gain.gain.linearRampToValueAtTime(0.22, start+0.02);
+    gain.gain.exponentialRampToValueAtTime(0.001, start+0.5);
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.start(start); osc.stop(start+0.55);
+  });
+}
+
 window._real_drawPeoriaHoles=function(tid){
   const stage=document.getElementById('peoria-draw-stage'); const btn=document.getElementById('peoria-draw-btn');
   if(!stage) return;
+  _peoriaAudio(); // unlock audio on this click, before any async work
   if(btn){ btn.disabled=true; btn.textContent='Drawing…'; }
   const pool=[]; for(let h=1;h<=18;h++) pool.push(h);
   for(let i=pool.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); const tmp=pool[i]; pool[i]=pool[j]; pool[j]=tmp; }
   const chosen=pool.slice(0,6).sort(function(a,b){return a-b;});
   const cells=Array.prototype.slice.call(stage.children);
+  // Deceleration schedule — delays stretch out like a wheel slowing to a stop (~1.5s/hole spin).
+  const DELAYS=[45,45,50,55,60,70,80,95,110,130,150,175,200,230];
   let idx=0;
   function settle(){
     if(idx>=6){ commit(); return; }
-    const cell=cells[idx]; let ticks=0;
-    const spin=setInterval(function(){
-      cell.textContent=1+Math.floor(Math.random()*18); ticks++;
-      if(ticks>=10){ clearInterval(spin); cell.textContent=chosen[idx]; cell.classList.add('selected'); idx++; setTimeout(settle,250); }
-    },60);
+    const cell=cells[idx]; let tick=0;
+    function step(){
+      cell.textContent=1+Math.floor(Math.random()*18);
+      _peoriaTick(700+tick*10);
+      tick++;
+      if(tick<DELAYS.length){ setTimeout(step, DELAYS[tick]); }
+      else {
+        cell.textContent=chosen[idx]; cell.classList.add('selected');
+        _peoriaLand();
+        idx++; setTimeout(settle,450);
+      }
+    }
+    step();
   }
   async function commit(){
     try{
       await updateDoc(doc(db,'tournaments',tid),{peoriaHoles:chosen,peoriaDrawnAt:serverTimestamp()});
-      await loadGlobalData(); toast('🎲 Holes drawn: '+chosen.join(', '));
+      await loadGlobalData(); _peoriaFanfare(); toast('🎲 Holes drawn: '+chosen.join(', '));
       if(btn){ btn.textContent='✓ Locked in — '+chosen.join(', '); }
     }catch(e){ toast('Draw failed — try again.'); if(btn){ btn.disabled=false; btn.textContent='🎲 Draw 6 Secret Holes'; } }
   }
@@ -2868,12 +2923,12 @@ window._real_navCasual = function(btn) {
 };
 
 // Build/version stamp — confirms which version is actually running (catches stale cache)
-var APP_BUILD = '2026.06.30 · admin-profile-edit';
+var APP_BUILD = '2026.06.30 · peoria-draw-fx';
 console.log('%cMorks Golf Tour build: ' + APP_BUILD, 'color:#c9a227;font-weight:bold;font-size:14px;');
 try {
   var _bt = document.createElement('div');
   _bt.textContent = 'build ' + APP_BUILD;
-  _bt.style.cssText = 'position:fixed;bottom:2px;right:5px;font-size:9px;color:rgba(0,0,0,0.32);z-index:99999;pointer-events:none;font-family:sans-serif;';
+  _bt.style.cssText = 'position:fixed;bottom:2px;right:5px;font-size:9px;color:rgba(245,208,96,0.55);z-index:99999;pointer-events:none;font-family:sans-serif;';
   document.body.appendChild(_bt);
 } catch(e) {}
 </script>
