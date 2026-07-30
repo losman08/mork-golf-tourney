@@ -1854,4 +1854,1029 @@ window._real_drawPeoriaHoles=function(tid){
 };
 window._real_resetPeoriaHoles=async function(tid){
   if(!confirm('Clear the drawn holes and allow a new draw? Only do this if the previous draw was a genuine mistake — redrawing undermines the blind format.')) return;
-  await updateDo
+  await updateDoc(doc(db,'tournaments',tid),{peoriaHoles:[],peoriaDrawnAt:null});
+  await loadGlobalData(); toast('Cleared — you can redraw.'); window._real_showAdminPeoria();
+};
+
+async function showAdminLock() {
+  const t=activeTournament||allTournaments[0]; if(!t){ toast('No tournament.'); return; }
+  if(t.status==='locked'){ toast('This tournament is already locked — stats were applied once.'); return; }
+  try {
+  const scores=await fetchAllScores(t.id);
+  const ranked=rankGross(scores,t);
+  // Compute results & points
+  const results=ranked.map((r,i)=>({
+    playerId:r.playerId, name:r.name, rank:i+1, grossScore:r.gross,
+    points:(t.pointsMap||POINTS_MAP)[i+1]||5
+  }));
+  const batch=writeBatch(db);
+  batch.update(doc(db,'tournaments',t.id),{status:'locked',results});
+  // Update player stats
+  for(const r of results){
+    const pRef=doc(db,'players',r.playerId);
+    const pSnap=await getDoc(pRef);
+    if(pSnap.exists()){
+      const st=pSnap.data().stats||{};
+      const rounds=(st.roundsPlayed||0)+1;
+      const wins=(st.wins||0)+(r.rank===1?1:0);
+      const top3=(st.top3||0)+(r.rank<=3?1:0);
+      const avgGross=((st.avgGross||0)*(rounds-1)+r.grossScore)/rounds;
+      const best=st.bestRound?Math.min(st.bestRound,r.grossScore):r.grossScore;
+      const worst=st.worstRound?Math.max(st.worstRound,r.grossScore):r.grossScore;
+      const pts=(st.seasonPoints||0)+r.points;
+      batch.update(pRef,{stats:{...st,roundsPlayed:rounds,wins,top3,avgGross,bestRound:best,worstRound:worst,seasonPoints:pts}});
+    }
+  }
+  await batch.commit();
+  await loadGlobalData();
+  document.getElementById('admin-content').innerHTML=`<div class="card" style="text-align:center;padding:2rem;">
+    <div style="font-size:2.5rem;margin-bottom:1rem;">🔒</div>
+    <div style="font-family:'Playfair Display',serif;font-size:1.2rem;color:var(--forest);">${esc(t.name)} Locked</div>
+    <div style="color:var(--text-light);margin-top:0.5rem;">Results finalized. Player stats updated.</div>
+  </div>`;
+  toast('🔒 Tournament locked & results saved!');
+  } catch(e){ console.error(e); toast('Lock failed — nothing was changed. Check your connection and try again.'); }
+}
+
+async function showAdminExport() {
+  const t=activeTournament||allTournaments.find(x=>x.status==='locked')||allTournaments[0]; if(!t){ toast('No tournament.'); return; }
+  const scores=await fetchAllScores(t.id);
+  const ranked=rankGross(scores,t);
+  let csv='Rank,Name,Gross Score,vs Par,Holes Played\n';
+  ranked.forEach(r=>{ csv+=`${r.rank},"${r.name}",${r.gross},${r.vspar>=0?'+'+r.vspar:r.vspar},${r.holesPlayed}\n`; });
+  const blob=new Blob([csv],{type:'text/csv'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download=`${t.name.replace(/\s+/g,'_')}_results.csv`; a.click();
+  toast('📤 CSV downloaded!');
+}
+
+// ── TOURNAMENT HISTORY SCREEN ──
+async function loadHistory() {
+  const cont = document.getElementById('history-content');
+  if (!cont) return;
+  cont.innerHTML = `<div class="loading"><div class="spinner"></div></div>`;
+  try {
+  await loadGlobalData();
+  if (!allTournaments.length) {
+    cont.innerHTML = `<div class="empty"><div class="ei">📋</div><p>No tournaments yet</p></div>`;
+    return;
+  }
+  cont.innerHTML = allTournaments.map(t => {
+    const winner = (t.results || [])[0];
+    const playerCount = t.playerCount || (t.results || []).length;
+    return `<div class="card card-sm gap" onclick="window._real_loadHistoryDetail('${t.id}')" style="cursor:pointer;transition:transform 0.15s;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform=''">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem;">
+        <div style="font-family:'Playfair Display',serif;font-size:1.05rem;font-weight:700;color:var(--forest);">${esc(t.name)}</div>
+        <span class="chip chip-${chipStatus(t.status)}">${t.status}</span>
+      </div>
+      <div style="font-size:0.8rem;color:var(--text-light);">📍 ${t.course||'TBD'} &nbsp;·&nbsp; 📅 ${t.date||'—'} &nbsp;·&nbsp; Par ${t.par||72} &nbsp;·&nbsp; ${(t.format||'stroke').toUpperCase()}</div>
+      ${winner ? `<div style="margin-top:0.6rem;display:flex;align-items:center;gap:8px;"><span style="font-size:1.2rem;">🏆</span><span style="font-size:0.88rem;font-weight:600;color:var(--forest);">${esc(winner.name)}</span><span style="font-size:0.8rem;color:var(--text-light);">· ${winner.grossScore||'—'} gross · ${winner.points||0} pts</span></div>` : ''}
+    </div>`;
+  }).join('');
+  } catch(e){ console.error(e); cont.innerHTML = `<div class="empty"><div class="ei">⚠️</div><p>Couldn't load history (${e.code||e.message||'error'}).</p></div>`; }
+}
+window._real_loadHistory = loadHistory;
+
+async function loadHistoryDetail(tid) {
+  const t = allTournaments.find(x => x.id === tid);
+  if (!t) return;
+  const scores = await fetchAllScores(tid);
+  const ranked = rankGross(scores, t);
+  showScreen('history-detail');
+  document.getElementById('hd-title').textContent = t.name;
+  document.getElementById('hd-sub').textContent = `${t.course||''} · ${t.date||''} · Par ${t.par||72}`;
+  const rHdrs = `<th class="c">#</th><th>Player</th><th class="c">Gross</th><th class="c">vs Par</th>`;
+  const rows = ranked.map((r,i) => `<tr class="${i===0?'leader':''}">
+    <td class="c"><span class="badge ${badgeClass(i+1)}">${i+1}</span></td>
+    <td class="pname">${esc(r.name)}</td>
+    <td class="c bold">${r.gross}</td>
+    <td class="c">${vsPar(r.gross, t.par||72)}</td>
+  </tr>`).join('');
+  document.getElementById('hd-table').innerHTML = `<div class="lb-table-wrap"><table>
+    <thead><tr>${rHdrs}</tr></thead><tbody>${rows||'<tr><td colspan="4" style="text-align:center;padding:1.5rem;color:#888">No scores recorded</td></tr>'}</tbody>
+  </table></div>`;
+  // Hole-by-hole breakdown
+  if (ranked.length) {
+    const pars = t.holePars || DEFAULT_PARS;
+    let holeHtml = `<div class="card" style="margin-top:1rem;overflow-x:auto;"><h3>Hole-by-Hole Breakdown</h3><table style="min-width:600px;">
+      <thead><tr><th>Player</th>${pars.map((_,i)=>`<th class="c" style="font-size:0.68rem;">${i+1}</th>`).join('')}<th class="c">Total</th></tr></thead>
+      <tbody>`;
+    ranked.forEach(r => {
+      holeHtml += `<tr><td class="pname" style="font-size:0.82rem;">${esc(r.name)}</td>`;
+      pars.forEach((_,i) => {
+        const h = i+1;
+        const score = r.holes[h]?.score;
+        const par = pars[i];
+        let bg = '';
+        if (score) {
+          const d = score - par;
+          if (d <= -2) bg = 'background:#1a3a8a;color:white;';
+          else if (d === -1) bg = 'background:#e8c84a;color:#1a3a2a;';
+          else if (d === 0) bg = 'background:#d4edda;color:#155724;';
+          else if (d === 1) bg = 'background:#f8d7da;color:#721c24;';
+          else if (d >= 2) bg = 'background:#f5c6cb;color:#491217;';
+        }
+        holeHtml += `<td class="c" style="font-size:0.78rem;font-weight:600;padding:6px 4px;${bg}">${score||'—'}</td>`;
+      });
+      holeHtml += `<td class="c bold">${r.gross||'—'}</td></tr>`;
+    });
+    holeHtml += `</tbody></table></div>`;
+    document.getElementById('hd-holes').innerHTML = holeHtml;
+  } else {
+    document.getElementById('hd-holes').innerHTML = '';
+  }
+}
+window._real_loadHistoryDetail = loadHistoryDetail;
+
+// ── CASUAL ROUND MODE ──
+let casualHoles = {};
+async function loadCasualRound() {
+  casualHoles = {};
+  const cont = document.getElementById('casual-content');
+  if (!cont) return;
+  const pars = DEFAULT_PARS;
+  // Pre-populate casualHoles with par values
+  for (let h = 1; h <= 18; h++) { casualHoles[h] = pars[h-1] || 4; }
+  let html = `
+    <div class="card card-sm" style="margin-bottom:1rem;">
+      <div class="two-col">
+        <div class="cr-search-wrap" style="width:100%;"><div class="fg"><label>Course</label><input type="text" id="cr-course" placeholder="Search course library..." autocomplete="off"><div id="cr-course-drop"></div></div></div>
+      <div class="cr-tee-tabs" id="cr-tee-tabs" style="display:none;"></div>
+      <div class="cr-stats" id="cr-stats" style="font-size:0.76rem;"></div>
+      <div class="fg"><label>Date</label><input type="date" id="cr-date"></div>
+      </div>
+      <div class="two-col">
+        <div class="fg"><label>Course Par</label><input type="number" id="cr-par" value="72" min="60" max="80"></div>
+        <div class="fg"><label>Tees Played</label>
+          <select id="cr-tees"><option>Blue</option><option selected>White</option><option>Red</option><option>Gold</option></select>
+        </div>
+      </div>
+    </div>
+    <div class="scorecard-summary" style="margin-bottom:1rem;">
+      <div class="sc-stat"><div class="val" id="cr-total">—</div><div class="lbl">Total</div></div>
+      <div class="sc-stat"><div class="val" id="cr-vs-par">—</div><div class="lbl">vs Par</div></div>
+      <div class="sc-stat"><div class="val" id="cr-holes">0</div><div class="lbl">Holes</div></div>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:0.8rem;align-items:center;">
+  <span style="font-size:0.65rem;color:var(--text-light);margin-right:2px;text-transform:uppercase;letter-spacing:0.05em;">Score key:</span>
+  <span style="background:#fff8e1;border:1.5px solid #daa520;border-radius:4px;padding:1px 6px;font-size:0.65rem;font-weight:700;">Albatross</span>
+  <span style="background:#e8eaf6;border:1.5px solid #5c6bc0;border-radius:4px;padding:1px 6px;font-size:0.65rem;font-weight:700;color:#283593;">Eagle</span>
+  <span style="background:#e8f5e9;border:1.5px solid #4caf50;border-radius:4px;padding:1px 6px;font-size:0.65rem;font-weight:700;color:#1b5e20;">Birdie</span>
+  <span style="background:white;border:1.5px solid #7a9e5a;border-radius:4px;padding:1px 6px;font-size:0.65rem;font-weight:700;">Par</span>
+  <span style="background:#fff3e0;border:1.5px solid #ff9800;border-radius:4px;padding:1px 6px;font-size:0.65rem;font-weight:700;color:#e65100;">Bogey</span>
+  <span style="background:#fce4ec;border:1.5px solid #f44336;border-radius:4px;padding:1px 6px;font-size:0.65rem;font-weight:700;color:#b71c1c;">Double</span>
+  <span style="background:#f3e5f5;border:1.5px solid #ab47bc;border-radius:4px;padding:1px 6px;font-size:0.65rem;font-weight:700;color:#4a148c;">Triple</span>
+  <span style="background:#212121;border:1.5px solid #424242;border-radius:4px;padding:1px 6px;font-size:0.65rem;font-weight:700;color:white;">8+</span>
+</div>
+<div class="section-title" style="font-size:1rem;margin-bottom:0.8rem;">Front 9</div>
+    <div class="hole-grid">`;
+  for (let h = 1; h <= 9; h++) {
+    const par = pars[h-1] || 4;
+    html += holeCardHTML(h, par, 'cr');
+  }
+  html += `</div><div class="section-title" style="font-size:1rem;margin:1rem 0 0.8rem;">Back 9</div><div class="hole-grid">`;
+  for (let h = 10; h <= 18; h++) {
+    const par = pars[h-1] || 4;
+    html += holeCardHTML(h, par, 'cr');
+  }
+  html += `</div>`;
+  cont.innerHTML = html;
+  document.getElementById('cr-date').valueAsDate = new Date();
+  crLoadRecent();
+}
+window._real_loadCasualRound = loadCasualRound;
+
+function holeCardHTML(h, par, prefix) {
+  return `<div class="hole-card" id="${prefix}-hc-${h}">
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <div class="hole-label">Hole ${h}</div>
+      <div class="hole-par">Par ${par}</div>
+    </div>
+    <div class="hole-input-row">
+      <button onclick="window._real_adjustCasualHole(${h},-1)">−</button>
+      <input class="hole-val" type="number" id="${prefix}-hole-${h}" value="${par}" min="1" max="15"
+        style="font-size:1.2rem;" onfocus="this.select()" onchange="onCasualChange(${h})" oninput="onCasualChange(${h})">
+      <button onclick="window._real_adjustCasualHole(${h},1)">+</button>
+    </div>
+  </div>`;
+}
+
+window._real_adjustCasualHole = function(h, delta) {
+  const inp = document.getElementById('cr-hole-' + h);
+  if (!inp) return;
+  const cur = parseInt(inp.value) || 0;
+  inp.value = Math.max(1, Math.min(15, cur + delta));
+  onCasualChange(h);
+};
+
+window._real_onCasualChange = function(h) {
+  const val = parseInt(document.getElementById('cr-hole-' + h)?.value) || 0;
+  if (val > 0) casualHoles[h] = val; else delete casualHoles[h];
+  const parEl = document.getElementById('cr-hc-' + h)?.querySelector('.hole-par');
+  const par = parEl ? parseInt(parEl.textContent.replace('Par ','')) : (DEFAULT_PARS[h-1] || 4);
+  const hc = document.getElementById('cr-hc-' + h);
+  if (hc) { hc.className = 'hole-card' + (val ? ` filled ${getScoreClass(val, par)}` : ''); }
+  updateCasualSummary();
+};
+
+function updateCasualSummary() {
+  const entries = Object.entries(casualHoles);
+  const total = entries.reduce((s, [, v]) => s + v, 0);
+  const totalPar = entries.reduce((s, [h]) => {
+    var pl = document.getElementById('cr-hc-' + h); pl = pl ? pl.querySelector('.hole-par') : null;
+    return s + (pl ? (parseInt((pl.textContent || '').replace('Par ', '')) || (DEFAULT_PARS[h-1] || 4)) : (DEFAULT_PARS[h-1] || 4));
+  }, 0);
+  document.getElementById('cr-total').textContent = total || '—';
+  const diff = total - totalPar;
+  document.getElementById('cr-vs-par').textContent = total ? (diff > 0 ? '+' + diff : diff === 0 ? 'E' : diff) : '—';
+  document.getElementById('cr-holes').textContent = entries.length;
+}
+
+// ── COMPUTED PLAYER STATS (single source of truth; recomputed from records, never incremented) ──
+// Tournament stats derive from locked results (same source as standings/leaderboards);
+// casual stats from casualRounds. Deliberately does NOT read holeScores, which would double-count
+// a tournament round (once from its holes, once from the lock).
+async function computePlayerStats(uid){
+  const cSnap = await getDocs(query(collection(db,'casualRounds'), where('playerId','==',uid)));
+  let casualCount = 0; const casualGrosses = [];
+  cSnap.docs.forEach(function(d){
+    const r = d.data(); casualCount++;
+    if (r.holesPlayed === 18 && typeof r.gross === 'number') casualGrosses.push(r.gross);
+  });
+  const standing = computeStandings(null, null).find(function(s){ return s.playerId === uid; })
+    || { pts:0, wins:0, top3:0, rounds:0, grosses:[] };
+  const grosses = casualGrosses.concat(standing.grosses || []);
+  return {
+    roundsPlayed: casualCount + (standing.rounds || 0),
+    wins: standing.wins || 0,
+    top3: standing.top3 || 0,
+    seasonPoints: standing.pts || 0,
+    avgGross: grosses.length ? (grosses.reduce(function(a,b){return a+b;},0) / grosses.length) : 0,
+    bestRound: grosses.length ? Math.min.apply(null, grosses) : null,
+    worstRound: grosses.length ? Math.max.apply(null, grosses) : null
+  };
+}
+async function computeCasualStats(uid){
+  // Casual-only summary for the Casual Rounds leaderboard. Written to the player's PUBLIC doc so
+  // every member can read it (the casualRounds docs themselves stay private per Firestore rules).
+  const cSnap = await getDocs(query(collection(db,'casualRounds'), where('playerId','==',uid)));
+  let rounds = 0; const grosses = [];
+  cSnap.docs.forEach(function(d){
+    const r = d.data(); rounds++;
+    if (r.holesPlayed === 18 && typeof r.gross === 'number') grosses.push(r.gross);
+  });
+  return {
+    rounds: rounds,
+    avgGross: grosses.length ? Math.round(grosses.reduce(function(a,b){return a+b;},0)/grosses.length) : null,
+    bestRound: grosses.length ? Math.min.apply(null, grosses) : null
+  };
+}
+async function refreshMyStats(){
+  if(!currentUser) return;
+  try {
+    const s = await computePlayerStats(currentUser.uid);
+    const cs = await computeCasualStats(currentUser.uid);
+    if(userProfile){ userProfile.stats = s; userProfile.casualStats = cs; }
+    await updateDoc(doc(db,'players',currentUser.uid), { stats: s, casualStats: cs });
+  } catch(e){ console.error('refreshMyStats', e); }
+}
+
+async function saveCasualRound() {
+  const entries = Object.entries(casualHoles);
+  if (entries.length < 9) { toast('Enter at least 9 holes.'); return; }
+  const course = document.getElementById('cr-course').value.trim() || 'Unknown Course';
+  const date = document.getElementById('cr-date').value || new Date().toISOString().split('T')[0];
+  const par = Number(document.getElementById('cr-par').value) || 72;
+  const tees = document.getElementById('cr-tees').value;
+  const gross = entries.reduce((s, [, v]) => s + v, 0);
+  const _at = window._crActiveTee || null;
+  const ccRating = (_at && _at.rating) ? Number(_at.rating) : null;
+  const ccSlope = (_at && _at.slope) ? Number(_at.slope) : null;
+  const roundRef = await addDoc(collection(db, 'casualRounds'), {
+    playerId: currentUser.uid,
+    course, date, par, tees, gross, rating: ccRating, slope: ccSlope,
+    holesPlayed: entries.length,
+    holes: Object.fromEntries(entries.map(([h, s]) => {
+      var pEl = document.getElementById('cr-hc-' + h);
+      var pl = pEl ? pEl.querySelector('.hole-par') : null;
+      var hp = pl ? (parseInt((pl.textContent || '').replace('Par ', '')) || (DEFAULT_PARS[h-1] || 4)) : (DEFAULT_PARS[h-1] || 4);
+      return [h, { score: s, par: hp }];
+    })),
+    createdAt: serverTimestamp()
+  });
+  // Recompute stats from source records — single source of truth, no drift
+  await refreshMyStats();
+  toast(`✅ Round saved! ${gross} at ${course}`);
+  casualHoles = {};
+  loadCasualRound();
+}
+window._real_saveCasualRound = saveCasualRound;
+
+// ── CASUAL ROUND HISTORY ──
+async function loadCasualHistory() {
+  const cont = document.getElementById('casual-history-content');
+  if (!cont) return;
+  cont.innerHTML = `<div class="loading"><div class="spinner"></div></div>`;
+  try {
+    const snap = await getDocs(query(collection(db, 'casualRounds'), where('playerId', '==', currentUser.uid)));
+    if (!snap.docs.length) {
+      cont.innerHTML = `<div class="empty"><div class="ei">⛳</div><p>No casual rounds logged yet</p></div>`;
+      return;
+    }
+    const rounds = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+    const avgGross = Math.round(rounds.reduce((s, r) => s + r.gross, 0) / rounds.length);
+    const best = Math.min(...rounds.map(r => r.gross));
+    cont.innerHTML = `
+      <div class="stats-grid" style="margin-bottom:1rem;">
+        <div class="stat-box"><div class="n">${rounds.length}</div><div class="l">Rounds</div></div>
+        <div class="stat-box"><div class="n">${avgGross}</div><div class="l">Avg Score</div></div>
+        <div class="stat-box"><div class="n">${best}</div><div class="l">Best Round</div></div>
+      </div>
+      ${rounds.map(r => `
+        <div class="history-row">
+          <div class="hr-left">
+            <div class="name">${r.course||'Unknown'}</div>
+            <div class="meta">${r.date||''} · ${r.holesPlayed||18} holes · ${r.tees||''} tees · Par ${r.par||72}</div>
+          </div>
+          <div class="hr-right">
+            <div class="score">${r.gross}</div>
+            <div class="pos">${vsPar(r.gross, r.par||72).replace(/<[^>]+>/g,'').trim()} vs par</div>
+          </div>
+          <button class="btn btn-ghost btn-sm" style="margin-left:8px;align-self:center;" onclick="window._real_editCasualRound('${r.id}')">✏️</button>
+          <button class="btn btn-ghost btn-sm" style="margin-left:4px;align-self:center;" onclick="window._real_deleteCasualRound('${r.id}',${r.gross})">🗑</button>
+        </div>`).join('')}`;
+  } catch(e){ console.error(e); cont.innerHTML = `<div class="empty"><div class="ei">⚠️</div><p>Couldn't load rounds (${e.code||e.message||'error'}). Try again.</p></div>`; }
+}
+window._real_loadCasualHistory = loadCasualHistory;
+
+window._real_deleteCasualRound = async function(rid, gross){
+  if(!confirm('Delete this casual round? This cannot be undone.')) return;
+  try {
+    await deleteDoc(doc(db,'casualRounds',rid));
+    await refreshMyStats();
+    toast('🗑️ Round deleted.');
+    loadCasualHistory();
+  } catch(e){ console.error(e); toast('Delete failed — see console.'); }
+};
+
+// ── PROFILE EDIT ──
+window._real_editProfile = function(){
+  if(!userProfile) return;
+  document.getElementById('ep-name').value = userProfile.name || '';
+  document.getElementById('ep-nickname').value = userProfile.nickname || '';
+  document.getElementById('ep-hcp').value = userProfile.officialHandicap!=null ? userProfile.officialHandicap : '';
+  openModal('modal-edit-profile');
+};
+window._real_saveProfileEdit = async function(){
+  const name = document.getElementById('ep-name').value.trim();
+  const nickname = document.getElementById('ep-nickname').value.trim();
+  const hcpRaw = document.getElementById('ep-hcp').value;
+  if(!name){ toast('Name is required.'); return; }
+  try {
+    const upd = { name: name, nickname: nickname||null, officialHandicap: hcpRaw!==''?Number(hcpRaw):null };
+    await updateDoc(doc(db,'players',currentUser.uid), upd);
+    userProfile.name = upd.name; userProfile.nickname = upd.nickname; userProfile.officialHandicap = upd.officialHandicap;
+    closeModal('modal-edit-profile');
+    toast('✅ Profile updated.');
+    loadProfile();
+  } catch(e){ console.error(e); toast('Update failed — see console.'); }
+};
+
+// ── CASUAL ROUND EDIT ──
+window._real_editCasualRound = async function(rid){
+  try {
+    const snap = await getDoc(doc(db,'casualRounds',rid));
+    if(!snap.exists()){ toast('Round not found.'); return; }
+    const r = snap.data();
+    const holes = r.holes || {};
+    const body = document.getElementById('ec-body');
+    let html = '<div style="font-size:0.85rem;color:var(--text-light);margin-bottom:0.8rem;">'+(r.course||'Round')+' · '+(r.date||'')+'</div>';
+    html += '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;max-height:50vh;overflow-y:auto;">';
+    for(let h=1;h<=18;h++){
+      const cur = (holes[h] && holes[h].score!=null) ? holes[h].score : '';
+      const par = (holes[h] && holes[h].par) || DEFAULT_PARS[h-1] || 4;
+      html += '<div class="fg" style="margin:0;"><label style="font-size:0.7rem;">Hole '+h+' (Par '+par+')</label><input type="number" id="ec-h-'+h+'" value="'+cur+'" min="1" max="20" inputmode="numeric" onfocus="this.select()"></div>';
+    }
+    html += '</div>';
+    body.innerHTML = html;
+    document.getElementById('ec-save-btn').onclick = function(){ window._real_saveCasualEdit(rid, r.gross||0); };
+    openModal('modal-edit-casual');
+  } catch(e){ console.error(e); toast('Could not load round.'); }
+};
+window._real_saveCasualEdit = async function(rid, oldGross){
+  try {
+    const snap = await getDoc(doc(db,'casualRounds',rid));
+    const origHoles = (snap.exists() && snap.data().holes) || {};
+    const holes = {}; let gross = 0; let count = 0;
+    for(let h=1;h<=18;h++){
+      const inp = document.getElementById('ec-h-'+h);
+      const v = inp ? parseInt(inp.value) : NaN;
+      const par = (origHoles[h] && origHoles[h].par) || DEFAULT_PARS[h-1] || 4;
+      if(!isNaN(v) && v>0){ holes[h] = { score:v, par:par }; gross += v; count++; }
+    }
+    if(count===0){ toast('Enter at least one score.'); return; }
+    await updateDoc(doc(db,'casualRounds',rid), { holes:holes, gross:gross, holesPlayed:count });
+    await refreshMyStats();
+    closeModal('modal-edit-casual');
+    toast('✅ Round updated.');
+    loadCasualHistory();
+  } catch(e){ console.error(e); toast('Save failed — see console.'); }
+};
+
+// ── STATS ENGINE ──
+async function loadStatsScreen() {
+  const cont = document.getElementById('stats-content-main');
+  if (!cont) return;
+  // 1) Render Season Overview immediately from cached profile stats — no query, so this can never hang.
+  const p = (userProfile && userProfile.stats) || {};
+  cont.innerHTML = `
+    <div class="section-title" style="font-size:1rem;margin-bottom:0.8rem;">Season Overview</div>
+    <div class="stats-grid" style="margin-bottom:1.5rem;">
+      <div class="stat-box"><div class="n">${p.roundsPlayed||0}</div><div class="l">Rounds</div></div>
+      <div class="stat-box"><div class="n">${p.wins||0}</div><div class="l">Wins</div></div>
+      <div class="stat-box"><div class="n">${p.top3||0}</div><div class="l">Top 3s</div></div>
+      <div class="stat-box"><div class="n">${p.seasonPoints||0}</div><div class="l">Season Pts</div></div>
+      <div class="stat-box"><div class="n">${p.bestRound||'—'}</div><div class="l">Best Round</div></div>
+      <div class="stat-box"><div class="n">${p.avgGross ? Math.round(p.avgGross) : '—'}</div><div class="l">Avg Gross</div></div>
+    </div>
+    <div id="stats-analytics"><div class="loading"><div class="spinner"></div></div></div>`;
+  const analyt = document.getElementById('stats-analytics');
+  if (!analyt) return;
+  // 2) Heavier analytics, with a timeout so a slow/stalled query degrades instead of spinning forever.
+  const withTimeout = (pr, ms) => Promise.race([pr, new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))]);
+  try {
+    const tSnap = await withTimeout(getDocs(query(collection(db, 'holeScores'), where('playerId', '==', currentUser.uid))), 8000);
+    const cSnap = await withTimeout(getDocs(query(collection(db, 'casualRounds'), where('playerId', '==', currentUser.uid))), 8000);
+    const byTourney = {};
+    tSnap.docs.forEach(d => { const data = d.data(); if (!byTourney[data.tournamentId]) byTourney[data.tournamentId] = []; byTourney[data.tournamentId].push(data); });
+    const casualRounds = cSnap.docs.map(d => d.data());
+    const allScores = [];
+    Object.values(byTourney).forEach(holes => { const total = holes.reduce((s, h) => s + h.score, 0); if (holes.length === 18) allScores.push(total); });
+    casualRounds.forEach(r => { if (r.holesPlayed === 18) allScores.push(r.gross); });
+    const holeStats = {};
+    for (let h = 1; h <= 18; h++) holeStats[h] = { total: 0, count: 0, par: DEFAULT_PARS[h-1] || 4 };
+    const buckets = { eagles: 0, birdies: 0, pars: 0, bogeys: 0, doubles: 0, worse: 0 };
+    const bump = (diff) => { if (diff <= -2) buckets.eagles++; else if (diff === -1) buckets.birdies++; else if (diff === 0) buckets.pars++; else if (diff === 1) buckets.bogeys++; else if (diff === 2) buckets.doubles++; else buckets.worse++; };
+    // Tournament per-hole docs
+    tSnap.docs.forEach(d => { const data = d.data(); if (holeStats[data.holeNumber]) { holeStats[data.holeNumber].total += data.score; holeStats[data.holeNumber].count++; } bump(data.score - data.par); });
+    // Casual rounds feed distribution + hole difficulty too
+    casualRounds.forEach(r => {
+      const hs = r.holes || {};
+      Object.keys(hs).forEach(k => {
+        const hole = hs[k]; const hn = parseInt(k, 10);
+        if (hole && typeof hole.score === 'number') {
+          if (holeStats[hn]) { holeStats[hn].total += hole.score; holeStats[hn].count++; }
+          bump(hole.score - (hole.par || DEFAULT_PARS[hn-1] || 4));
+        }
+      });
+    });
+    const totalHoles = Object.values(buckets).reduce((a, b) => a + b, 0);
+    const pct = n => totalHoles ? Math.round((n / totalHoles) * 100) : 0;
+    const recentScores = [...allScores].slice(-10);
+    const trend = recentScores.length >= 3
+      ? (recentScores.slice(-3).reduce((a, b) => a + b, 0) / 3 - recentScores.slice(0, 3).reduce((a, b) => a + b, 0) / 3).toFixed(1)
+      : null;
+    if (!totalHoles) {
+      analyt.innerHTML = `<div class="card card-sm" style="text-align:center;color:var(--text-light);font-size:0.9rem;padding:1.5rem;">Log a few rounds with hole-by-hole scores and your shot distribution, hole difficulty, and scoring trend will appear here.</div>`;
+      return;
+    }
+    analyt.innerHTML = `
+      <div class="section-title" style="font-size:1rem;margin-bottom:0.8rem;">Score Distribution</div>
+      <div class="card card-sm" style="margin-bottom:1.5rem;">
+        ${renderDistBar('Eagles 🦅', buckets.eagles, pct(buckets.eagles), '#1a3a8a', 'white')}
+        ${renderDistBar('Birdies 🐦', buckets.birdies, pct(buckets.birdies), '#c9a227', '#1a3a2a')}
+        ${renderDistBar('Pars ⛳', buckets.pars, pct(buckets.pars), '#27ae60', 'white')}
+        ${renderDistBar('Bogeys', buckets.bogeys, pct(buckets.bogeys), '#e67e22', 'white')}
+        ${renderDistBar('Doubles', buckets.doubles, pct(buckets.doubles), '#c0392b', 'white')}
+        ${renderDistBar('Worse', buckets.worse, pct(buckets.worse), '#8e1a10', 'white')}
+        <div style="text-align:center;font-size:0.75rem;color:var(--text-light);margin-top:0.8rem;">${totalHoles} holes total</div>
+      </div>
+      <div class="section-title" style="font-size:1rem;margin-bottom:0.8rem;">Hole Difficulty (Your Avg)</div>
+      <div class="card card-sm" style="overflow-x:auto;margin-bottom:1.5rem;">
+        <table style="min-width:520px;">
+          <thead><tr>${Array.from({length:18},(_,i)=>`<th class="c" style="font-size:0.65rem;">H${i+1}</th>`).join('')}</tr></thead>
+          <tbody><tr>${Array.from({length:18},(_,i)=>{ const h=i+1; const hs=holeStats[h]; const avg=hs.count?+(hs.total/hs.count).toFixed(1):null; const par=hs.par; const diff=avg?+(avg-par).toFixed(1):null; let bg=''; if(diff!==null){ if(diff<0) bg='background:#1a3a8a;color:white;'; else if(diff===0) bg='background:#d4edda;color:#155724;'; else if(diff<=0.5) bg='background:#fff3cd;color:#856404;'; else if(diff<=1) bg='background:#f8d7da;color:#721c24;'; else bg='background:#f5c6cb;color:#491217;'; } return `<td class="c" style="font-size:0.78rem;font-weight:600;padding:8px 4px;${bg}">${avg||'—'}</td>`; }).join('')}</tr></tbody>
+        </table>
+        <div style="display:flex;gap:12px;margin-top:0.8rem;font-size:0.72rem;color:var(--text-light);flex-wrap:wrap;"><span>🟦 Under par &nbsp; 🟩 Even &nbsp; 🟨 +0.5 &nbsp; 🟥 +1 &nbsp; ⬛ +1.5+</span></div>
+      </div>
+      ${trend !== null ? `
+      <div class="section-title" style="font-size:1rem;margin-bottom:0.8rem;">Recent Trend (last 10 rounds)</div>
+      <div class="card card-sm" style="text-align:center;margin-bottom:1.5rem;">
+        <div style="font-size:2rem;font-weight:900;font-family:'Playfair Display',serif;color:var(--forest);">${trend > 0 ? '+' : ''}${trend}</div>
+        <div style="font-size:0.78rem;color:var(--text-light);margin-top:4px;">strokes vs first 3 rounds</div>
+        <div style="font-size:0.82rem;color:${trend < 0 ? '#27ae60' : '#c0392b'};margin-top:6px;font-weight:600;">${trend < 0 ? '📈 Improving!' : trend > 0 ? '📉 Room to grow' : '⛳ Steady'}</div>
+      </div>` : ''}`;
+  } catch(e){
+    console.error('stats analytics', e);
+    analyt.innerHTML = `<div class="card card-sm" style="text-align:center;color:var(--text-light);font-size:0.85rem;padding:1.2rem;">Detailed analytics couldn't load${e&&e.message==='timeout'?' (timed out)':''}. Your season totals above are current.</div>`;
+  }
+}
+window._real_loadStatsScreen = loadStatsScreen;
+window._shimFlush();
+
+function renderDistBar(label, count, pct, color, textColor) {
+  return `<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+    <div style="width:80px;font-size:0.78rem;color:var(--text-mid);">${label}</div>
+    <div style="flex:1;background:var(--cream-dark);border-radius:20px;overflow:hidden;height:18px;">
+      <div style="width:${pct}%;background:${color};height:100%;border-radius:20px;transition:width 0.5s;"></div>
+    </div>
+    <div style="width:44px;text-align:right;font-size:0.78rem;font-weight:600;color:var(--text-mid);">${count} (${pct}%)</div>
+  </div>`;
+}
+
+// ── ADMIN: INVITE CODE SETTINGS ──
+async function showAdminSettings() {
+  const cont = document.getElementById('admin-content');
+  const t = activeTournament || allTournaments[0];
+  cont.innerHTML = `<div class="card">
+    <h3>⚙️ Tour Settings</h3>
+    <div class="info-bar">Current invite code: <strong>MORKS2026</strong><br>Share this with new players so they can register.</div>
+    <hr class="div">
+    <div class="section-title" style="font-size:0.95rem;margin-bottom:0.8rem;color:var(--forest);">Active Tournament</div>
+    <div class="fg"><label>Set Active Tournament</label>
+      <select id="set-active-sel">${allTournaments.map(t2=>`<option value="${t2.id}" ${t?.id===t2.id?'selected':''}>${t2.name}</option>`).join('')}</select>
+    </div>
+    <button class="btn btn-gold" onclick="window._real_setActiveTourney()">Set Active</button>
+    <hr class="div">
+    <div class="section-title" style="font-size:0.95rem;margin-bottom:0.8rem;color:var(--forest);">Tournament Status</div>
+    <div class="fg"><label>Tournament</label>
+      <select id="status-sel">${allTournaments.map(t2=>`<option value="${t2.id}">${t2.name}</option>`).join('')}</select>
+    </div>
+    <div class="fg"><label>Status</label>
+      <select id="status-val-sel">
+        <option value="upcoming">Upcoming</option>
+        <option value="active">Active</option>
+        <option value="completed">Completed</option>
+        <option value="locked">Locked</option>
+      </select>
+    </div>
+    <button class="btn btn-forest" onclick="window._real_setTourneyStatus()">Update Status</button>
+    <hr class="div">
+    <div class="section-title" style="font-size:0.95rem;margin-bottom:0.8rem;color:var(--clay,#b00020);">Danger Zone</div>
+    <div class="fg"><label>Delete Tournament</label>
+      <select id="delete-sel">${allTournaments.map(t2=>`<option value="${t2.id}">${t2.name}</option>`).join('')}</select>
+    </div>
+    <button class="btn btn-danger btn-full" onclick="window._real_deleteTournament()">Delete Tournament &amp; All Scores</button>
+  </div>`;
+}
+window._real_showAdminSettings = showAdminSettings;
+
+window._real_setActiveTourney = async function() {
+  const tid = document.getElementById('set-active-sel').value;
+  // Set all to upcoming, selected to active
+  const batch = writeBatch(db);
+  allTournaments.forEach(t => {
+    batch.update(doc(db, 'tournaments', t.id), { status: t.id === tid ? 'active' : t.status === 'active' ? 'upcoming' : t.status });
+  });
+  await batch.commit();
+  await loadGlobalData();
+  activeTournament = allTournaments.find(t => t.id === tid) || null;
+  toast('✅ Active tournament updated!');
+};
+
+window._real_setTourneyStatus = async function() {
+  const tid = document.getElementById('status-sel').value;
+  const status = document.getElementById('status-val-sel').value;
+  await updateDoc(doc(db, 'tournaments', tid), { status });
+  await loadGlobalData();
+  toast(`Status updated to "${status}"`);
+};
+
+window._real_deleteTournament = async function() {
+  const sel=document.getElementById('delete-sel'); if(!sel) return;
+  const tid=sel.value;
+  const t=allTournaments.find(function(x){return x.id===tid;});
+  const name=t?t.name:'this tournament';
+  if(!confirm('Delete "'+name+'"? This permanently removes the tournament and every score in it. This cannot be undone.')) return;
+  if(!confirm('Final check: this will erase ALL hole scores for "'+name+'". Proceed?')) return;
+  try{
+    const snap=await getDocs(query(collection(db,'holeScores'),where('tournamentId','==',tid)));
+    const docs=snap.docs;
+    for(let i=0;i<docs.length;i+=450){
+      const batch=writeBatch(db);
+      docs.slice(i,i+450).forEach(function(d){ batch.delete(d.ref); });
+      await batch.commit();
+    }
+    await deleteDoc(doc(db,'tournaments',tid));
+    if(activeTournament&&activeTournament.id===tid) activeTournament=null;
+    await loadGlobalData();
+    toast('🗑️ Tournament deleted.');
+    window._real_showAdminSettings();
+  }catch(e){ console.error(e); toast('Delete failed — see console.'); }
+};
+
+// Add Settings tile to admin grid
+const adminGrid = document.querySelector('.admin-grid');
+if (adminGrid) {
+  const settingsTile = document.createElement('div');
+  settingsTile.className = 'admin-tile';
+  settingsTile.onclick = showAdminSettings;
+  settingsTile.innerHTML = `<div class="t-icon">⚙️</div><div class="t-label">Settings</div><div class="t-sub">Status & config</div>`;
+  adminGrid.appendChild(settingsTile);
+}
+
+// ── REAL-TIME SCORE COLORING ON SCORECARD ──
+// Enhanced hole card click-to-set via buttons (already wired), add keyboard support
+
+// ── COURSE LIBRARY SEARCH (Casual Round) ──
+var _crLibCache = null;
+
+function crLoadLibrary(cb) {
+  if (_crLibCache) { cb(_crLibCache); return; }
+  getDocs(query(collection(db, 'courseLibrary'), orderBy('name')))
+    .then(function(snap) {
+      _crLibCache = snap.docs.map(function(d) { return Object.assign({id:d.id}, d.data()); });
+      cb(_crLibCache);
+    })
+    .catch(function() { cb([]); });
+}
+
+function crApplyTee(course, teeName) {
+  if (!course) return;
+  window._crActiveCourse = course;
+  var tees = course.tees || [];
+  var tee = tees.find(function(t){return t.name===teeName;}) ||
+            tees.find(function(t){return t.name==='White';}) ||
+            tees[0];
+  if (!tee && course.holePars) {
+    // Old format - pars only, no tee data
+    var parEl = document.getElementById('cr-par');
+    if (parEl) parEl.value = course.par || 72;
+    var statsEl = document.getElementById('cr-stats');
+    if (statsEl) statsEl.textContent = 'Par ' + (course.par||72) + (course.rating ? ' · Rating ' + course.rating : '') + (course.slope ? ' · Slope ' + course.slope : '');
+    return;
+  }
+  if (!tee) return;
+  window._crActiveTee = tee;
+
+  // Update tee tabs
+  var tabsEl = document.getElementById('cr-tee-tabs');
+  if (tabsEl && tees.length > 1) {
+    tabsEl.style.display = 'flex';
+    tabsEl.innerHTML = '';
+    tees.forEach(function(t) {
+      var btn = document.createElement('button');
+      btn.className = 'cr-tee-tab' + (t.name === tee.name ? ' active' : '');
+      btn.textContent = t.name;
+      btn.onclick = function() { crApplyTee(window._crActiveCourse, t.name); };
+      tabsEl.appendChild(btn);
+    });
+  }
+
+  // Update stats
+  var statsEl = document.getElementById('cr-stats');
+  if (statsEl) {
+    var tp = tee.holes ? tee.holes.reduce(function(s,h){return s+h.par;},0) : course.par;
+    statsEl.textContent = 'Par ' + tp +
+      (tee.totalYards ? ' · ' + tee.totalYards + 'y' : '') +
+      (tee.rating ? ' · Rating ' + tee.rating : '') +
+      (tee.slope ? ' · Slope ' + tee.slope : '');
+  }
+
+  // Update par input
+  if (tee.holes) {
+    var parEl = document.getElementById('cr-par');
+    if (parEl) parEl.value = tee.holes.reduce(function(s,h){return s+h.par;},0);
+  }
+
+  // Update hole cards and pre-populate scores with new pars
+  if (tee.holes && tee.holes.length === 18) {
+    tee.holes.forEach(function(h) {
+      var card = document.getElementById('cr-hc-' + h.hole);
+      if (!card) return;
+      var labelEl = card.querySelector('.hole-label');
+      var parEl2 = card.querySelector('.hole-par');
+      var inp = document.getElementById('cr-hole-' + h.hole);
+      if (labelEl) {
+        labelEl.innerHTML = 'Hole ' + h.hole +
+          (h.yards ? '<span class="hole-yds">' + h.yards + 'y</span>' : '');
+      }
+      if (parEl2) parEl2.textContent = 'Par ' + h.par;
+      // Update score input and casualHoles with new par
+      if (inp) inp.value = h.par;
+      casualHoles[h.hole] = h.par;
+    });
+    updateCasualSummary();
+  }
+}
+
+
+function crLoadRecent() {
+  if (!currentUser) return;
+  getDocs(query(
+    collection(db, 'casualRounds'),
+    where('playerId', '==', currentUser.uid)
+  )).then(function(snap) {
+    var docs = snap.docs.map(function(d){ return d.data(); })
+      .sort(function(a,b){ return (b.date||'').localeCompare(a.date||''); })
+      .slice(0, 30);
+    var seen = {};
+    var recent = [];
+    docs.forEach(function(data) {
+      var name = data.course;
+      if (name && !seen[name] && recent.length < 10) {
+        seen[name] = true;
+        recent.push(name);
+      }
+    });
+    var wrap = document.getElementById('cr-recent-wrap');
+    var btns = document.getElementById('cr-recent-btns');
+    if (!wrap || !btns) return;
+    if (!recent.length) return;
+    wrap.style.display = 'block';
+    btns.innerHTML = '';
+    recent.forEach(function(name) {
+      var btn = document.createElement('button');
+      btn.className = 'cr-recent-btn';
+      btn.textContent = name;
+      btn.onclick = function() {
+        crLoadLibrary(function(lib) {
+          var course = lib.find(function(c){return c.name===name;});
+          var inp = document.getElementById('cr-course');
+          if (inp) inp.value = name;
+          if (course) {
+            crApplyTee(course, 'White');
+            toast('⛳ ' + name + ' loaded!');
+          }
+        });
+      };
+      btns.appendChild(btn);
+    });
+  }).catch(function() {});
+}
+
+
+// ── COURSE SEARCH — CASUAL ROUND (inline dropdown, confirmed working) ──
+document.addEventListener('input', function(e) {
+  if (e.target.id !== 'cr-course') return;
+  var drop = document.getElementById('cr-course-drop');
+  if (!drop) return;
+  var q = e.target.value.trim().toLowerCase();
+  if (q.length < 2) { drop.style.display = 'none'; return; }
+  crLoadLibrary(function(lib) {
+    var matches = lib.filter(function(c) {
+      return (c.name||'').toLowerCase().includes(q) ||
+             (c.city||'').toLowerCase().includes(q);
+    }).slice(0, 8);
+    if (!matches.length) { drop.style.display = 'none'; return; }
+    drop.innerHTML = '';
+    matches.forEach(function(c) {
+      var item = document.createElement('div');
+      item.className = 'cr-drop-item';
+      var nameEl = document.createElement('div');
+      nameEl.className = 'cr-drop-name';
+      nameEl.textContent = c.name;
+      var metaEl = document.createElement('div');
+      metaEl.className = 'cr-drop-meta';
+      metaEl.textContent = (c.city||'') + (c.state ? ', '+c.state : '') + ' · Par ' + (c.par||'?');
+      item.appendChild(nameEl);
+      item.appendChild(metaEl);
+      item.onmousedown = function(ev) {
+        ev.preventDefault();
+        e.target.value = c.name;
+        drop.style.display = 'none';
+        crApplyTee(c, 'White');
+        toast('⛳ ' + c.name + ' loaded!');
+      };
+      drop.appendChild(item);
+    });
+    drop.style.display = 'block';
+  });
+});
+
+// ── COURSE SEARCH — TOURNAMENT MODAL ──
+// Dropdown appended to document.body to escape modal stacking context
+var _ctBodyDrop = null;
+
+function ctRemoveDrop() {
+  if (_ctBodyDrop && _ctBodyDrop.parentNode) {
+    _ctBodyDrop.parentNode.removeChild(_ctBodyDrop);
+  }
+  _ctBodyDrop = null;
+}
+
+function ctBuildDrop(inp, courses) {
+  ctRemoveDrop();
+  var rect = inp.getBoundingClientRect();
+  var drop = document.createElement('div');
+  drop.style.cssText = 'position:fixed;top:' + (rect.bottom + 2) + 'px;' +
+    'left:' + rect.left + 'px;width:' + rect.width + 'px;' +
+    'background:white;border-radius:10px;' +
+    'box-shadow:0 8px 32px rgba(0,0,0,0.3);' +
+    'z-index:99999;max-height:220px;overflow-y:auto;' +
+    'border:1px solid #e8e0cc;font-family:Inter,sans-serif;';
+  courses.forEach(function(c) {
+    var item = document.createElement('div');
+    item.style.cssText = 'padding:9px 12px;cursor:pointer;font-size:0.82rem;' +
+      'border-bottom:1px solid #e8e0cc;';
+    var nameEl = document.createElement('div');
+    nameEl.style.cssText = 'font-weight:600;color:#1a1a1a;';
+    nameEl.textContent = c.name;
+    var metaEl = document.createElement('div');
+    metaEl.style.cssText = 'font-size:0.72rem;color:#8a8a8a;margin-top:1px;';
+    metaEl.textContent = (c.city||'') + (c.state ? ', '+c.state : '') + ' · Par ' + (c.par||'?');
+    item.appendChild(nameEl);
+    item.appendChild(metaEl);
+    item.onmouseover = function() { item.style.background = '#fffbe6'; };
+    item.onmouseout  = function() { item.style.background = 'white'; };
+    item.onmousedown = function(ev) {
+      ev.preventDefault();
+      inp.value = c.name;
+      var parEl   = document.getElementById('ct-par');
+      var slopeEl = document.getElementById('ct-slope');
+      var ratingEl = document.getElementById('ct-rating');
+      if (parEl && c.par) parEl.value = c.par;
+      var wt = (c.tees||[]).find(function(t){return t.name==='White';}) || (c.tees||[])[0];
+      if (slopeEl) {
+        if (wt && wt.slope) slopeEl.value = wt.slope;
+        else if (c.slope) slopeEl.value = c.slope;
+      }
+      if (ratingEl) {
+        if (wt && wt.rating) ratingEl.value = wt.rating;
+        else if (c.rating) ratingEl.value = c.rating;
+        else if (c.par) ratingEl.value = c.par;
+      }
+      // Store holePars for tournament creation
+      window._ctHolePars = c.holePars || null;
+      ctRemoveDrop();
+    };
+    drop.appendChild(item);
+  });
+  document.body.appendChild(drop);
+  _ctBodyDrop = drop;
+}
+
+var _ctTimer = null;
+document.addEventListener('input', function(e) {
+  if (e.target.id !== 'ct-course') return;
+  clearTimeout(_ctTimer);
+  var q = e.target.value.trim().toLowerCase();
+  if (q.length < 2) { ctRemoveDrop(); return; }
+  var inp = e.target;
+  _ctTimer = setTimeout(function() {
+    crLoadLibrary(function(lib) {
+      var matches = lib.filter(function(c) {
+        return (c.name||'').toLowerCase().includes(q) ||
+               (c.city||'').toLowerCase().includes(q);
+      }).slice(0, 6);
+      if (!matches.length) { ctRemoveDrop(); return; }
+      ctBuildDrop(inp, matches);
+    });
+  }, 300);
+});
+
+// Close dropdowns on click outside
+document.addEventListener('click', function(e) {
+  var crDrop = document.getElementById('cr-course-drop');
+  var crInp  = document.getElementById('cr-course');
+  if (crDrop && crInp && !crInp.contains(e.target) && !crDrop.contains(e.target)) {
+    crDrop.style.display = 'none';
+  }
+  if (_ctBodyDrop) {
+    var ctInp = document.getElementById('ct-course');
+    if (ctInp && !ctInp.contains(e.target) && !_ctBodyDrop.contains(e.target)) {
+      ctRemoveDrop();
+    }
+  }
+});
+
+// Clean up tournament dropdown when modal closes
+var _origCloseModal = window.closeModal;
+window.closeModal = function(id) {
+  if (id === 'modal-create-tourney') {
+    ctRemoveDrop();
+    var ctInp = document.getElementById('ct-course');
+    if (ctInp) ctInp.value = '';
+  }
+  if (_origCloseModal) _origCloseModal(id);
+};
+
+document.addEventListener('keydown', e => {
+  // Digit keys 1-9 on a focused hole input sets score directly
+  if (e.target.classList.contains('hole-val')) {
+    if (e.key >= '1' && e.key <= '9') {
+      e.target.value = e.key;
+      const holeNum = parseInt(e.target.id.replace('hole-','').replace('cr-hole-',''));
+      if (!isNaN(holeNum)) {
+        if (e.target.id.startsWith('cr-')) onCasualChange(holeNum);
+        else onHoleChange(holeNum);
+      }
+    }
+  }
+});
+
+
+</script>
+
+<!-- ── ADDITIONAL SCREENS (injected after script) ── -->
+<script>
+// Inject missing screens into DOM after load
+document.addEventListener('DOMContentLoaded', () => {
+  const screenArea = document.getElementById('screen-area');
+
+  // History Screen
+  screenArea.insertAdjacentHTML('beforeend', `
+  <div id="screen-history" class="screen">
+    <div class="topbar">
+      <div><div class="topbar-title">Tournament History</div><div class="topbar-sub">All events</div></div>
+    </div>
+    <div class="pad" id="history-content"><div class="loading"><div class="spinner"></div></div></div>
+  </div>`);
+
+  // History Detail Screen
+  screenArea.insertAdjacentHTML('beforeend', `
+  <div id="screen-history-detail" class="screen">
+    <div class="topbar">
+      <div><div class="topbar-title" id="hd-title">Results</div><div class="topbar-sub" id="hd-sub"></div></div>
+      <div class="topbar-right"><button class="icon-btn" onclick="window._real_showScreen('history');window._real_loadHistory()">← Back</button></div>
+    </div>
+    <div class="pad">
+      <div id="hd-table"></div>
+      <div id="hd-holes"></div>
+    </div>
+  </div>`);
+
+  // Casual Round Screen
+  screenArea.insertAdjacentHTML('beforeend', `
+  <div id="screen-casual" class="screen">
+    <div class="topbar">
+      <div><div class="topbar-title">Casual Round</div><div class="topbar-sub">Log a round anytime</div></div>
+      <div class="topbar-right">
+        <button class="btn btn-gold btn-sm" onclick="window._real_saveCasualRound()">Save Round</button>
+      </div>
+    </div>
+    <div class="pad" id="casual-content"><div class="loading"><div class="spinner"></div></div></div>
+  </div>`);
+
+  // Casual History Screen
+  screenArea.insertAdjacentHTML('beforeend', `
+  <div id="screen-casual-history" class="screen">
+    <div class="topbar">
+      <div><div class="topbar-title">My Rounds</div><div class="topbar-sub">Personal round history</div></div>
+      <div class="topbar-right"><button class="icon-btn" onclick="window._real_showScreen('casual');window._real_loadCasualRound()">← Back</button></div>
+    </div>
+    <div class="pad" id="casual-history-content"><div class="loading"><div class="spinner"></div></div></div>
+  </div>`);
+
+  // Stats Screen
+  screenArea.insertAdjacentHTML('beforeend', `
+  <div id="screen-stats" class="screen">
+    <div class="topbar">
+      <div><div class="topbar-title">My Stats</div><div class="topbar-sub">Performance analytics</div></div>
+      <div class="topbar-right"><button class="btn btn-gold btn-sm" onclick="window._real_navTo('casual-history',null)">📋 My Rounds</button></div>
+    </div>
+    <div class="pad" id="stats-content-main"><div class="loading"><div class="spinner"></div></div></div>
+  </div>`);
+
+  // Casual Rounds Leaderboard Screen (step 3)
+  screenArea.insertAdjacentHTML('beforeend', `
+  <div id="screen-casual-leaderboard" class="screen">
+    <div class="topbar">
+      <div><div class="topbar-title">Casual Rounds</div><div class="topbar-sub">Non-tournament leaderboard</div></div>
+    </div>
+    <div class="lb-tabs" id="cl-tabs">
+      <button class="lb-tab active" onclick="window._real_switchCasualLbTab('rounds',this)">Rounds</button>
+      <button class="lb-tab" onclick="window._real_switchCasualLbTab('avg',this)">Avg</button>
+      <button class="lb-tab" onclick="window._real_switchCasualLbTab('best',this)">Best</button>
+    </div>
+    <div class="pad" style="padding-top:0.8rem;">
+      <div id="cl-content"><div class="loading"><div class="spinner"></div></div></div>
+    </div>
+  </div>`);
+
+  // Add extra nav items to bottom nav
+  const bnavInner = document.querySelector('.bnav-inner');
+  // Replace scorecard button with a + menu approach — add Casual and History
+  bnavInner.insertAdjacentHTML('beforeend', `
+    <button class="bnav-btn" onclick="window._real_navTo('history',this)"><span class="icon">📋</span>History</button>
+    <button class="bnav-btn" onclick="window._real_navCasual(this)"><span class="icon">🕹️</span>Casual</button>
+    <button class="bnav-btn" onclick="window._real_navTo('stats',this)"><span class="icon">📊</span>Stats</button>
+  `);
+});
+
+// Nav helpers for new screens
+// Override navTo to include new screens, forwarding to real module functions
+// [Removed] A dead navTo override used to live here. The module's navTo (the module script is
+// deferred, so it runs AFTER this inline block and its assignment wins) is the one that actually
+// executes, and it already routes every screen — this copy never ran. Kept navCasual, which the
+// module does NOT define, so it is genuinely needed.
+window._real_navCasual = function(btn) {
+  document.querySelectorAll('.bnav-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  if (window._real_showScreen) window._real_showScreen('casual');
+  if (window._real_loadCasualRound) window._real_loadCasualRound();
+};
+
+// Build/version stamp — confirms which version is actually running (catches stale cache)
+var APP_BUILD = '2026.06.30 · admin-profile-edit';
+console.log('%cMorks Golf Tour build: ' + APP_BUILD, 'color:#c9a227;font-weight:bold;font-size:14px;');
+try {
+  var _bt = document.createElement('div');
+  _bt.textContent = 'build ' + APP_BUILD;
+  _bt.style.cssText = 'position:fixed;bottom:2px;right:5px;font-size:9px;color:rgba(0,0,0,0.32);z-index:99999;pointer-events:none;font-family:sans-serif;';
+  document.body.appendChild(_bt);
+} catch(e) {}
+</script>
+
+</body>
+</html>
