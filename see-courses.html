@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Morks Golf — Seed East Coast Courses</title>
+<style>
+  body{font-family:system-ui,'Inter',sans-serif;background:#1a3a2a;color:#f5f0e8;min-height:100vh;margin:0;display:flex;align-items:center;justify-content:center;padding:1.5rem;}
+  .box{background:#f5f0e8;color:#1a1a1a;border-radius:16px;padding:1.75rem;max-width:460px;width:100%;box-shadow:0 8px 40px rgba(0,0,0,.3);}
+  h1{font-size:1.15rem;color:#1a3a2a;margin:0 0 .25rem;}
+  p{font-size:.85rem;color:#4a4a4a;margin:.25rem 0 1rem;line-height:1.5;}
+  ul{font-size:.8rem;color:#4a4a4a;margin:.25rem 0 1rem;padding-left:1.1rem;}
+  li{margin:.15rem 0;}
+  button{background:#f5d060;color:#1a3a2a;border:none;border-radius:9px;padding:12px 18px;font-size:.9rem;font-weight:700;cursor:pointer;width:100%;}
+  button:disabled{opacity:.45;cursor:not-allowed;}
+  .status{margin-top:1rem;font-size:.82rem;padding:10px 12px;border-radius:8px;white-space:pre-line;}
+  .ok{background:#d4edda;color:#155724;}
+  .err{background:#f8d7da;color:#721c24;}
+  .info{background:#d1ecf1;color:#0c5460;}
+</style>
+</head>
+<body>
+<div class="box">
+  <h1>⛳ Seed East Coast Courses</h1>
+  <p>One-time import into the Morks Golf course library. Sign in to the main app in this browser first, then click below.</p>
+  <ul>
+    <li>Sewell's Point — Norfolk, VA (Blue + White)</li>
+    <li>Eagle Haven — Norfolk, VA (White)</li>
+    <li>Princess Anne CC — Virginia Beach, VA (Black)</li>
+    <li>White Clay Creek CC — Wilmington, DE (Gold)</li>
+    <li>Aeropines Tomcat — Virginia Beach, VA (Gold)</li>
+    <li>Aeropines Hornet — Virginia Beach, VA (Gold)</li>
+  </ul>
+  <button id="seed-btn" disabled>Checking admin access…</button>
+  <div id="status"></div>
+</div>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getFirestore, collection, doc, getDoc, getDocs, addDoc, updateDoc, serverTimestamp }
+  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDyAtsNMVVC00M_wuVedqIkBOLclOpp5-0",
+  authDomain: "mork-golf-tourney.firebaseapp.com",
+  projectId: "mork-golf-tourney",
+  storageBucket: "mork-golf-tourney.firebasestorage.app",
+  messagingSenderId: "314668694744",
+  appId: "1:314668694744:web:ca4b10e5db9be5e3d8d0eb"
+};
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+const btn = document.getElementById('seed-btn');
+const statusEl = document.getElementById('status');
+function setStatus(msg, cls){ statusEl.className = 'status ' + (cls || 'info'); statusEl.textContent = msg; }
+
+// Each tee's holes are [par, yards, SI(strokeIndex)]
+const COURSES = [
+  { name:"Sewell's Point Golf Course", city:"Norfolk", state:"VA", type:"Public", tees:[
+    { name:"Blue", rating:69.4, slope:120, holes:[[4,351,9],[4,294,13],[4,361,7],[3,166,17],[4,407,3],[5,547,5],[3,163,15],[4,343,11],[4,449,1],[3,167,10],[5,492,6],[4,372,14],[4,387,4],[4,352,12],[5,505,8],[3,137,18],[4,420,2],[4,377,16]] },
+    { name:"White", rating:67.9, slope:116, holes:[[4,342,9],[4,286,13],[4,351,7],[3,141,17],[4,384,3],[5,538,5],[3,153,15],[4,325,11],[4,404,1],[3,160,10],[5,457,6],[4,357,14],[4,377,4],[4,342,12],[5,468,8],[3,126,18],[4,409,2],[4,336,16]] }
+  ]},
+  { name:"Eagle Haven Golf Course", city:"Norfolk", state:"VA", type:"Public", tees:[
+    { name:"White", rating:69.4, slope:122, holes:[[4,352,11],[3,177,9],[4,385,3],[5,469,7],[3,120,17],[4,309,15],[5,506,1],[4,297,13],[4,394,5],[4,376,6],[5,556,2],[3,141,14],[4,281,18],[4,330,10],[3,144,16],[4,319,12],[4,361,8],[4,415,4]] }
+  ]},
+  { name:"Princess Anne Country Club", city:"Virginia Beach", state:"VA", type:"Private", tees:[
+    { name:"Black", rating:69.6, slope:134, holes:[[4,414,1],[3,180,15],[4,352,11],[4,421,3],[4,359,5],[5,470,7],[3,146,17],[5,510,9],[3,168,13],[5,562,2],[3,192,12],[4,290,14],[4,359,8],[4,416,6],[3,197,10],[4,297,18],[3,154,16],[5,555,4]] }
+  ]},
+  { name:"White Clay Creek Country Club", city:"Wilmington", state:"DE", type:"Public", tees:[
+    { name:"Gold", rating:73.1, slope:141, holes:[[4,417,7],[4,382,5],[5,593,1],[3,243,17],[4,400,9],[4,491,3],[3,221,13],[5,515,11],[4,343,15],[5,582,2],[4,444,6],[4,314,16],[3,190,8],[4,375,14],[5,550,4],[4,392,12],[3,183,18],[4,372,10]] }
+  ]},
+  { name:"Aeropines Golf Course - Tomcat", city:"Virginia Beach", state:"VA", type:"Public", tees:[
+    { name:"Gold", rating:72.5, slope:128, holes:[[4,368,7],[5,514,13],[3,177,15],[4,413,3],[4,377,11],[4,412,1],[5,506,9],[3,188,17],[4,404,5],[4,381,10],[4,422,12],[3,160,18],[5,539,4],[4,395,8],[4,409,6],[3,225,16],[5,534,2],[4,374,14]] }
+  ]},
+  { name:"Aeropines Golf Course - Hornet", city:"Virginia Beach", state:"VA", type:"Public", tees:[
+    { name:"Gold", rating:72.6, slope:137, holes:[[5,545,5],[3,186,17],[4,459,1],[4,331,11],[5,572,7],[3,152,15],[4,415,3],[4,423,9],[4,347,13],[4,428,6],[4,429,4],[3,196,12],[5,563,2],[4,417,8],[4,369,16],[3,140,18],[3,168,14],[5,557,10]] }
+  ]}
+];
+
+function buildDoc(c){
+  const tees = c.tees.map(function(t){
+    const holes = t.holes.map(function(h,i){ return { hole:i+1, par:h[0], yards:h[1], hcp:h[2] }; });
+    const totalYards = holes.reduce(function(s,h){ return s + h.yards; }, 0);
+    return { name:t.name, rating:t.rating, slope:t.slope, totalYards:totalYards, holes:holes };
+  });
+  const primary = tees.find(function(t){ return t.name === 'White'; }) || tees[0];
+  const holePars = primary.holes.map(function(h){ return h.par; });
+  const holeHcp = primary.holes.map(function(h){ return h.hcp || 0; });
+  const par = holePars.reduce(function(a,b){ return a + b; }, 0);
+  return { name:c.name, city:c.city, state:c.state, type:c.type, par:par, holePars:holePars, holeHcp:holeHcp, tees:tees };
+}
+
+async function seed(){
+  btn.disabled = true;
+  setStatus('Reading existing library…','info');
+  try {
+    const snap = await getDocs(collection(db,'courseLibrary'));
+    const existing = {};
+    snap.docs.forEach(function(d){ existing[d.data().name] = d.id; });
+    let added = 0, updated = 0;
+    const problems = [];
+    for (let i=0;i<COURSES.length;i++){
+      const c = COURSES[i];
+      const data = buildDoc(c);
+      const si = data.holeHcp.filter(function(v){ return v>0; });
+      const seen = {}; let okSI = si.length === 18;
+      si.forEach(function(v){ if(v<1||v>18||seen[v]) okSI=false; seen[v]=true; });
+      if(!okSI) problems.push(c.name + ' (SI not clean 1-18)');
+      data.updatedAt = serverTimestamp();
+      if (existing[c.name]){
+        await updateDoc(doc(db,'courseLibrary',existing[c.name]), data);
+        updated++;
+      } else {
+        data.createdAt = serverTimestamp();
+        await addDoc(collection(db,'courseLibrary'), data);
+        added++;
+      }
+      setStatus('Writing… ' + (i+1) + ' of ' + COURSES.length, 'info');
+    }
+    let msg = 'Done. ' + added + ' added, ' + updated + ' updated.';
+    if (problems.length) msg += '\n⚠️ ' + problems.join('; ');
+    setStatus(msg, problems.length ? 'err' : 'ok');
+  } catch(e){
+    setStatus('Error: ' + (e.code || e.message), 'err');
+    btn.disabled = false;
+  }
+}
+
+onAuthStateChanged(auth, async function(user){
+  if (!user){ setStatus('Not signed in. Open the Morks Golf app in this browser, sign in, then reload this page.','err'); btn.textContent='Sign in required'; return; }
+  try {
+    const pSnap = await getDoc(doc(db,'players',user.uid));
+    if (!pSnap.exists() || pSnap.data().role !== 'admin'){ setStatus('This account is not an admin. Seeding is admin-only.','err'); btn.textContent='Admin only'; return; }
+  } catch(e){ setStatus('Could not verify admin: ' + (e.code||e.message),'err'); return; }
+  btn.disabled = false;
+  btn.textContent = 'Seed 6 courses into the library';
+  btn.onclick = seed;
+  setStatus('Signed in as ' + (user.email || 'admin') + '. Ready when you are.', 'info');
+});
+</script>
+</body>
+</html>
