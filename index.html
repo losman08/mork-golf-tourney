@@ -619,6 +619,26 @@ hr.div{border:none;border-top:1px solid var(--cream-dark);margin:1rem 0;}
   </div>
 </div>
 
+<div class="modal-bg" id="modal-player-rounds">
+  <div class="modal">
+    <div class="modal-header"><h3 id="pr-rounds-title">Rounds</h3><button class="modal-close-btn" onclick="closeModal('modal-player-rounds')">✕</button></div>
+    <div id="pr-rounds-body" style="max-height:60vh;overflow-y:auto;"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="window._real_closeModal('modal-player-rounds')">Close</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="modal-view-casual">
+  <div class="modal">
+    <div class="modal-header"><h3>⛳ Scorecard</h3><button class="modal-close-btn" onclick="closeModal('modal-view-casual')">✕</button></div>
+    <div id="vc-body"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="window._real_closeModal('modal-view-casual')">Close</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast"></div>
 
 <!-- ══ FIREBASE ══ -->
@@ -731,6 +751,7 @@ function switchAuthTab(tab) {
   document.getElementById('auth-register').classList.toggle('active', tab==='register');
 }
 function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]; }); }
+function escJs(s){ return String(s==null?'':s).replace(/\\/g,'\\\\').replace(/'/g,"\\'"); }
 function vsPar(score, par) {
   const d=score-par;
   if(d<0) return `<span class="vp under">${d}</span>`;
@@ -1226,7 +1247,7 @@ function renderCasualLeaderboard() {
       const me = currentUser && p.id === currentUser.uid;
       return `<tr class="${i===0?'leader':''}"${me?' style="background:rgba(201,162,39,0.16);"':''}>
         <td class="c"><span class="badge ${badgeClass(i+1)}">${i+1}</span></td>
-        <td class="pname">${esc(p.name)}${me?' <span style="font-size:0.7rem;background:var(--gold);color:var(--forest);font-weight:700;padding:1px 7px;border-radius:8px;">YOU</span>':''}</td>
+        <td class="pname" style="cursor:pointer;" onclick="window._real_viewPlayerRounds('${escJs(p.id)}','${escJs(p.name)}')">${esc(p.name)}${me?' <span style="font-size:0.7rem;background:var(--gold);color:var(--forest);font-weight:700;padding:1px 7px;border-radius:8px;">YOU</span>':''}</td>
         <td class="c bold">${p.casualStats.rounds}</td>
       </tr>`;
     }).join('');
@@ -1241,7 +1262,7 @@ function renderCasualLeaderboard() {
       const me = currentUser && p.id === currentUser.uid;
       return `<tr class="${i===0?'leader':''}"${me?' style="background:rgba(201,162,39,0.16);"':''}>
         <td class="c"><span class="badge ${badgeClass(i+1)}">${i+1}</span></td>
-        <td class="pname">${esc(p.name)}${me?' <span style="font-size:0.7rem;background:var(--gold);color:var(--forest);font-weight:700;padding:1px 7px;border-radius:8px;">YOU</span>':''}</td>
+        <td class="pname" style="cursor:pointer;" onclick="window._real_viewPlayerRounds('${escJs(p.id)}','${escJs(p.name)}')">${esc(p.name)}${me?' <span style="font-size:0.7rem;background:var(--gold);color:var(--forest);font-weight:700;padding:1px 7px;border-radius:8px;">YOU</span>':''}</td>
         <td class="c">${p.casualStats.rounds}</td>
         <td class="c bold">${p.casualStats[key]}</td>
       </tr>`;
@@ -1252,7 +1273,7 @@ function renderCasualLeaderboard() {
         const me = currentUser && p.id === currentUser.uid;
         return `<tr style="opacity:0.55;">
           <td class="c"><span class="badge bx">—</span></td>
-          <td class="pname">${esc(p.name)}${me?' <span style="font-size:0.7rem;background:var(--gold);color:var(--forest);font-weight:700;padding:1px 7px;border-radius:8px;">YOU</span>':''}</td>
+          <td class="pname" style="cursor:pointer;" onclick="window._real_viewPlayerRounds('${escJs(p.id)}','${escJs(p.name)}')">${esc(p.name)}${me?' <span style="font-size:0.7rem;background:var(--gold);color:var(--forest);font-weight:700;padding:1px 7px;border-radius:8px;">YOU</span>':''}</td>
           <td class="c">${p.casualStats.rounds||0}</td>
           <td class="c" style="font-size:0.75rem;color:var(--text-light);">${need} more to rank</td>
         </tr>`;
@@ -1297,7 +1318,7 @@ async function renderCasualNetTab(withData){
     const src = r.hc.source === 'profile' ? '*' : '';
     return `<tr class="${i===0?'leader':''}"${me?' style="background:rgba(201,162,39,0.16);"':''}>
       <td class="c"><span class="badge ${badgeClass(i+1)}">${i+1}</span></td>
-      <td class="pname">${esc(r.p.name)}${me?' <span style="font-size:0.7rem;background:var(--gold);color:var(--forest);font-weight:700;padding:1px 7px;border-radius:8px;">YOU</span>':''}</td>
+      <td class="pname" style="cursor:pointer;" onclick="window._real_viewPlayerRounds('${escJs(r.p.id)}','${escJs(r.p.name)}')">${esc(r.p.name)}${me?' <span style="font-size:0.7rem;background:var(--gold);color:var(--forest);font-weight:700;padding:1px 7px;border-radius:8px;">YOU</span>':''}</td>
       <td class="c">${r.p.casualStats.avgGross}</td>
       <td class="c">${r.hc.value}${src}</td>
       <td class="c bold">${r.net}</td>
@@ -1308,7 +1329,7 @@ async function renderCasualNetTab(withData){
       const me = currentUser && p.id === currentUser.uid;
       return `<tr style="opacity:0.55;">
         <td class="c"><span class="badge bx">—</span></td>
-        <td class="pname">${esc(p.name)}${me?' <span style="font-size:0.7rem;background:var(--gold);color:var(--forest);font-weight:700;padding:1px 7px;border-radius:8px;">YOU</span>':''}</td>
+        <td class="pname" style="cursor:pointer;" onclick="window._real_viewPlayerRounds('${escJs(p.id)}','${escJs(p.name)}')">${esc(p.name)}${me?' <span style="font-size:0.7rem;background:var(--gold);color:var(--forest);font-weight:700;padding:1px 7px;border-radius:8px;">YOU</span>':''}</td>
         <td class="c">${p.casualStats.avgGross}</td>
         <td class="c" style="font-size:0.75rem;color:var(--text-light);">No handicap on file</td>
         <td class="c">—</td>
@@ -2151,9 +2172,121 @@ async function loadHistoryDetail(tid) {
 window._real_loadHistoryDetail = loadHistoryDetail;
 
 // ── CASUAL ROUND MODE ──
+// ── SCORECARD PHOTOS (compressed client-side, stored inline on the round doc — no Storage/Blaze needed) ──
+function compressImageFile(file, maxDim, quality){
+  return new Promise(function(resolve, reject){
+    const reader = new FileReader();
+    reader.onload = function(e){
+      const img = new Image();
+      img.onload = function(){
+        let w = img.width, h = img.height;
+        if (w > h && w > maxDim) { h = Math.round(h * maxDim / w); w = maxDim; }
+        else if (h >= w && h > maxDim) { w = Math.round(w * maxDim / h); h = maxDim; }
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/jpeg', quality || 0.6));
+      };
+      img.onerror = function(){ reject(new Error('Could not read image')); };
+      img.src = e.target.result;
+    };
+    reader.onerror = function(){ reject(new Error('Could not read file')); };
+    reader.readAsDataURL(file);
+  });
+}
+function renderPhotoPreview(previewId, btnId, dataUri, onRemove){
+  const el = document.getElementById(previewId);
+  const btn = document.getElementById(btnId);
+  if (!el) return;
+  if (dataUri) {
+    el.innerHTML = `<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+      <img src="${dataUri}" style="width:70px;height:70px;object-fit:cover;border-radius:8px;border:2px solid var(--cream-dark);">
+      <button class="btn btn-ghost btn-sm" onclick="${onRemove}">Remove</button>
+    </div>`;
+    if (btn) btn.textContent = '📷 Replace Photo';
+  } else {
+    el.innerHTML = '';
+    if (btn) btn.textContent = '📷 Add Photo';
+  }
+}
+let crPhotoDataUri = null;
+window._real_onCrPhotoSelected = async function(input){
+  const file = input.files && input.files[0]; if (!file) return;
+  const btn = document.getElementById('cr-photo-btn');
+  if (btn) { btn.textContent = 'Compressing…'; btn.disabled = true; }
+  try { crPhotoDataUri = await compressImageFile(file, 1000, 0.6); renderPhotoPreview('cr-photo-preview','cr-photo-btn',crPhotoDataUri,"window._real_removeCrPhoto()"); }
+  catch(e){ console.error(e); toast('Could not process photo.'); }
+  if (btn) btn.disabled = false;
+  input.value = '';
+};
+window._real_removeCrPhoto = function(){ crPhotoDataUri = null; renderPhotoPreview('cr-photo-preview','cr-photo-btn',null); };
+
+let ecPhotoDataUri = null;
+window._real_onEcPhotoSelected = async function(input){
+  const file = input.files && input.files[0]; if (!file) return;
+  const btn = document.getElementById('ec-photo-btn');
+  if (btn) { btn.textContent = 'Compressing…'; btn.disabled = true; }
+  try { ecPhotoDataUri = await compressImageFile(file, 1000, 0.6); renderPhotoPreview('ec-photo-preview','ec-photo-btn',ecPhotoDataUri,"window._real_removeEcPhoto()"); }
+  catch(e){ console.error(e); toast('Could not process photo.'); }
+  if (btn) btn.disabled = false;
+  input.value = '';
+};
+window._real_removeEcPhoto = function(){ ecPhotoDataUri = null; renderPhotoPreview('ec-photo-preview','ec-photo-btn',null); };
+
+// ── VIEW ANOTHER (OR YOUR OWN) PLAYER'S CASUAL ROUNDS — read-only drill-down ──
+window._real_viewPlayerRounds = async function(playerId, playerName){
+  try{
+    const snap = await getDocs(query(collection(db,'casualRounds'), where('playerId','==',playerId)));
+    const rounds = snap.docs.map(function(d){ return Object.assign({id:d.id}, d.data()); })
+      .sort(function(a,b){ return (b.date||'').localeCompare(a.date||''); });
+    document.getElementById('pr-rounds-title').textContent = playerName + "'s Rounds";
+    const body = document.getElementById('pr-rounds-body');
+    if (!rounds.length) {
+      body.innerHTML = `<div class="empty"><div class="ei">⛳</div><p>No casual rounds logged yet</p></div>`;
+    } else {
+      body.innerHTML = rounds.map(function(r){
+        return `<div class="history-row">
+          <div class="hr-left"><div class="name">${esc(r.course||'Unknown')}</div><div class="meta">${r.date||''} · ${r.holesPlayed||18} holes · Par ${r.par||72}${r.scorecardPhoto?' · 📷':''}</div></div>
+          <div class="hr-right"><div class="score">${r.gross}</div></div>
+          <button class="btn btn-ghost btn-sm" style="margin-left:8px;align-self:center;" onclick="window._real_viewCasualRound('${r.id}')">👁 View</button>
+        </div>`;
+      }).join('');
+    }
+    openModal('modal-player-rounds');
+  } catch(e){ console.error(e); toast('Could not load rounds — check permissions.'); }
+};
+
+window._real_viewCasualRound = async function(rid){
+  try{
+    const snap = await getDoc(doc(db,'casualRounds',rid));
+    if (!snap.exists()) { toast('Round not found.'); return; }
+    const r = snap.data();
+    const holes = r.holes || {};
+    let html = `<div style="font-size:0.85rem;color:var(--text-light);margin-bottom:0.8rem;">${esc(r.course||'Round')} · ${r.date||''}</div>`;
+    if (r.scorecardPhoto) {
+      html += `<button class="btn btn-ghost btn-full" style="margin-bottom:0.8rem;" onclick="window._real_openScorecardPhoto()">📷 View Scorecard Photo</button>`;
+    }
+    html += '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;max-height:50vh;overflow-y:auto;">';
+    for (let h=1; h<=18; h++) {
+      const has = holes[h] && holes[h].score != null;
+      const par = (holes[h] && holes[h].par) || DEFAULT_PARS[h-1] || 4;
+      html += `<div style="background:white;border:2px solid var(--cream-dark);border-radius:8px;padding:8px;text-align:center;">
+        <div style="font-size:0.68rem;color:var(--text-light);text-transform:uppercase;">Hole ${h} · Par ${par}</div>
+        <div style="font-size:1.2rem;font-weight:700;color:var(--forest);">${has?holes[h].score:'—'}</div>
+      </div>`;
+    }
+    html += '</div>';
+    document.getElementById('vc-body').innerHTML = html;
+    window._vcPhoto = r.scorecardPhoto || null;
+    openModal('modal-view-casual');
+  } catch(e){ console.error(e); toast('Could not load round — check permissions.'); }
+};
+window._real_openScorecardPhoto = function(){ if (window._vcPhoto) window.open(window._vcPhoto, '_blank'); };
+
 let casualHoles = {};
 async function loadCasualRound() {
   casualHoles = {};
+  crPhotoDataUri = null;
   const cont = document.getElementById('casual-content');
   if (!cont) return;
   const pars = DEFAULT_PARS;
@@ -2173,6 +2306,12 @@ async function loadCasualRound() {
           <select id="cr-tees"><option>Blue</option><option selected>White</option><option>Red</option><option>Gold</option></select>
         </div>
       </div>
+    </div>
+    <div class="card card-sm" style="margin-bottom:1rem;">
+      <label style="display:block;font-size:0.78rem;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:var(--text-mid);margin-bottom:8px;">Scorecard Photo (optional)</label>
+      <input type="file" accept="image/*" capture="environment" id="cr-photo-input" style="display:none;" onchange="window._real_onCrPhotoSelected(this)">
+      <div id="cr-photo-preview"></div>
+      <button class="btn btn-ghost btn-sm" id="cr-photo-btn" onclick="document.getElementById('cr-photo-input').click()">📷 Add Photo</button>
     </div>
     <div class="scorecard-summary" style="margin-bottom:1rem;">
       <div class="sc-stat"><div class="val" id="cr-total">—</div><div class="lbl">Total</div></div>
@@ -2318,6 +2457,7 @@ async function saveCasualRound() {
     playerId: currentUser.uid,
     course, date, par, tees, gross, rating: ccRating, slope: ccSlope,
     holesPlayed: entries.length,
+    scorecardPhoto: crPhotoDataUri || null,
     holes: Object.fromEntries(entries.map(([h, s]) => {
       var pEl = document.getElementById('cr-hc-' + h);
       var pl = pEl ? pEl.querySelector('.hole-par') : null;
@@ -2330,6 +2470,7 @@ async function saveCasualRound() {
   await refreshMyStats();
   toast(`✅ Round saved! ${gross} at ${course}`);
   casualHoles = {};
+  crPhotoDataUri = null;
   loadCasualRound();
 }
 window._real_saveCasualRound = saveCasualRound;
@@ -2411,8 +2552,15 @@ window._real_editCasualRound = async function(rid){
     if(!snap.exists()){ toast('Round not found.'); return; }
     const r = snap.data();
     const holes = r.holes || {};
+    ecPhotoDataUri = r.scorecardPhoto || null;
     const body = document.getElementById('ec-body');
     let html = '<div style="font-size:0.85rem;color:var(--text-light);margin-bottom:0.8rem;">'+(r.course||'Round')+' · '+(r.date||'')+'</div>';
+    html += '<div class="card card-sm" style="margin-bottom:0.8rem;">'
+          + '<label style="display:block;font-size:0.72rem;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:var(--text-mid);margin-bottom:8px;">Scorecard Photo (optional)</label>'
+          + '<input type="file" accept="image/*" capture="environment" id="ec-photo-input" style="display:none;" onchange="window._real_onEcPhotoSelected(this)">'
+          + '<div id="ec-photo-preview"></div>'
+          + '<button class="btn btn-ghost btn-sm" id="ec-photo-btn" onclick="document.getElementById(\'ec-photo-input\').click()">📷 Add Photo</button>'
+          + '</div>';
     html += '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;max-height:50vh;overflow-y:auto;">';
     for(let h=1;h<=18;h++){
       const cur = (holes[h] && holes[h].score!=null) ? holes[h].score : '';
@@ -2421,6 +2569,7 @@ window._real_editCasualRound = async function(rid){
     }
     html += '</div>';
     body.innerHTML = html;
+    renderPhotoPreview('ec-photo-preview','ec-photo-btn',ecPhotoDataUri,"window._real_removeEcPhoto()");
     document.getElementById('ec-save-btn').onclick = function(){ window._real_saveCasualEdit(rid, r.gross||0); };
     openModal('modal-edit-casual');
   } catch(e){ console.error(e); toast('Could not load round.'); }
@@ -2437,7 +2586,7 @@ window._real_saveCasualEdit = async function(rid, oldGross){
       if(!isNaN(v) && v>0){ holes[h] = { score:v, par:par }; gross += v; count++; }
     }
     if(count===0){ toast('Enter at least one score.'); return; }
-    await updateDoc(doc(db,'casualRounds',rid), { holes:holes, gross:gross, holesPlayed:count });
+    await updateDoc(doc(db,'casualRounds',rid), { holes:holes, gross:gross, holesPlayed:count, scorecardPhoto: ecPhotoDataUri || null });
     await refreshMyStats();
     closeModal('modal-edit-casual');
     toast('✅ Round updated.');
@@ -3031,7 +3180,7 @@ window._real_navCasual = function(btn) {
 };
 
 // Build/version stamp — confirms which version is actually running (catches stale cache)
-var APP_BUILD = '2026.06.30 · casual-net-fix';
+var APP_BUILD = '2026.06.30 · casual-drilldown-photo';
 console.log('%cMorks Golf Tour build: ' + APP_BUILD, 'color:#c9a227;font-weight:bold;font-size:14px;');
 try {
   var _bt = document.createElement('div');
