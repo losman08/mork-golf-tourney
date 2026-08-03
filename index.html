@@ -1217,6 +1217,7 @@ function renderCasualLeaderboard() {
     el.innerHTML = `<div class="empty"><div class="ei">⛳</div><p>No casual rounds logged yet. Log a round to appear here.</p></div>`;
     return;
   }
+  if (currentCasualLbTab === 'net') { renderCasualNetTab(withData); return; }
   let headers = '', rowsHtml = '';
   if (currentCasualLbTab === 'rounds') {
     headers = `<th class="c">#</th><th>Player</th><th class="c">Rounds</th>`;
@@ -1260,6 +1261,75 @@ function renderCasualLeaderboard() {
   }
   el.innerHTML = `<div class="lb-table-wrap"><table><thead><tr>${headers}</tr></thead><tbody>${rowsHtml}</tbody></table></div>
   <div style="text-align:center;font-size:0.72rem;color:rgba(245,240,232,0.45);margin-top:0.8rem;">Casual rounds only · Avg and Best require ${CASUAL_LB_MIN_ROUNDS}+ logged rounds</div>`;
+}
+
+// ── CASUAL NET (uses computed WHS-style Handicap Index when established;
+// falls back to the player's profile/GHIN handicap until 3+ eligible rounds exist) ──
+async function computeCasualHandicap(p){
+  try{
+    const rounds = await gatherPlayerRounds(p.id);
+    const idx = calcHandicapIndex(rounds);
+    if(idx.index != null) return { value: idx.index, source: 'index' };
+  } catch(e){ console.error('casual handicap calc', e); }
+  if(p.officialHandicap != null) return { value: Number(p.officialHandicap), source: 'profile' };
+  return null;
+}
+
+async function renderCasualNetTab(withData){
+  const el = document.getElementById('cl-content');
+  if (!el) return;
+  el.innerHTML = `<div class="loading"><div class="spinner"></div><p>Calculating handicaps…</p></div>`;
+  const eligible = withData.filter(function(p){ return p.casualStats.rounds >= CASUAL_LB_MIN_ROUNDS && p.casualStats.avgGross != null; });
+  const notYetRounds = withData.filter(function(p){ return p.casualStats.rounds < CASUAL_LB_MIN_ROUNDS; });
+  const results = await Promise.all(eligible.map(async function(p){
+    const hc = await computeCasualHandicap(p);
+    return { p: p, hc: hc };
+  }));
+  if (currentCasualLbTab !== 'net') return; // tab changed while we were awaiting — stale, abandon this render
+  const ranked = results.filter(function(r){ return r.hc != null; })
+    .map(function(r){ return { p:r.p, hc:r.hc, net: Math.round(r.p.casualStats.avgGross - r.hc.value) }; })
+    .sort(function(a,b){ return a.net - b.net; });
+  const noHandicap = results.filter(function(r){ return r.hc == null; }).map(function(r){ return r.p; });
+
+  const headers = `<th class="c">#</th><th>Player</th><th class="c">Avg</th><th class="c">HCP</th><th class="c">Net</th>`;
+  let rowsHtml = ranked.map(function(r,i){
+    const me = currentUser && r.p.id === currentUser.uid;
+    const src = r.hc.source === 'profile' ? '*' : '';
+    return `<tr class="${i===0?'leader':''}"${me?' style="background:rgba(201,162,39,0.16);"':''}>
+      <td class="c"><span class="badge ${badgeClass(i+1)}">${i+1}</span></td>
+      <td class="pname">${esc(r.p.name)}${me?' <span style="font-size:0.7rem;background:var(--gold);color:var(--forest);font-weight:700;padding:1px 7px;border-radius:8px;">YOU</span>':''}</td>
+      <td class="c">${r.p.casualStats.avgGross}</td>
+      <td class="c">${r.hc.value}${src}</td>
+      <td class="c bold">${r.net}</td>
+    </tr>`;
+  }).join('');
+  if (noHandicap.length) {
+    rowsHtml += noHandicap.map(function(p){
+      const me = currentUser && p.id === currentUser.uid;
+      return `<tr style="opacity:0.55;">
+        <td class="c"><span class="badge bx">—</span></td>
+        <td class="pname">${esc(p.name)}${me?' <span style="font-size:0.7rem;background:var(--gold);color:var(--forest);font-weight:700;padding:1px 7px;border-radius:8px;">YOU</span>':''}</td>
+        <td class="c">${p.casualStats.avgGross}</td>
+        <td class="c" style="font-size:0.75rem;color:var(--text-light);">No handicap on file</td>
+        <td class="c">—</td>
+      </tr>`;
+    }).join('');
+  }
+  if (notYetRounds.length) {
+    rowsHtml += notYetRounds.slice().sort(function(a,b){ return (b.casualStats.rounds||0)-(a.casualStats.rounds||0); }).map(function(p){
+      const need = CASUAL_LB_MIN_ROUNDS - (p.casualStats.rounds||0);
+      const me = currentUser && p.id === currentUser.uid;
+      return `<tr style="opacity:0.55;">
+        <td class="c"><span class="badge bx">—</span></td>
+        <td class="pname">${esc(p.name)}${me?' <span style="font-size:0.7rem;background:var(--gold);color:var(--forest);font-weight:700;padding:1px 7px;border-radius:8px;">YOU</span>':''}</td>
+        <td class="c">${p.casualStats.rounds||0}</td>
+        <td class="c" style="font-size:0.75rem;color:var(--text-light);">${need} more to rank</td>
+        <td class="c">—</td>
+      </tr>`;
+    }).join('');
+  }
+  el.innerHTML = `<div class="lb-table-wrap"><table><thead><tr>${headers}</tr></thead><tbody>${rowsHtml}</tbody></table></div>
+  <div style="text-align:center;font-size:0.72rem;color:rgba(245,240,232,0.45);margin-top:0.8rem;">Net = Avg Gross − Handicap · * = using profile handicap (no computed index yet) · Requires ${CASUAL_LB_MIN_ROUNDS}+ logged rounds</div>`;
 }
 
 async function loadLeaderboard() {
@@ -2943,6 +3013,7 @@ document.addEventListener('DOMContentLoaded', () => {
       <button class="lb-tab active" onclick="window._real_switchCasualLbTab('rounds',this)">Rounds</button>
       <button class="lb-tab" onclick="window._real_switchCasualLbTab('avg',this)">Avg</button>
       <button class="lb-tab" onclick="window._real_switchCasualLbTab('best',this)">Best</button>
+      <button class="lb-tab" onclick="window._real_switchCasualLbTab('net',this)">Net</button>
     </div>
     <div class="pad" style="padding-top:0.8rem;">
       <div id="cl-content"><div class="loading"><div class="spinner"></div></div></div>
@@ -2973,7 +3044,7 @@ window._real_navCasual = function(btn) {
 };
 
 // Build/version stamp — confirms which version is actually running (catches stale cache)
-var APP_BUILD = '2026.06.30 · casual-you-contrast';
+var APP_BUILD = '2026.06.30 · casual-net-tab';
 console.log('%cMorks Golf Tour build: ' + APP_BUILD, 'color:#c9a227;font-weight:bold;font-size:14px;');
 try {
   var _bt = document.createElement('div');
