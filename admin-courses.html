@@ -608,19 +608,16 @@ window.deleteCourse = async function(id, name) {
 window.downloadTemplate = function() {
   var headers = ['name','city','state','type','tee_name','rating','slope'];
   for (var h=1;h<=18;h++) { headers.push('h'+h+'_par','h'+h+'_yds','h'+h+'_hcp'); }
-  var csv = headers.join(',') + '\n';
-  // Example row is commented with // so the importer skips it — format reference only,
-  // never imported. Uses a placeholder name, never a real course.
-  csv += '// EXAMPLE (ignored on import — one row per tee set, same course name = same course):\n';
-  csv += '// Example Course,Anytown,VA,Public,White,68.8,127,4,345,5,4,312,11,3,148,17,5,462,1,4,328,7,4,356,3,3,155,15,4,298,13,4,365,9,4,388,6,3,142,12,4,335,18,4,310,2,3,175,8,5,478,4,4,322,16,4,358,10,4,292,14\n';
-  csv += '// h#_hcp = stroke index / hole handicap ranking (1-18, each used once). Same across all tees of a course.\n';
-  csv += '// Add your real courses below this line.\n';
-  var blob = new Blob([csv], {type:'text/csv'});
-  var a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'morks-course-template.csv';
-  a.click();
-};
+
+  // Stroke index (1-18) is per-course, so it's identical across tees of the same course.
+  var exampleRows = [
+    ['Seascape Golf Club','Aptos','CA','Semi-Private','White','68.8','127',
+     '4','345','5','4','312','11','3','148','17','5','462','1','4','328','7','4','356','3','3','155','15','4','298','13','4','365','9',
+     '4','388','6','3','142','12','4','335','18','4','310','2','3','175','8','5','478','4','4','322','16','4','358','10','4','292','14'],
+    ['Seascape Golf Club','Aptos','CA','Semi-Private','Blue','69.7','129',
+     '4','387','5','4','334','11','3','165','17','5','498','1','4','356','7','4','378','3','3','172','15','4','321','13','4','389','9',
+     '4','412','6','3','158','12','4','352','18','4','328','2','3','191','8','5','501','4','4','341','16','4','379','10','4','315','14']
+  ];
 
   var csv = headers.join(',') + '\n';
   exampleRows.forEach(function(row) { csv += row.join(',') + '\n'; });
