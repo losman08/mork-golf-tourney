@@ -1161,7 +1161,7 @@ function renderAllTimeLeaderboard() {
       var me = currentUser && r.playerId === currentUser.uid;
       return `<tr class="${i===0?'leader':''}"${me?' style="background:rgba(201,162,39,0.16);"':''}>
         <td class="c"><span class="badge ${badgeClass(i+1)}">${i+1}</span></td>
-        <td class="pname">${esc(r.name)}${me?' <span style="font-size:0.7rem;color:var(--gold);font-weight:700;">YOU</span>':''}</td>
+        <td class="pname">${esc(r.name)}${me?' <span style="font-size:0.7rem;background:var(--gold);color:var(--forest);font-weight:700;padding:1px 7px;border-radius:8px;">YOU</span>':''}</td>
         <td class="c bold">${r.pts}</td>
         <td class="c">${r.wins}</td>
         <td class="c">${r.best!=null?r.best:'—'}</td>
@@ -1225,7 +1225,7 @@ function renderCasualLeaderboard() {
       const me = currentUser && p.id === currentUser.uid;
       return `<tr class="${i===0?'leader':''}"${me?' style="background:rgba(201,162,39,0.16);"':''}>
         <td class="c"><span class="badge ${badgeClass(i+1)}">${i+1}</span></td>
-        <td class="pname">${esc(p.name)}${me?' <span style="font-size:0.7rem;color:var(--gold);font-weight:700;">YOU</span>':''}</td>
+        <td class="pname">${esc(p.name)}${me?' <span style="font-size:0.7rem;background:var(--gold);color:var(--forest);font-weight:700;padding:1px 7px;border-radius:8px;">YOU</span>':''}</td>
         <td class="c bold">${p.casualStats.rounds}</td>
       </tr>`;
     }).join('');
@@ -1240,7 +1240,7 @@ function renderCasualLeaderboard() {
       const me = currentUser && p.id === currentUser.uid;
       return `<tr class="${i===0?'leader':''}"${me?' style="background:rgba(201,162,39,0.16);"':''}>
         <td class="c"><span class="badge ${badgeClass(i+1)}">${i+1}</span></td>
-        <td class="pname">${esc(p.name)}${me?' <span style="font-size:0.7rem;color:var(--gold);font-weight:700;">YOU</span>':''}</td>
+        <td class="pname">${esc(p.name)}${me?' <span style="font-size:0.7rem;background:var(--gold);color:var(--forest);font-weight:700;padding:1px 7px;border-radius:8px;">YOU</span>':''}</td>
         <td class="c">${p.casualStats.rounds}</td>
         <td class="c bold">${p.casualStats[key]}</td>
       </tr>`;
@@ -1251,7 +1251,7 @@ function renderCasualLeaderboard() {
         const me = currentUser && p.id === currentUser.uid;
         return `<tr style="opacity:0.55;">
           <td class="c"><span class="badge bx">—</span></td>
-          <td class="pname">${esc(p.name)}${me?' <span style="font-size:0.7rem;color:var(--gold);font-weight:700;">YOU</span>':''}</td>
+          <td class="pname">${esc(p.name)}${me?' <span style="font-size:0.7rem;background:var(--gold);color:var(--forest);font-weight:700;padding:1px 7px;border-radius:8px;">YOU</span>':''}</td>
           <td class="c">${p.casualStats.rounds||0}</td>
           <td class="c" style="font-size:0.75rem;color:var(--text-light);">${need} more to rank</td>
         </tr>`;
@@ -2973,7 +2973,7 @@ window._real_navCasual = function(btn) {
 };
 
 // Build/version stamp — confirms which version is actually running (catches stale cache)
-var APP_BUILD = '2026.06.30 · peoria-sound-v2';
+var APP_BUILD = '2026.06.30 · casual-you-contrast';
 console.log('%cMorks Golf Tour build: ' + APP_BUILD, 'color:#c9a227;font-weight:bold;font-size:14px;');
 try {
   var _bt = document.createElement('div');
