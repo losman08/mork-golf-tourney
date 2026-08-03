@@ -1279,9 +1279,9 @@ async function renderCasualNetTab(withData){
   const el = document.getElementById('cl-content');
   if (!el) return;
   el.innerHTML = `<div class="loading"><div class="spinner"></div><p>Calculating handicaps…</p></div>`;
-  const eligible = withData.filter(function(p){ return p.casualStats.rounds >= CASUAL_LB_MIN_ROUNDS && p.casualStats.avgGross != null; });
-  const notYetRounds = withData.filter(function(p){ return p.casualStats.rounds < CASUAL_LB_MIN_ROUNDS; });
-  const results = await Promise.all(eligible.map(async function(p){
+  // Net doesn't need the 3-round stability threshold Avg/Best use — the whole point of the
+  // profile-handicap fallback is to give Net a basis from round 1, before a computed index exists.
+  const results = await Promise.all(withData.map(async function(p){
     const hc = await computeCasualHandicap(p);
     return { p: p, hc: hc };
   }));
@@ -1315,21 +1315,8 @@ async function renderCasualNetTab(withData){
       </tr>`;
     }).join('');
   }
-  if (notYetRounds.length) {
-    rowsHtml += notYetRounds.slice().sort(function(a,b){ return (b.casualStats.rounds||0)-(a.casualStats.rounds||0); }).map(function(p){
-      const need = CASUAL_LB_MIN_ROUNDS - (p.casualStats.rounds||0);
-      const me = currentUser && p.id === currentUser.uid;
-      return `<tr style="opacity:0.55;">
-        <td class="c"><span class="badge bx">—</span></td>
-        <td class="pname">${esc(p.name)}${me?' <span style="font-size:0.7rem;background:var(--gold);color:var(--forest);font-weight:700;padding:1px 7px;border-radius:8px;">YOU</span>':''}</td>
-        <td class="c">${p.casualStats.rounds||0}</td>
-        <td class="c" style="font-size:0.75rem;color:var(--text-light);">${need} more to rank</td>
-        <td class="c">—</td>
-      </tr>`;
-    }).join('');
-  }
   el.innerHTML = `<div class="lb-table-wrap"><table><thead><tr>${headers}</tr></thead><tbody>${rowsHtml}</tbody></table></div>
-  <div style="text-align:center;font-size:0.72rem;color:rgba(245,240,232,0.45);margin-top:0.8rem;">Net = Avg Gross − Handicap · * = using profile handicap (no computed index yet) · Requires ${CASUAL_LB_MIN_ROUNDS}+ logged rounds</div>`;
+  <div style="text-align:center;font-size:0.72rem;color:rgba(245,240,232,0.45);margin-top:0.8rem;">Net = Avg Gross − Handicap · * = using profile handicap (no computed index yet)</div>`;
 }
 
 async function loadLeaderboard() {
@@ -3044,7 +3031,7 @@ window._real_navCasual = function(btn) {
 };
 
 // Build/version stamp — confirms which version is actually running (catches stale cache)
-var APP_BUILD = '2026.06.30 · casual-net-tab';
+var APP_BUILD = '2026.06.30 · casual-net-fix';
 console.log('%cMorks Golf Tour build: ' + APP_BUILD, 'color:#c9a227;font-weight:bold;font-size:14px;');
 try {
   var _bt = document.createElement('div');
