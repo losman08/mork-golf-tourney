@@ -1418,6 +1418,40 @@ function calcBlindPeoria(playerHoles, selectedHoles, par) {
   return { net: gross-hcp, hcp };
 }
 
+function calcHSI(playerHoles, holeHcp, hc) {
+  // Handicap Stroke Index — net stroke play.
+  // Handicap applied directly as strokes (no slope conversion), allocated across
+  // holes by stroke index: base strokes on every hole, +1 on each of the hardest
+  // `extra` holes (lowest SI). net = gross − strokes received.
+  if(!playerHoles || typeof playerHoles!=='object') return null;
+  // Stroke index must be a full 1–18 set — one distinct rank per hole — or bail.
+  const si = Array.isArray(holeHcp) ? holeHcp.slice(0,18) : null;
+  if(!si || si.length!==18) return null;
+  const seen={};
+  for(let i=0;i<18;i++){
+    const v=Number(si[i]);
+    if(!Number.isInteger(v) || v<1 || v>18 || seen[v]) return null;
+    seen[v]=true;
+  }
+  const hcNum = Math.round(Number(hc)||0);
+  const base  = Math.floor(hcNum/18);
+  const extra = ((hcNum % 18) + 18) % 18;   // negative-safe (plus handicaps)
+  let gross=0, strokes=0, holesPlayed=0;
+  const netByHole={};
+  for(let h=1;h<=18;h++){
+    const hole=playerHoles[h];
+    if(!hole || typeof hole.score!=='number') continue;
+    const rank=Number(si[h-1]);             // this hole's SI (1 = hardest)
+    const recv=base + (rank<=extra ? 1 : 0);
+    gross+=hole.score;
+    strokes+=recv;
+    holesPlayed++;
+    netByHole[h]=hole.score-recv;
+  }
+  if(!holesPlayed) return null;
+  return { gross, strokes, net:gross-strokes, netByHole, holesPlayed };
+}
+
 function renderLeaderboardContent() {
   const scores=window._lbScores||[];
   const t=window._lbTourney||activeTournament;
@@ -3180,7 +3214,7 @@ window._real_navCasual = function(btn) {
 };
 
 // Build/version stamp — confirms which version is actually running (catches stale cache)
-var APP_BUILD = '2026.06.30 · casual-drilldown-photo';
+var APP_BUILD = '2026.08.03 · hsi-calc';
 console.log('%cMorks Golf Tour build: ' + APP_BUILD, 'color:#c9a227;font-weight:bold;font-size:14px;');
 try {
   var _bt = document.createElement('div');
