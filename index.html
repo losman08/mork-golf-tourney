@@ -1494,6 +1494,45 @@ function renderLeaderboardContent() {
       rank:i+1, name:s.name, cols:`<td class="c">${s.gross}</td><td class="c">${s.peoriaHcp}</td><td class="c bold">${s.peoriaNet}</td>`, leader:i===0
     }));
     if(!rows.length){ el.innerHTML=`<div class="empty"><div class="ei">⏳</div><p>Blind Peoria requires all 18 holes.</p></div>`; return; }
+  } else if(currentLbTab==='hsi'){
+    // Handicap Stroke Index — net stroke play. The stroke index isn't stored on the
+    // tournament (only holePars), so resolve it from the Course Library by matching
+    // t.course. Cache the resolved SI per course name; the first paint kicks off an
+    // async library load and repaints when it lands.
+    const courseName = t?.course || '';
+    const siCache = (window._lbHoleHcpByCourse = window._lbHoleHcpByCourse || {});
+    if(!(courseName in siCache)){
+      el.innerHTML=`<div class="loading"><div class="spinner"></div><p>Loading stroke index…</p></div>`;
+      crLoadLibrary(function(lib){
+        const norm = x => (x||'').toString().trim().toLowerCase();
+        const course = (lib||[]).find(c=>c && norm(c.name)===norm(courseName));
+        const raw = course && course.holeHcp;
+        // Accept only a well-formed 1–18 stroke index; anything else → "no SI on file".
+        let valid = null;
+        if(Array.isArray(raw) && raw.length===18){
+          const seen={}; let ok=true;
+          for(const x of raw){ const v=Number(x); if(!Number.isInteger(v)||v<1||v>18||seen[v]){ ok=false; break; } seen[v]=true; }
+          if(ok) valid = raw.map(Number);
+        }
+        siCache[courseName] = valid;
+        if(currentLbTab==='hsi') renderLeaderboardContent();
+      });
+      return;
+    }
+    const holeHcp = siCache[courseName];
+    if(!holeHcp){
+      el.innerHTML=`<div class="empty"><div class="ei">📋</div><p>No stroke index on file for ${esc(courseName||'this course')}.<br>Add hole handicaps (SI) in the Course Library to enable HSI.</p></div>`;
+      return;
+    }
+    headers=`<th class="c">#</th><th>Player</th><th class="c">Gross</th><th class="c">HCP</th><th class="c">Net</th>`;
+    const ranked=[...scores].filter(s=>s.holesPlayed===18)
+      .map(s=>{ const r=calcHSI(s.holes, holeHcp, s.handicap||0); return {...s, hsiNet:r?r.net:null, hsiStrokes:r?r.strokes:0}; })
+      .filter(s=>s.hsiNet!=null)
+      .sort((a,b)=>a.hsiNet-b.hsiNet);
+    rows=ranked.map((s,i)=>({
+      rank:i+1, name:s.name, cols:`<td class="c">${s.gross}</td><td class="c">${s.hsiStrokes}</td><td class="c bold">${s.hsiNet}</td>`, leader:i===0
+    }));
+    if(!rows.length){ el.innerHTML=`<div class="empty"><div class="ei">⏳</div><p>HSI requires all 18 holes.</p></div>`; return; }
   }
 
   el.innerHTML=`<div class="lb-table-wrap"><table>
@@ -3214,7 +3253,7 @@ window._real_navCasual = function(btn) {
 };
 
 // Build/version stamp — confirms which version is actually running (catches stale cache)
-var APP_BUILD = '2026.08.03 · hsi-calc';
+var APP_BUILD = '2026.08.03 · hsi-wired';
 console.log('%cMorks Golf Tour build: ' + APP_BUILD, 'color:#c9a227;font-weight:bold;font-size:14px;');
 try {
   var _bt = document.createElement('div');
