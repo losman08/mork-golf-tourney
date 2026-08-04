@@ -5,251 +5,198 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Morks — Course Import via GolfCourseAPI</title>
 <style>
- body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:1000px;margin:1.5rem auto;padding:0 1rem;color:#1a2e22;background:#f7f5ef;}
- h1{font-size:1.25rem;margin-bottom:.2rem;}
+ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:1080px;margin:1.4rem auto;padding:0 1rem;color:#1a2e22;background:#f7f5ef;}
+ h1{font-size:1.25rem;margin-bottom:.15rem;} h2{font-size:1rem;margin:.2rem 0;}
  .card{background:#fff;border:1px solid #dcd8cc;border-radius:10px;padding:1rem 1.2rem;margin:1rem 0;box-shadow:0 1px 3px rgba(0,0,0,.06);}
- label{font-weight:600;font-size:.9rem;display:block;margin:.5rem 0 .2rem;}
- input,textarea{padding:.5rem;border:1px solid #ccc;border-radius:6px;font-size:.95rem;width:100%;box-sizing:border-box;font-family:inherit;}
- textarea{font-family:ui-monospace,Menlo,monospace;font-size:.85rem;}
- button{background:#1f5138;color:#fff;border:none;padding:.6rem 1.1rem;border-radius:8px;font-size:.95rem;cursor:pointer;font-weight:600;margin-top:.5rem;}
- button:disabled{opacity:.45;cursor:not-allowed;}
- button.alt{background:#c9a227;color:#1a2e22;}
- .row{display:flex;gap:1rem;align-items:center;flex-wrap:wrap;}
+ label{font-weight:600;font-size:.88rem;display:block;margin:.4rem 0 .2rem;}
+ input,select{padding:.5rem;border:1px solid #ccc;border-radius:6px;font-size:.92rem;box-sizing:border-box;font-family:inherit;}
+ input[type=text],input[type=password],input[type=search]{width:100%;}
+ button{background:#1f5138;color:#fff;border:none;padding:.55rem 1rem;border-radius:8px;font-size:.92rem;cursor:pointer;font-weight:600;}
+ button:disabled{opacity:.45;cursor:not-allowed;} button.alt{background:#c9a227;color:#1a2e22;} button.sm{padding:.3rem .6rem;font-size:.82rem;}
+ .row{display:flex;gap:1rem;align-items:flex-end;flex-wrap:wrap;}
  .counter{font-weight:700;font-size:.95rem;padding:.3rem .6rem;border-radius:6px;background:#eee9dd;}
- table{border-collapse:collapse;width:100%;font-size:.82rem;margin-top:.6rem;}
- th,td{border:1px solid #e2ded2;padding:.35rem .5rem;text-align:left;vertical-align:top;}
- th{background:#eee9dd;}
- .ok{color:#1f7a3f;font-weight:700;}
- .no{color:#b23b3b;font-weight:700;}
- .warn{color:#b8860b;font-weight:700;}
- .muted{color:#777;font-size:.85rem;}
- code{background:#eee9dd;padding:1px 5px;border-radius:4px;}
- pre{background:#1a2e22;color:#d7e8dd;padding:.6rem;border-radius:6px;overflow:auto;font-size:.75rem;max-height:320px;}
- .hide{display:none;}
- .chk{display:inline-flex;align-items:center;gap:.35rem;font-weight:400;}
- .chk input{width:auto;}
+ table{border-collapse:collapse;width:100%;font-size:.82rem;margin-top:.5rem;}
+ th,td{border:1px solid #e2ded2;padding:.35rem .5rem;text-align:left;vertical-align:middle;}
+ th{background:#eee9dd;position:sticky;top:0;}
+ .ok{color:#1f7a3f;font-weight:700;} .no{color:#b23b3b;font-weight:700;} .warn{color:#b8860b;font-weight:700;}
+ .muted{color:#777;font-size:.85rem;} code{background:#eee9dd;padding:1px 5px;border-radius:4px;}
+ pre{background:#1a2e22;color:#d7e8dd;padding:.6rem;border-radius:6px;overflow:auto;font-size:.72rem;max-height:340px;}
+ .hide{display:none;} .libinput{width:230px;font-size:.8rem;padding:.3rem;}
+ tr.picked{background:#eef6ee;}
 </style>
 </head>
 <body>
 <h1>Morks Golf — Course Import via GolfCourseAPI</h1>
-<p class="muted">Fetches full scorecards (all tees, par, yardage, SI), validates each stroke index as a clean 1–18 set, and builds a CSV for the <code>admin-courses.html</code> importer. Reads the API only — never writes to your library directly. Every request is counted against your daily cap.</p>
+<p class="muted">Search a course, pick the right match by location, set its library name, build a batch, download an import CSV for <code>admin-courses.html</code>. One search = one API request; hard-capped per day.</p>
 
 <div class="card">
   <div class="row">
-    <div style="flex:1;min-width:260px;">
-      <label>GolfCourseAPI key (sent as <code>Authorization: Bearer</code>)</label>
-      <input id="key" type="password" placeholder="paste your key — stays in this browser">
-      <label class="chk"><input type="checkbox" id="remember"> remember on this device</label>
+    <div style="flex:1;min-width:240px;">
+      <label>API key (<code>Authorization: Bearer</code>)</label>
+      <input id="key" type="password" placeholder="stays in this browser">
+      <label style="font-weight:400;display:inline-flex;gap:.35rem;margin-top:.3rem;"><input type="checkbox" id="remember" style="width:auto"> remember on this device</label>
     </div>
-    <div>
-      <label>Daily request cap</label>
-      <input id="limit" type="number" value="50" style="width:90px" onchange="renderCounter()">
-    </div>
-    <div>
-      <label>Requests used today</label>
-      <span class="counter" id="counter">0 / 50</span>
-    </div>
+    <div><label>Daily cap</label><input id="limit" type="number" value="50" style="width:80px" onchange="renderCounter()"></div>
+    <div><label>Used today</label><span class="counter" id="counter">0 / 50</span></div>
   </div>
   <div class="muted" id="apiremaining"></div>
 </div>
 
 <div class="card">
-  <label>Courses to fetch — one per line. Use the <b>exact library name</b>. Optional: add <code>| search hint</code> to disambiguate (e.g. avoid same-named courses elsewhere).</label>
-  <textarea id="courses" rows="6">Santa Teresa Golf Club
-Los Lagos Golf Course | Los Lagos San Jose</textarea>
-  <div class="muted">Above are the two validation courses (we know their correct SI from BlueGolf). Run these first to check the API before batching.</div>
-  <button id="run" onclick="run()">Fetch &amp; build CSV</button>
-  <button class="alt" onclick="resetToday()" title="Clears only this tool's local tally, not the API's actual quota">Reset today's counter</button>
+  <label>Search a course (use a short core name — e.g. <code>Cinnabar</code>, <code>Seascape</code>, <code>Coyote Creek</code>)</label>
+  <div class="row">
+    <input id="q" type="search" placeholder="course or club name" style="flex:1;min-width:220px" onkeydown="if(event.key==='Enter')doSearch()">
+    <button id="searchBtn" onclick="doSearch()">Search (1 call)</button>
+  </div>
   <span id="status" class="muted"></span>
+  <div id="matches"></div>
 </div>
 
-<div class="card hide" id="results-card">
-  <div id="summary"></div>
-  <div style="overflow:auto;"><div id="results"></div></div>
-  <button id="dl" class="hide" onclick="downloadCSV()">Download import CSV</button>
-  <details style="margin-top:.8rem;"><summary class="muted">Raw API response (first course — for schema check)</summary><pre id="raw"></pre></details>
+<div class="card hide" id="batch-card">
+  <h2>Batch — <span id="batchcount">0</span> course(s) selected</h2>
+  <div id="batch"></div>
+  <div style="margin-top:.7rem;">
+    <button id="dl" onclick="downloadCSV()">Download import CSV</button>
+    <button class="alt sm" onclick="clearBatch()">Clear batch</button>
+  </div>
 </div>
+
+<details class="card"><summary class="muted">Raw API response (last search)</summary><pre id="raw">(none yet)</pre></details>
 
 <script>
-const API_BASE = 'https://api.golfcourseapi.com';
-const $ = id => document.getElementById(id);
-const todayKey = () => 'gca_calls_' + new Date().toISOString().slice(0,10);
-const getCount = () => parseInt(localStorage.getItem(todayKey()) || '0', 10) || 0;
-function setCount(n){ localStorage.setItem(todayKey(), String(n)); renderCounter(); }
-function renderCounter(){
-  const used = getCount(), lim = parseInt($('limit').value || '50', 10);
-  const c = $('counter'); c.textContent = used + ' / ' + lim;
-  c.style.background = used >= lim ? '#f6d9d5' : (used >= lim-3 ? '#f6efd5' : '#e2efd9');
-  c.style.color = used >= lim ? '#b23b3b' : '#1a2e22';
-}
-function resetToday(){ if(confirm("Reset this tool's local count for today? (Does not change the API's real quota.)")){ setCount(0); } }
+const API_BASE='https://api.golfcourseapi.com';
+const $=id=>document.getElementById(id);
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+const todayKey=()=>'gca_calls_'+new Date().toISOString().slice(0,10);
+const getCount=()=>parseInt(localStorage.getItem(todayKey())||'0',10)||0;
+function setCount(n){localStorage.setItem(todayKey(),String(n));renderCounter();}
+function renderCounter(){const u=getCount(),l=parseInt($('limit').value||'50',10);const c=$('counter');c.textContent=u+' / '+l;c.style.background=u>=l?'#f6d9d5':(u>=l-3?'#f6efd5':'#e2efd9');c.style.color=u>=l?'#b23b3b':'#1a2e22';}
+function clearBatch(){BATCH=[];renderBatch();}
 
-// Persist key locally if asked
-window.addEventListener('load', () => {
-  const saved = localStorage.getItem('gca_key');
-  if(saved){ $('key').value = saved; $('remember').checked = true; }
-  renderCounter();
-});
-$('remember') && $('remember').addEventListener('change', e => {
-  if(e.target.checked) localStorage.setItem('gca_key', $('key').value.trim());
-  else localStorage.removeItem('gca_key');
-});
+window.addEventListener('load',()=>{const k=localStorage.getItem('gca_key');if(k){$('key').value=k;$('remember').checked=true;}renderCounter();});
 
-let apiRemaining = null;
-let LAST_ROWS = [];   // CSV rows for download
-let firstRaw = null;
+let CURRENT=[];
+let BATCH=[];
+let lastRaw=null;
+
+function validSI(hcArr){const seen={};for(const x of hcArr){const v=Number(x);if(!Number.isInteger(v)||v<1||v>18||seen[v])return false;seen[v]=true;}return hcArr.length===18;}
+function maleTees(c){const a=(c.tees&&(c.tees.male||c.tees.mens))||[];return Array.isArray(a)?a.filter(t=>Array.isArray(t.holes)&&t.holes.length===18):[];}
+function sortedHoles(t){return t.holes.slice().sort((a,b)=>(a.hole||0)-(b.hole||0));}
+function teeSI(t){return sortedHoles(t).map(h=>Number(h.handicap));}
+function coursePars(t){return sortedHoles(t).map(h=>Number(h.par));}
+function courseSI(tees){for(const t of tees){const si=teeSI(t);if(validSI(si))return si;}return null;}
 
 async function apiGet(path){
-  const key = $('key').value.trim();
-  if(!key) throw new Error('No API key entered.');
-  if($('remember').checked) localStorage.setItem('gca_key', key);
-  const used = getCount(), lim = parseInt($('limit').value || '50', 10);
-  if(used >= lim) throw new Error('DAILY_LIMIT');
-  const res = await fetch(API_BASE + path, { headers: { 'Authorization': 'Bearer ' + key } });
-  setCount(getCount() + 1);                       // count every request actually sent
-  const rem = res.headers.get('x-ratelimit-remaining') || res.headers.get('x-requests-remaining') || res.headers.get('ratelimit-remaining');
-  if(rem != null){ apiRemaining = rem; $('apiremaining').textContent = 'API reports ' + rem + ' requests remaining.'; }
-  if(res.status === 401) throw new Error('401 — API key missing or invalid.');
-  if(res.status === 429) throw new Error('429 — the API says the daily quota is used up.');
-  if(!res.ok) throw new Error('HTTP ' + res.status);
+  const key=$('key').value.trim();
+  if(!key)throw new Error('No API key entered.');
+  if($('remember').checked)localStorage.setItem('gca_key',key);
+  if(getCount()>=parseInt($('limit').value||'50',10))throw new Error('DAILY_LIMIT');
+  const res=await fetch(API_BASE+path,{headers:{'Authorization':'Bearer '+key}});
+  setCount(getCount()+1);
+  const rem=res.headers.get('x-ratelimit-remaining')||res.headers.get('ratelimit-remaining');
+  if(rem!=null){$('apiremaining').textContent='API reports '+rem+' requests remaining.';}
+  if(res.status===401)throw new Error('401 — API key missing or invalid.');
+  if(res.status===429)throw new Error('429 — the API says your daily quota is used up.');
+  if(!res.ok)throw new Error('HTTP '+res.status);
   return res.json();
 }
 
-function maleTees(course){
-  const t = course && course.tees;
-  let arr = [];
-  if(t){ arr = t.male || t.mens || t.men || []; }
-  if(!Array.isArray(arr)) arr = [];
-  return arr.filter(te => Array.isArray(te.holes) && te.holes.length === 18);
-}
-function siValid(holes){
-  const seen = {};
-  for(const h of holes){ const v = Number(h.handicap); if(!Number.isInteger(v) || v<1 || v>18 || seen[v]) return false; seen[v] = true; }
-  return holes.length === 18;
-}
-const esc = s => String(s==null?'':s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-
-async function processOne(entry){
-  const parts = entry.split('|');
-  const libName = parts[0].trim();
-  const query = (parts[1] || parts[0]).trim();
-  const out = { libName, query, calls: 0, flags: [], tees: [], match: null, csv: [] };
-
-  const searchData = await apiGet('/v1/search?search_query=' + encodeURIComponent(query) + '&fuzzy_match=true');
-  out.calls++;
-  if(firstRaw === null) firstRaw = searchData;
-  const matches = searchData.courses || searchData.results || searchData.data || [];
-  if(!matches.length){ out.flags.push('NO MATCH from API'); return out; }
-
-  let course = matches[0];
-  let tees = maleTees(course);
-  if(!tees.length && course.id != null){
-    const full = await apiGet('/v1/courses/' + course.id);
-    out.calls++;
-    course = full.course || full.data || full;
-    tees = maleTees(course);
+async function doSearch(){
+  const q=$('q').value.trim(); if(!q)return;
+  $('searchBtn').disabled=true; $('status').textContent='Searching…'; $('matches').innerHTML='';
+  try{
+    const data=await apiGet('/v1/search?search_query='+encodeURIComponent(q));
+    lastRaw=data; $('raw').textContent=JSON.stringify(data,null,2);
+    CURRENT=(data.courses||data.results||[]);
+    renderMatches();
+    $('status').textContent=CURRENT.length+' match(es). Tick the right one(s), set the library name, then "Add checked to batch".';
+  }catch(e){
+    $('status').innerHTML='<span class="no">'+esc(e.message==='DAILY_LIMIT'?'Daily cap reached — no request sent.':e.message)+'</span>';
   }
-  const loc = course.location || course;
-  out.match = {
-    name: course.course_name || course.name || course.club_name || '(unknown)',
-    club: course.club_name || '',
-    city: loc.city || loc.address_city || '',
-    state: loc.state || loc.region || '',
-    id: course.id
-  };
-  if(!tees.length){ out.flags.push('No 18-hole tee data returned'); return out; }
-
-  // SI from the first tee that has a valid set; check others agree
-  let siTee = tees.find(t => siValid(t.holes));
-  if(!siTee){ out.flags.push('Stroke index is NOT a clean 1-18 set — needs BlueGolf check'); }
-  const si = siTee ? siTee.holes.map(h => Number(h.handicap)) : null;
-  if(si){
-    for(const t of tees){
-      const thisSi = t.holes.map(h => Number(h.handicap));
-      if(siValid(t.holes) && thisSi.join(',') !== si.join(',')) out.flags.push('Tees disagree on SI (' + (t.tee_name||'?') + ')');
-    }
-  }
-  // Par consistency + total
-  const pars = tees[0].holes.map(h => Number(h.par));
-  const parTotal = pars.reduce((a,b)=>a+b,0);
-
-  out.tees = tees.map(t => ({ name: t.tee_name || 'White', rating: t.course_rating, slope: t.slope_rating,
-                              yards: t.total_yards, }));
-
-  // Build CSV rows (one per tee); name uses the LIBRARY name so import overwrites correctly
-  for(const t of tees){
-    const row = { name: libName, city: out.match.city, state: out.match.state, type: course.type || 'Public',
-                  tee_name: t.tee_name || 'White', rating: t.course_rating || '', slope: t.slope_rating || '' };
-    t.holes.slice().sort((a,b)=>(a.hole||0)-(b.hole||0)).forEach((h,i) => {
-      row['h'+(i+1)+'_par'] = h.par; row['h'+(i+1)+'_yds'] = h.yardage;
-      row['h'+(i+1)+'_hcp'] = (si ? si[i] : (h.handicap||0));
-    });
-    out.csv.push(row);
-  }
-  out.parTotal = parTotal;
-  return out;
+  $('searchBtn').disabled=false;
 }
 
-async function run(){
-  $('run').disabled = true;
-  $('status').textContent = 'Working…';
-  $('results-card').classList.remove('hide');
-  LAST_ROWS = []; firstRaw = null;
-  const entries = $('courses').value.split('\n').map(s=>s.trim()).filter(Boolean);
-  const rows = [];
-  let stopped = false;
-  const results = [];
-  for(const entry of entries){
-    // budget guard: if a course could need up to 2 calls and we can't afford even 1, stop
-    if(getCount() >= parseInt($('limit').value||'50',10)){ stopped = true; break; }
-    try {
-      const r = await processOne(entry);
-      results.push(r);
-      r.csv.forEach(row => LAST_ROWS.push(row));
-    } catch(e){
-      if(e.message === 'DAILY_LIMIT'){ stopped = true; break; }
-      results.push({ libName: entry, flags: ['ERROR: ' + e.message], tees: [], csv: [] });
-    }
-  }
-  renderResults(results, stopped);
-  $('run').disabled = false;
-  $('status').textContent = '';
+function courseSummary(c){
+  const mt=maleTees(c);
+  const si=courseSI(mt);
+  const pars=mt.length?coursePars(mt[0]):[];
+  const parTotal=pars.reduce((a,b)=>a+(b||0),0);
+  const flags=[];
+  if(!mt.length)flags.push('no 18-hole men\u2019s tee');
+  else if(!si)flags.push('no clean 1\u201318 SI in API');
+  return {mt,si,pars,parTotal,flags};
 }
 
-function renderResults(results, stopped){
-  const totalCalls = results.reduce((s,r)=>s+(r.calls||0),0);
-  const good = results.filter(r => r.csv && r.csv.length && !r.flags.length);
-  let html = '<table><thead><tr><th>Library name</th><th>Matched (API)</th><th>Loc</th><th>Tees</th><th>Par</th><th>SI</th><th>Flags</th></tr></thead><tbody>';
-  for(const r of results){
-    const m = r.match || {};
-    const teeList = (r.tees||[]).map(t=>t.name+' '+(t.yards||'?')+'y').join('<br>') || '—';
-    const siCell = r.flags.some(f=>/SI|stroke/i.test(f)) ? '<span class="no">check</span>' : (r.csv&&r.csv.length?'<span class="ok">1–18 ✓</span>':'—');
-    const flags = r.flags.length ? '<span class="'+(r.flags.some(f=>/ERROR|NO MATCH|NOT a clean/i.test(f))?'no':'warn')+'">'+r.flags.map(esc).join('<br>')+'</span>' : '<span class="ok">clean</span>';
-    html += '<tr><td><b>'+esc(r.libName)+'</b></td><td>'+esc(m.name||'—')+(m.club?'<br><span class="muted">'+esc(m.club)+'</span>':'')+'</td><td>'+esc([m.city,m.state].filter(Boolean).join(', '))+'</td><td>'+teeList+'</td><td>'+(r.parTotal||'—')+'</td><td>'+siCell+'</td><td>'+flags+'</td></tr>';
-  }
-  html += '</tbody></table>';
-  $('results').innerHTML = html;
-  $('summary').innerHTML = '<b>'+results.length+'</b> processed · <span class="ok">'+good.length+'</span> clean · <b>'+totalCalls+'</b> API calls this run · '
-    + '<b>'+getCount()+'</b> used today'
-    + (stopped ? ' · <span class="no">STOPPED at daily cap — remaining courses not fetched</span>' : '');
-  $('dl').classList.toggle('hide', LAST_ROWS.length===0);
-  $('raw').textContent = firstRaw ? JSON.stringify(firstRaw, null, 2) : '(none)';
+function renderMatches(){
+  if(!CURRENT.length){$('matches').innerHTML='<p class="no">No matches. Try a shorter / different term.</p>';return;}
+  let h='<table><thead><tr><th></th><th>Course / Club</th><th>Location</th><th>Men\u2019s tees</th><th>Par</th><th>SI</th><th>Library name (editable — must match your record to overwrite)</th></tr></thead><tbody>';
+  CURRENT.forEach((c,i)=>{
+    const s=courseSummary(c);
+    const loc=[c.location&&c.location.city,c.location&&c.location.state,c.location&&c.location.country].filter(Boolean).join(', ');
+    const teeNames=s.mt.map(t=>t.tee_name).join(', ')||'\u2014';
+    const siCell=s.si?'<span class="ok">1\u201318 \u2713</span>':'<span class="no">'+(s.mt.length?'none':'\u2014')+'</span>';
+    h+='<tr><td><input type="checkbox" id="pk_'+i+'"></td>'
+      +'<td><b>'+esc(c.course_name||'')+'</b>'+(c.club_name&&c.club_name!==c.course_name?'<br><span class="muted">'+esc(c.club_name)+'</span>':'')+'</td>'
+      +'<td>'+esc(loc)+'</td>'
+      +'<td class="muted" style="max-width:180px">'+esc(teeNames)+'</td>'
+      +'<td>'+(s.parTotal||'\u2014')+'</td><td>'+siCell+'</td>'
+      +'<td><input class="libinput" id="lib_'+i+'" type="text" value="'+esc(c.course_name||'')+'"></td></tr>';
+  });
+  h+='</tbody></table><button class="sm" style="margin-top:.5rem" onclick="addChecked()">Add checked to batch</button>';
+  $('matches').innerHTML=h;
 }
+
+function addChecked(){
+  let added=0;
+  CURRENT.forEach((c,i)=>{
+    if(!$('pk_'+i)||!$('pk_'+i).checked)return;
+    const libName=($('lib_'+i).value||c.course_name||'').trim();
+    if(!libName)return;
+    const s=courseSummary(c);
+    BATCH.push({libName, apiName:c.course_name, id:c.id,
+      city:(c.location&&c.location.city)||'', state:(c.location&&c.location.state)||'', type:c.type||'Public',
+      tees:s.mt, si:s.si, pars:s.pars, parTotal:s.parTotal, flags:s.flags});
+    added++;
+    $('pk_'+i).checked=false;
+  });
+  if(added)renderBatch();
+}
+
+function renderBatch(){
+  $('batch-card').classList.toggle('hide',BATCH.length===0);
+  $('batchcount').textContent=BATCH.length;
+  let h='<table><thead><tr><th>#</th><th>Library name</th><th>API match</th><th>Loc</th><th>Tees</th><th>Par</th><th>SI</th><th>Flags</th><th></th></tr></thead><tbody>';
+  BATCH.forEach((b,i)=>{
+    const flags=b.flags.length?'<span class="'+(b.flags.some(f=>/no /.test(f))?'no':'warn')+'">'+b.flags.map(esc).join('<br>')+'</span>':'<span class="ok">clean</span>';
+    h+='<tr'+(b.flags.length?'':' class="picked"')+'><td>'+(i+1)+'</td><td><b>'+esc(b.libName)+'</b></td><td class="muted">'+esc(b.apiName)+'</td>'
+      +'<td>'+esc([b.city,b.state].filter(Boolean).join(', '))+'</td><td>'+b.tees.length+'</td><td>'+(b.parTotal||'\u2014')+'</td>'
+      +'<td>'+(b.si?'<span class="ok">\u2713</span>':'<span class="no">none</span>')+'</td><td>'+flags+'</td>'
+      +'<td><button class="sm alt" onclick="dropBatch('+i+')">\u00d7</button></td></tr>';
+  });
+  h+='</tbody></table>';
+  const noSI=BATCH.filter(b=>!b.si).length;
+  if(noSI)h+='<p class="warn">'+noSI+' course(s) have no SI from the API — they\u2019ll import with pars/yardage but zeroed SI (get those from BlueGolf before publishing).</p>';
+  $('batch').innerHTML=h;
+}
+function dropBatch(i){BATCH.splice(i,1);renderBatch();}
 
 function downloadCSV(){
-  if(!LAST_ROWS.length) return;
-  const hdr = ['name','city','state','type','tee_name','rating','slope'];
-  for(let h=1;h<=18;h++) hdr.push('h'+h+'_par','h'+h+'_yds','h'+h+'_hcp');
-  const lines = [hdr.join(',')];
-  for(const row of LAST_ROWS){
-    lines.push(hdr.map(k => '"' + String(row[k]==null?'':row[k]).replace(/"/g,'""') + '"').join(','));
+  if(!BATCH.length)return;
+  const hdr=['name','city','state','type','tee_name','rating','slope'];
+  for(let h=1;h<=18;h++)hdr.push('h'+h+'_par','h'+h+'_yds','h'+h+'_hcp');
+  const lines=[hdr.join(',')];
+  for(const b of BATCH){
+    for(const t of b.tees){
+      const holes=sortedHoles(t);
+      const row={name:b.libName,city:b.city,state:b.state,type:b.type,tee_name:t.tee_name||'White',rating:t.course_rating||'',slope:t.slope_rating||''};
+      holes.forEach((h,i)=>{row['h'+(i+1)+'_par']=h.par; row['h'+(i+1)+'_yds']=h.yardage; row['h'+(i+1)+'_hcp']=(b.si?b.si[i]:0);});
+      lines.push(hdr.map(k=>'"'+String(row[k]==null?'':row[k]).replace(/"/g,'""')+'"').join(','));
+    }
   }
-  const blob = new Blob([lines.join('\n')], {type:'text/csv'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = 'si-import.csv';
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
-  setTimeout(()=>URL.revokeObjectURL(url), 1000);
+  const blob=new Blob([lines.join('\n')],{type:'text/csv'});
+  const url=URL.createObjectURL(blob);const a=document.createElement('a');
+  a.href=url;a.download='si-import.csv';document.body.appendChild(a);a.click();document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
 </script>
 </body>
