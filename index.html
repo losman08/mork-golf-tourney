@@ -588,6 +588,11 @@ hr.div{border:none;border-top:1px solid var(--cream-dark);margin:1rem 0;}
     <div class="fg"><label>Full Name</label><input type="text" id="ep-name"></div>
     <div class="fg"><label>Nickname</label><input type="text" id="ep-nickname" placeholder="optional"></div>
     <div class="fg"><label>GHIN Handicap</label><input type="number" id="ep-hcp" step="0.1" min="0" max="54" placeholder="optional"></div>
+    <div class="fg"><label>Profile Photo</label>
+      <div id="ep-photo-preview"></div>
+      <input type="file" accept="image/*" id="ep-photo-input" style="display:none;" onchange="window._real_onEpPhotoSelected(this)">
+      <button type="button" class="btn btn-ghost btn-sm" id="ep-photo-btn" onclick="document.getElementById('ep-photo-input').click()">📷 Add Photo</button>
+    </div>
     <div style="font-size:0.72rem;color:var(--text-light);margin-top:4px;">Email and password are changed from account settings.</div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="window._real_closeModal('modal-edit-profile')">Cancel</button>
@@ -761,6 +766,65 @@ function switchAuthTab(tab) {
 }
 function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]; }); }
 function escJs(s){ return String(s==null?'':s).replace(/\\/g,'\\\\').replace(/'/g,"\\'"); }
+
+// ===== Player avatars (photo or initials fallback) + tap-to-zoom =====
+function _plLookup(x){
+  if(x==null) return null;
+  if(typeof x==='object') return x;
+  var arr = allPlayers||[];
+  var byId = arr.find(function(p){ return p.id===x; });
+  if(byId) return byId;
+  return arr.find(function(p){ return (p.name||'')===x; }) || { name:String(x) };
+}
+function plInitials(name){
+  var parts=String(name||'').trim().split(/\s+/);
+  if(!parts[0]) return '?';
+  var a=parts[0].charAt(0), b=parts.length>1?parts[parts.length-1].charAt(0):'';
+  return (a+b).toUpperCase();
+}
+function plAvatarColor(name){
+  var h=0, s=String(name||'?');
+  for(var i=0;i<s.length;i++){ h=(h*31 + s.charCodeAt(i))>>>0; }
+  return 'hsl('+(h%360)+',42%,42%)';
+}
+// avatarHtml(ref, size): ref = player object, id, or name. Inline (vertical-align:middle) so it sits
+// left of a name with no wrapper needed. Photo avatars are tap-to-zoom; initials are the fallback.
+function avatarHtml(ref, size){
+  size = size||28;
+  var p=_plLookup(ref), name=p?(p.name||''):'', photo=p?p.photo:null;
+  var base='display:inline-block;vertical-align:middle;width:'+size+'px;height:'+size+'px;border-radius:50%;margin-right:7px;';
+  if(photo){
+    return '<img src="'+photo+'" alt="" style="'+base+'object-fit:cover;cursor:zoom-in;box-shadow:0 1px 2px rgba(0,0,0,0.25);" onclick="event.stopPropagation();window._real_zoomPhoto(this.src,\''+escJs(name)+'\')">';
+  }
+  return '<span style="'+base+'line-height:'+size+'px;text-align:center;background:'+plAvatarColor(name)+';color:#fff;font-weight:700;font-size:'+Math.round(size*0.42)+'px;font-family:Inter,sans-serif;">'+esc(plInitials(name))+'</span>';
+}
+function zoomPhoto(src, name){
+  var ov=document.getElementById('photo-zoom-overlay');
+  if(!ov){
+    ov=document.createElement('div');
+    ov.id='photo-zoom-overlay';
+    ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.9);z-index:100000;display:none;flex-direction:column;align-items:center;justify-content:center;cursor:zoom-out;padding:20px;';
+    ov.onclick=function(){ ov.style.display='none'; };
+    ov.innerHTML='<img id="photo-zoom-img" style="max-width:92vw;max-height:78vh;border-radius:14px;box-shadow:0 10px 44px rgba(0,0,0,0.6);"><div id="photo-zoom-name" style="color:#fff;margin-top:16px;font-family:\'Playfair Display\',serif;font-size:1.15rem;"></div><div style="color:rgba(255,255,255,0.5);font-size:0.75rem;margin-top:6px;">tap to close</div>';
+    document.body.appendChild(ov);
+  }
+  document.getElementById('photo-zoom-img').src=src;
+  document.getElementById('photo-zoom-name').textContent=name||'';
+  ov.style.display='flex';
+}
+window._real_zoomPhoto=zoomPhoto;
+
+// Profile photo picker (reuses compressImageFile — stored inline on the player doc, no Storage)
+var epPhotoDataUri = null;
+window._real_onEpPhotoSelected = async function(input){
+  var file = input.files && input.files[0]; if(!file) return;
+  var btn = document.getElementById('ep-photo-btn');
+  if(btn){ btn.textContent='Compressing…'; btn.disabled=true; }
+  try { epPhotoDataUri = await compressImageFile(file, 256, 0.6); renderPhotoPreview('ep-photo-preview','ep-photo-btn',epPhotoDataUri,'window._real_removeEpPhoto()'); }
+  catch(e){ console.error(e); toast('Could not process photo.'); }
+  if(btn){ btn.disabled=false; }
+};
+window._real_removeEpPhoto = function(){ epPhotoDataUri = null; renderPhotoPreview('ep-photo-preview','ep-photo-btn',null); };
 function vsPar(score, par) {
   const d=score-par;
   if(d<0) return `<span class="vp under">${d}</span>`;
@@ -1116,7 +1180,7 @@ function renderHomeSeasonLb() {
   el.innerHTML=`<table><thead><tr><th class="c">#</th><th>Player</th><th class="c">Points</th></tr></thead><tbody>${
     ranked.map(([pid,p],i)=>{
       const name=allPlayers.find(x=>x.id===pid)?.name||'Unknown';
-      return `<tr ${i===0?'class="leader"':''}><td class="c"><span class="badge ${badgeClass(i+1)}">${i+1}</span></td><td class="pname">${esc(name)}</td><td class="c bold">${p}</td></tr>`;
+      return `<tr ${i===0?'class="leader"':''}><td class="c"><span class="badge ${badgeClass(i+1)}">${i+1}</span></td><td class="pname">${avatarHtml(name,24)}${esc(name)}</td><td class="c bold">${p}</td></tr>`;
     }).join('')
   }</tbody></table>`;
 }
@@ -1191,7 +1255,7 @@ function renderAllTimeLeaderboard() {
       var me = currentUser && r.playerId === currentUser.uid;
       return `<tr class="${i===0?'leader':''}"${me?' style="background:rgba(201,162,39,0.16);"':''}>
         <td class="c"><span class="badge ${badgeClass(i+1)}">${i+1}</span></td>
-        <td class="pname">${esc(r.name)}${me?' <span style="font-size:0.7rem;background:var(--gold);color:var(--forest);font-weight:700;padding:1px 7px;border-radius:8px;">YOU</span>':''}</td>
+        <td class="pname">${avatarHtml(r.playerId,26)}${esc(r.name)}${me?' <span style="font-size:0.7rem;background:var(--gold);color:var(--forest);font-weight:700;padding:1px 7px;border-radius:8px;">YOU</span>':''}</td>
         <td class="c bold">${r.pts}</td>
         <td class="c">${r.wins}</td>
         <td class="c">${r.best!=null?r.best:'—'}</td>
@@ -1256,7 +1320,7 @@ function renderCasualLeaderboard() {
       const me = currentUser && p.id === currentUser.uid;
       return `<tr class="${i===0?'leader':''}"${me?' style="background:rgba(201,162,39,0.16);"':''}>
         <td class="c"><span class="badge ${badgeClass(i+1)}">${i+1}</span></td>
-        <td class="pname" style="cursor:pointer;" onclick="window._real_viewPlayerRounds('${escJs(p.id)}','${escJs(p.name)}')">${esc(p.name)}${me?' <span style="font-size:0.7rem;background:var(--gold);color:var(--forest);font-weight:700;padding:1px 7px;border-radius:8px;">YOU</span>':''}</td>
+        <td class="pname" style="cursor:pointer;" onclick="window._real_viewPlayerRounds('${escJs(p.id)}','${escJs(p.name)}')">${avatarHtml(p,26)}${esc(p.name)}${me?' <span style="font-size:0.7rem;background:var(--gold);color:var(--forest);font-weight:700;padding:1px 7px;border-radius:8px;">YOU</span>':''}</td>
         <td class="c bold">${p.casualStats.rounds}</td>
       </tr>`;
     }).join('');
@@ -1271,7 +1335,7 @@ function renderCasualLeaderboard() {
       const me = currentUser && p.id === currentUser.uid;
       return `<tr class="${i===0?'leader':''}"${me?' style="background:rgba(201,162,39,0.16);"':''}>
         <td class="c"><span class="badge ${badgeClass(i+1)}">${i+1}</span></td>
-        <td class="pname" style="cursor:pointer;" onclick="window._real_viewPlayerRounds('${escJs(p.id)}','${escJs(p.name)}')">${esc(p.name)}${me?' <span style="font-size:0.7rem;background:var(--gold);color:var(--forest);font-weight:700;padding:1px 7px;border-radius:8px;">YOU</span>':''}</td>
+        <td class="pname" style="cursor:pointer;" onclick="window._real_viewPlayerRounds('${escJs(p.id)}','${escJs(p.name)}')">${avatarHtml(p,26)}${esc(p.name)}${me?' <span style="font-size:0.7rem;background:var(--gold);color:var(--forest);font-weight:700;padding:1px 7px;border-radius:8px;">YOU</span>':''}</td>
         <td class="c">${p.casualStats.rounds}</td>
         <td class="c bold">${p.casualStats[key]}</td>
       </tr>`;
@@ -1282,7 +1346,7 @@ function renderCasualLeaderboard() {
         const me = currentUser && p.id === currentUser.uid;
         return `<tr style="opacity:0.55;">
           <td class="c"><span class="badge bx">—</span></td>
-          <td class="pname" style="cursor:pointer;" onclick="window._real_viewPlayerRounds('${escJs(p.id)}','${escJs(p.name)}')">${esc(p.name)}${me?' <span style="font-size:0.7rem;background:var(--gold);color:var(--forest);font-weight:700;padding:1px 7px;border-radius:8px;">YOU</span>':''}</td>
+          <td class="pname" style="cursor:pointer;" onclick="window._real_viewPlayerRounds('${escJs(p.id)}','${escJs(p.name)}')">${avatarHtml(p,26)}${esc(p.name)}${me?' <span style="font-size:0.7rem;background:var(--gold);color:var(--forest);font-weight:700;padding:1px 7px;border-radius:8px;">YOU</span>':''}</td>
           <td class="c">${p.casualStats.rounds||0}</td>
           <td class="c" style="font-size:0.75rem;color:var(--text-light);">${need} more to rank</td>
         </tr>`;
@@ -1327,7 +1391,7 @@ async function renderCasualNetTab(withData){
     const src = r.hc.source === 'profile' ? '*' : '';
     return `<tr class="${i===0?'leader':''}"${me?' style="background:rgba(201,162,39,0.16);"':''}>
       <td class="c"><span class="badge ${badgeClass(i+1)}">${i+1}</span></td>
-      <td class="pname" style="cursor:pointer;" onclick="window._real_viewPlayerRounds('${escJs(r.p.id)}','${escJs(r.p.name)}')">${esc(r.p.name)}${me?' <span style="font-size:0.7rem;background:var(--gold);color:var(--forest);font-weight:700;padding:1px 7px;border-radius:8px;">YOU</span>':''}</td>
+      <td class="pname" style="cursor:pointer;" onclick="window._real_viewPlayerRounds('${escJs(r.p.id)}','${escJs(r.p.name)}')">${avatarHtml(r.p,26)}${esc(r.p.name)}${me?' <span style="font-size:0.7rem;background:var(--gold);color:var(--forest);font-weight:700;padding:1px 7px;border-radius:8px;">YOU</span>':''}</td>
       <td class="c">${r.p.casualStats.avgGross}</td>
       <td class="c">${r.hc.value}${src}</td>
       <td class="c bold">${r.net}</td>
@@ -1338,7 +1402,7 @@ async function renderCasualNetTab(withData){
       const me = currentUser && p.id === currentUser.uid;
       return `<tr style="opacity:0.55;">
         <td class="c"><span class="badge bx">—</span></td>
-        <td class="pname" style="cursor:pointer;" onclick="window._real_viewPlayerRounds('${escJs(p.id)}','${escJs(p.name)}')">${esc(p.name)}${me?' <span style="font-size:0.7rem;background:var(--gold);color:var(--forest);font-weight:700;padding:1px 7px;border-radius:8px;">YOU</span>':''}</td>
+        <td class="pname" style="cursor:pointer;" onclick="window._real_viewPlayerRounds('${escJs(p.id)}','${escJs(p.name)}')">${avatarHtml(p,26)}${esc(p.name)}${me?' <span style="font-size:0.7rem;background:var(--gold);color:var(--forest);font-weight:700;padding:1px 7px;border-radius:8px;">YOU</span>':''}</td>
         <td class="c">${p.casualStats.avgGross}</td>
         <td class="c" style="font-size:0.75rem;color:var(--text-light);">No handicap on file</td>
         <td class="c">—</td>
@@ -1548,7 +1612,7 @@ function renderLeaderboardContent() {
     <thead><tr>${headers}</tr></thead>
     <tbody>${rows.map(r=>`<tr class="${r.leader?'leader':''}">
       <td class="c"><span class="badge ${badgeClass(r.rank)}">${r.rank}</span></td>
-      <td class="pname">${esc(r.name)}</td>${r.cols}</tr>`).join('')}
+      <td class="pname">${avatarHtml(r.name,26)}${esc(r.name)}</td>${r.cols}</tr>`).join('')}
     </tbody></table></div>`;
 }
 
@@ -1660,7 +1724,7 @@ async function loadProfile() {
   if(!userProfile) return;
   const p=userProfile;
   document.getElementById('profile-header').innerHTML=`
-    <div class="profile-avatar">${p.name?.[0]||'?'}</div>
+    <div style="text-align:center;">${avatarHtml(p,80)}</div>
     <div class="profile-name">${esc(p.name)}${p.nickname ? ` <span style="font-size:0.95rem;color:var(--gold);font-weight:400;">"${esc(p.nickname)}"</span>` : ""}</div>
     <div class="profile-meta">${p.email||''} · Member since ${p.createdDate?.toDate?.()?.getFullYear()||'2026'}</div>
     ${p.officialHandicap!=null?`<div style="margin-top:8px;"><span class="chip chip-gold">GHIN HCP: ${p.officialHandicap}</span></div>`:''}
@@ -2588,8 +2652,9 @@ function renderPlayersList(){
     var click = 'onclick="window._real_plDetail(\'' + escJs(p.id) + '\')" style="cursor:pointer;"';
     return '<tr>'
       + '<td style="width:34px;text-align:center;"><input type="checkbox" ' + (sel?'checked':'') + ' onclick="event.stopPropagation();window._real_plToggle(\'' + escJs(p.id) + '\')"></td>'
-      + '<td ' + click + '><div class="pr-name">' + esc(plName(p)) + (isMe?' <span class="chip chip-gold" style="font-size:0.6rem;">YOU</span>':'') + '</div>'
-      + '<div class="pr-email">' + (p.role==='admin'?'<span class="chip chip-red" style="font-size:0.6rem;">admin</span> ':'') + 'HCP ' + plVal(st.hcp) + '</div></td>'
+      + '<td ' + click + '><div style="display:flex;align-items:center;">' + avatarHtml(p,36) + '<div>'
+      + '<div class="pr-name">' + esc(plName(p)) + (isMe?' <span class="chip chip-gold" style="font-size:0.6rem;">YOU</span>':'') + '</div>'
+      + '<div class="pr-email">' + (p.role==='admin'?'<span class="chip chip-red" style="font-size:0.6rem;">admin</span> ':'') + 'HCP ' + plVal(st.hcp) + '</div></div></div></td>'
       + '<td class="c" ' + click + '>' + plVal(st.rounds) + '</td>'
       + '<td class="c bold" ' + click + '>' + plVal(st.avgGross) + '</td>'
       + '<td class="c" ' + click + '>' + plVal(st.wins) + '</td></tr>';
@@ -2621,7 +2686,7 @@ function plDetail(pid){
   var cell = function(label, val){ return '<div class="stat-box"><div class="n">' + plVal(val) + '</div><div class="l">' + label + '</div></div>'; };
   cont.innerHTML =
     '<button class="btn btn-ghost btn-ghost-light btn-sm" style="margin-bottom:0.8rem;" onclick="window._real_plList()">\u2190 All players</button>'
-    + '<div class="card"><h3 style="margin-top:0;">' + esc(plName(p)) + (p.role==='admin'?' <span class="chip chip-red" style="font-size:0.65rem;">admin</span>':'') + '</h3>'
+    + '<div class="card"><div style="text-align:center;margin-bottom:10px;">' + avatarHtml(p,72) + '<h3 style="margin:8px 0 0;">' + esc(plName(p)) + (p.role==='admin'?' <span class="chip chip-red" style="font-size:0.65rem;">admin</span>':'') + '</h3></div>'
       + '<div class="stats-grid">'
         + cell('Handicap', st.hcp) + cell('Rounds', st.rounds) + cell('Avg Gross', st.avgGross)
         + cell('Avg vs Par', plParFmt(plVsPar(p.id))) + cell('Best', st.bestRound) + cell('Worst', st.worstRound)
@@ -2641,7 +2706,7 @@ function plCompareView(){
     ['Wins','wins',true,null], ['Top 3','top3',true,null], ['Season Pts','seasonPoints',true,null], ['Casual Rds','casualRounds',true,null]
   ];
   var stats = players.map(function(p){ var st = plStat(p); st.vsPar = plVsPar(p.id); return st; });
-  var head = '<th>Stat</th>' + players.map(function(p){ return '<th class="c">' + esc(p.nickname||p.name||'?') + '</th>'; }).join('');
+  var head = '<th>Stat</th>' + players.map(function(p){ return '<th class="c">' + avatarHtml(p,26) + '<br>' + esc(p.nickname||p.name||'?') + '</th>'; }).join('');
   var body = metrics.map(function(m){
     var key = m[1], higher = m[2], fmt = m[3];
     var vals = stats.map(function(s){ return s[key]; });
@@ -2656,7 +2721,7 @@ function plCompareView(){
   }).join('');
   // Head-to-head matrix — tournaments both players finished
   var anyH2H = false;
-  var hHead = '<th style="font-size:0.7rem;">H2H</th>' + players.map(function(p){ return '<th class="c" style="font-size:0.72rem;">' + esc(p.nickname||p.name||'?') + '</th>'; }).join('');
+  var hHead = '<th style="font-size:0.7rem;">H2H</th>' + players.map(function(p){ return '<th class="c" style="font-size:0.72rem;">' + avatarHtml(p,22) + '<br>' + esc(p.nickname||p.name||'?') + '</th>'; }).join('');
   var hBody = players.map(function(pa,i){
     var cells = players.map(function(pb,j){
       if(i===j) return '<td class="c" style="background:rgba(0,0,0,0.05);">\u2014</td>';
@@ -2771,6 +2836,8 @@ window._real_editProfile = function(){
   document.getElementById('ep-name').value = userProfile.name || '';
   document.getElementById('ep-nickname').value = userProfile.nickname || '';
   document.getElementById('ep-hcp').value = userProfile.officialHandicap!=null ? userProfile.officialHandicap : '';
+  epPhotoDataUri = userProfile.photo || null;
+  renderPhotoPreview('ep-photo-preview','ep-photo-btn',epPhotoDataUri,'window._real_removeEpPhoto()');
   openModal('modal-edit-profile');
 };
 window._real_saveProfileEdit = async function(){
@@ -2779,9 +2846,9 @@ window._real_saveProfileEdit = async function(){
   const hcpRaw = document.getElementById('ep-hcp').value;
   if(!name){ toast('Name is required.'); return; }
   try {
-    const upd = { name: name, nickname: nickname||null, officialHandicap: hcpRaw!==''?Number(hcpRaw):null };
+    const upd = { name: name, nickname: nickname||null, officialHandicap: hcpRaw!==''?Number(hcpRaw):null, photo: epPhotoDataUri||null };
     await updateDoc(doc(db,'players',currentUser.uid), upd);
-    userProfile.name = upd.name; userProfile.nickname = upd.nickname; userProfile.officialHandicap = upd.officialHandicap;
+    userProfile.name = upd.name; userProfile.nickname = upd.nickname; userProfile.officialHandicap = upd.officialHandicap; userProfile.photo = upd.photo;
     closeModal('modal-edit-profile');
     toast('✅ Profile updated.');
     loadProfile();
@@ -3432,7 +3499,7 @@ window._real_navCasual = function(btn) {
 };
 
 // Build/version stamp — confirms which version is actually running (catches stale cache)
-var APP_BUILD = '2026.08.03 · players-compare-v2';
+var APP_BUILD = '2026.08.03 · player-photos';
 console.log('%cMorks Golf Tour build: ' + APP_BUILD, 'color:#c9a227;font-weight:bold;font-size:14px;');
 try {
   var _bt = document.createElement('div');
