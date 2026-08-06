@@ -2187,37 +2187,46 @@ window._real_resetPeoriaHoles=async function(tid){
   await loadGlobalData(); toast('Cleared — you can redraw.'); window._real_showAdminPeoria();
 };
 
-async function showAdminLock() {
-  const t=activeTournament||allTournaments[0]; if(!t){ toast('No tournament.'); return; }
-  if(t.status==='locked'){ toast('This tournament is already locked — stats were applied once.'); return; }
-  try {
-  const scores=await fetchAllScores(t.id);
-  const ranked=rankGross(scores,t);
-  // Compute results & points
-  const results=ranked.map((r,i)=>({
+// ── Shared finalize + stats recompute (Deploy A: unify status/lock) ──
+// Recompute ONE player's stats from current results (+ their casual rounds) and save.
+// Reuses computePlayerStats(), which reads allTournaments — so call AFTER loadGlobalData().
+async function recomputePlayerStatsFor(uid){
+  const s = await computePlayerStats(uid);
+  await updateDoc(doc(db,'players',uid), { stats: s });
+}
+
+// Finalize a tournament to `targetStatus` ('locked' or 'completed'):
+// compute results from scores, commit status+results FIRST (this alone feeds All-Time),
+// then recompute each participant's stats as a separate best-effort step.
+// Returns true if results were committed, false if there was nothing to finalize.
+async function finalizeTournament(t, targetStatus){
+  const scores = await fetchAllScores(t.id);
+  const ranked = rankGross(scores, t);
+  if(!ranked.length){ toast('No scores entered yet — nothing to finalize.'); return false; }
+  const results = ranked.map((r,i)=>({
     playerId:r.playerId, name:r.name, rank:i+1, grossScore:r.gross,
     points:(t.pointsMap||POINTS_MAP)[i+1]||5
   }));
-  const batch=writeBatch(db);
-  batch.update(doc(db,'tournaments',t.id),{status:'locked',results});
-  // Update player stats
-  for(const r of results){
-    const pRef=doc(db,'players',r.playerId);
-    const pSnap=await getDoc(pRef);
-    if(pSnap.exists()){
-      const st=pSnap.data().stats||{};
-      const rounds=(st.roundsPlayed||0)+1;
-      const wins=(st.wins||0)+(r.rank===1?1:0);
-      const top3=(st.top3||0)+(r.rank<=3?1:0);
-      const avgGross=((st.avgGross||0)*(rounds-1)+r.grossScore)/rounds;
-      const best=st.bestRound?Math.min(st.bestRound,r.grossScore):r.grossScore;
-      const worst=st.worstRound?Math.max(st.worstRound,r.grossScore):r.grossScore;
-      const pts=(st.seasonPoints||0)+r.points;
-      batch.update(pRef,{stats:{...st,roundsPlayed:rounds,wins,top3,avgGross,bestRound:best,worstRound:worst,seasonPoints:pts}});
-    }
-  }
-  await batch.commit();
+  // Step 1 — commit status + results on their own. All-Time reads results[], so this is the fix.
+  await updateDoc(doc(db,'tournaments',t.id), { status: targetStatus, results });
   await loadGlobalData();
+  // Step 2 — recompute participants' stats from results, best-effort, so one bad player doc
+  //    can never roll back the lock (unlike the old atomic batch).
+  for(const r of results){
+    try { await recomputePlayerStatsFor(r.playerId); }
+    catch(e){ console.error('stat recompute failed for', r.playerId, e); }
+  }
+  return true;
+}
+
+async function showAdminLock() {
+  const t=activeTournament||allTournaments[0]; if(!t){ toast('No tournament.'); return; }
+  if(t.status==='locked'||t.status==='completed'){
+    if(!confirm('"'+t.name+'" is already finalized. Re-finalize to pick up any score or setting changes? Stats are recomputed, so there is no double-counting.')) return;
+  }
+  try {
+    const ok = await finalizeTournament(t, 'locked');
+    if(!ok) return;
   document.getElementById('admin-content').innerHTML=`<div class="card" style="text-align:center;padding:2rem;">
     <div style="font-size:2.5rem;margin-bottom:1rem;">🔒</div>
     <div style="font-family:'Playfair Display',serif;font-size:1.2rem;color:var(--forest);">${esc(t.name)} Locked</div>
@@ -3058,9 +3067,32 @@ window._real_setActiveTourney = async function() {
 window._real_setTourneyStatus = async function() {
   const tid = document.getElementById('status-sel').value;
   const status = document.getElementById('status-val-sel').value;
-  await updateDoc(doc(db, 'tournaments', tid), { status });
-  await loadGlobalData();
-  toast(`Status updated to "${status}"`);
+  const t = allTournaments.find(function(x){ return x.id === tid; });
+  if(!t){ toast('Tournament not found.'); return; }
+  const wasFinal = (t.status === 'locked' || t.status === 'completed');
+  try {
+    if(status === 'locked' || status === 'completed'){
+      // Route through the SAME finalize routine the Lock Results button uses, so
+      // setting status here fully computes results + recomputes stats (fixes All-Time).
+      const ok = await finalizeTournament(t, status);
+      if(!ok) return;
+      toast('🔒 "' + t.name + '" ' + status + ' — results & stats saved!');
+    } else {
+      // Moving to upcoming/active. If it was finalized, this is a revert.
+      if(wasFinal && !confirm('Revert "' + t.name + '" to ' + status + '? It will be removed from All-Time and player stats until you finalize it again.')) return;
+      const prev = (t.results || []);
+      await updateDoc(doc(db, 'tournaments', tid), { status });
+      await loadGlobalData();
+      if(wasFinal){
+        // Recompute the players who were in it so their stats drop this tournament.
+        for(const r of prev){
+          try { await recomputePlayerStatsFor(r.playerId); }
+          catch(e){ console.error('stat recompute failed for', r.playerId, e); }
+        }
+      }
+      toast('Status updated to "' + status + '".');
+    }
+  } catch(e){ console.error(e); toast('Update failed — nothing was changed. Check your connection and try again.'); }
 };
 
 window._real_deleteTournament = async function() {
@@ -3499,7 +3531,7 @@ window._real_navCasual = function(btn) {
 };
 
 // Build/version stamp — confirms which version is actually running (catches stale cache)
-var APP_BUILD = '2026.08.03 · player-photos';
+var APP_BUILD = '2026.08.06 · unified-finalize';
 console.log('%cMorks Golf Tour build: ' + APP_BUILD, 'color:#c9a227;font-weight:bold;font-size:14px;');
 try {
   var _bt = document.createElement('div');
