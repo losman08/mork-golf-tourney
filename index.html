@@ -2956,7 +2956,13 @@ window._real_editCasualRound = async function(rid){
     const holes = r.holes || {};
     ecPhotoDataUri = r.scorecardPhoto || null;
     const body = document.getElementById('ec-body');
-    let html = '<div style="font-size:0.85rem;color:var(--text-light);margin-bottom:0.8rem;">'+(r.course||'Round')+' · '+(r.date||'')+'</div>';
+    let html = '<div style="font-size:0.85rem;color:var(--text-light);margin-bottom:0.8rem;">'+(r.course||'Round')+'</div>';
+    html += '<div class="two-col" style="margin-bottom:0.8rem;">'
+          + '<div class="fg" style="margin:0;"><label>Date</label><input type="date" id="ec-date" value="'+(r.date||'')+'"></div>'
+          + '<div class="fg" style="margin:0;"><label>Tees Played</label><select id="ec-tees">'
+          +   ['Blue','White','Red','Gold'].map(function(t){ return '<option'+(r.tees===t?' selected':'')+'>'+t+'</option>'; }).join('')
+          + '</select></div>'
+          + '</div>';
     html += '<div class="card card-sm" style="margin-bottom:0.8rem;">'
           + '<label style="display:block;font-size:0.72rem;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:var(--text-mid);margin-bottom:8px;">Scorecard Photo (optional)</label>'
           + '<input type="file" accept="image/*" capture="environment" id="ec-photo-input" style="display:none;" onchange="window._real_onEcPhotoSelected(this)">'
@@ -2988,7 +2994,10 @@ window._real_saveCasualEdit = async function(rid, oldGross){
       if(!isNaN(v) && v>0){ holes[h] = { score:v, par:par }; gross += v; count++; }
     }
     if(count===0){ toast('Enter at least one score.'); return; }
-    await updateDoc(doc(db,'casualRounds',rid), { holes:holes, gross:gross, holesPlayed:count, scorecardPhoto: ecPhotoDataUri || null });
+    const orig = snap.exists() ? snap.data() : {};
+    const newDate = (document.getElementById('ec-date') && document.getElementById('ec-date').value) || orig.date || '';
+    const newTees = (document.getElementById('ec-tees') && document.getElementById('ec-tees').value) || orig.tees || '';
+    await updateDoc(doc(db,'casualRounds',rid), { holes:holes, gross:gross, holesPlayed:count, date:newDate, tees:newTees, scorecardPhoto: ecPhotoDataUri || null });
     await refreshMyStats();
     closeModal('modal-edit-casual');
     toast('✅ Round updated.');
@@ -3664,7 +3673,7 @@ window._real_navCasual = function(btn) {
 };
 
 // Build/version stamp — confirms which version is actually running (catches stale cache)
-var APP_BUILD = '2026.08.07 · blank-hole-prompt';
+var APP_BUILD = '2026.08.07 · edit-round-date-tees';
 console.log('%cMorks Golf Tour build: ' + APP_BUILD, 'color:#c9a227;font-weight:bold;font-size:14px;');
 try {
   var _bt = document.createElement('div');
