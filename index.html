@@ -1647,25 +1647,25 @@ async function loadScorecard() {
 function renderHoles() {
   const t=activeTournament;
   const pars=t?.holePars||DEFAULT_PARS;
-  // Pre-populate scorecardData with par for each hole
-  for(let h=1;h<=18;h++){
-    if(!scorecardData[h]) scorecardData[h]=pars[h-1]||4;
-  }
+  // No par pre-fill: scorecardData holds ONLY holes the player actually entered.
+  // Par is shown as a placeholder hint in each input, not a committed value — so an
+  // unedited open-and-submit produces zero entries and is refused by submitScorecard.
   ['front','back'].forEach(side=>{
     const start=side==='front'?1:10, end=side==='front'?9:18;
     let html='';
     for(let h=start;h<=end;h++){
       const par=pars[h-1]||4;
-      const score=scorecardData[h]||par;
-      const colorClass=score?getScoreClass(score,par):'';
-      html+=`<div class="hole-card ${score?'filled':''} ${colorClass}" id="hc-${h}">
+      const entered=scorecardData[h];
+      const hasScore=entered!=null&&entered!=='';
+      const colorClass=hasScore?getScoreClass(entered,par):'';
+      html+=`<div class="hole-card ${hasScore?'filled':''} ${colorClass}" id="hc-${h}">
         <div style="display:flex;justify-content:space-between;align-items:center;">
           <div class="hole-label">Hole ${h}</div>
           <div class="hole-par">Par ${par}</div>
         </div>
         <div class="hole-input-row">
           <button onclick="window._real_adjustHole(${h},-1)">−</button>
-          <input class="hole-val" type="number" id="hole-${h}" value="${score}" min="1" max="15" style="font-size:1.2rem;" onfocus="this.select()" onchange="onHoleChange(${h})" oninput="onHoleChange(${h})">
+          <input class="hole-val" type="number" id="hole-${h}" value="${hasScore?entered:''}" placeholder="${par}" min="1" max="15" style="font-size:1.2rem;" onfocus="this.select()" onchange="onHoleChange(${h})" oninput="onHoleChange(${h})">
           <button onclick="window._real_adjustHole(${h},1)">+</button>
         </div>
       </div>`;
@@ -1689,8 +1689,10 @@ function getScoreClass(score, par) {
 
 window._real_adjustHole=function(hole, delta) {
   const inp=document.getElementById('hole-'+hole);
-  const cur=parseInt(inp.value)||0;
-  const next=Math.max(1,Math.min(15,cur+delta));
+  const t=activeTournament;
+  const par=(t?.holePars||DEFAULT_PARS)[hole-1]||4;
+  const raw=parseInt(inp.value);
+  const next=isNaN(raw)?par:Math.max(1,Math.min(15,raw+delta));
   inp.value=next; onHoleChange(hole);
 };
 
@@ -3604,7 +3606,7 @@ window._real_navCasual = function(btn) {
 };
 
 // Build/version stamp — confirms which version is actually running (catches stale cache)
-var APP_BUILD = '2026.08.06 · date-active-guard';
+var APP_BUILD = '2026.08.06 · scorecard-no-prefill';
 console.log('%cMorks Golf Tour build: ' + APP_BUILD, 'color:#c9a227;font-weight:bold;font-size:14px;');
 try {
   var _bt = document.createElement('div');
