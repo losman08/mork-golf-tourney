@@ -3157,6 +3157,12 @@ window._real_deleteTournament = async function() {
   try{
     const snap=await getDocs(query(collection(db,'holeScores'),where('tournamentId','==',tid)));
     const docs=snap.docs;
+    // Collect everyone whose stored stats could include this tournament (finalized participants +
+    // anyone with scores in it) so we can refresh them after the delete — otherwise a deleted
+    // finalized tournament leaves stale wins/points/rounds behind on their player docs.
+    const affected = new Set();
+    (t && t.results || []).forEach(function(r){ if(r && r.playerId) affected.add(r.playerId); });
+    docs.forEach(function(d){ const pid = d.data().playerId; if(pid) affected.add(pid); });
     for(let i=0;i<docs.length;i+=450){
       const batch=writeBatch(db);
       docs.slice(i,i+450).forEach(function(d){ batch.delete(d.ref); });
@@ -3165,7 +3171,12 @@ window._real_deleteTournament = async function() {
     await deleteDoc(doc(db,'tournaments',tid));
     if(activeTournament&&activeTournament.id===tid) activeTournament=null;
     await loadGlobalData();
-    toast('🗑️ Tournament deleted.');
+    // Recompute AFTER loadGlobalData, so computeStandings no longer counts the deleted tournament.
+    for(const uid of affected){
+      try { await recomputePlayerStatsFor(uid); }
+      catch(e){ console.error('post-delete stat recompute failed for', uid, e); }
+    }
+    toast('🗑️ Tournament deleted — player stats refreshed.');
     window._real_showAdminSettings();
   }catch(e){ console.error(e); toast('Delete failed — see console.'); }
 };
@@ -3583,7 +3594,7 @@ window._real_navCasual = function(btn) {
 };
 
 // Build/version stamp — confirms which version is actually running (catches stale cache)
-var APP_BUILD = '2026.08.06 · stats-selfheal';
+var APP_BUILD = '2026.08.06 · delete-recompute';
 console.log('%cMorks Golf Tour build: ' + APP_BUILD, 'color:#c9a227;font-weight:bold;font-size:14px;');
 try {
   var _bt = document.createElement('div');
