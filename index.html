@@ -2470,8 +2470,8 @@ async function loadCasualRound() {
   const cont = document.getElementById('casual-content');
   if (!cont) return;
   const pars = DEFAULT_PARS;
-  // Pre-populate casualHoles with par values
-  for (let h = 1; h <= 18; h++) { casualHoles[h] = pars[h-1] || 4; }
+  // No par pre-fill: casualHoles holds ONLY holes the player actually entered, so an
+  // unedited submit produces zero entries and is refused by saveCasualRound.
   let html = `
     <div class="card card-sm" style="margin-bottom:1rem;">
       <div class="two-col">
@@ -2535,7 +2535,7 @@ function holeCardHTML(h, par, prefix) {
     </div>
     <div class="hole-input-row">
       <button onclick="window._real_adjustCasualHole(${h},-1)">−</button>
-      <input class="hole-val" type="number" id="${prefix}-hole-${h}" value="${par}" min="1" max="15"
+      <input class="hole-val" type="number" id="${prefix}-hole-${h}" value="" placeholder="${par}" min="1" max="15"
         style="font-size:1.2rem;" onfocus="this.select()" onchange="onCasualChange(${h})" oninput="onCasualChange(${h})">
       <button onclick="window._real_adjustCasualHole(${h},1)">+</button>
     </div>
@@ -2545,8 +2545,10 @@ function holeCardHTML(h, par, prefix) {
 window._real_adjustCasualHole = function(h, delta) {
   const inp = document.getElementById('cr-hole-' + h);
   if (!inp) return;
-  const cur = parseInt(inp.value) || 0;
-  inp.value = Math.max(1, Math.min(15, cur + delta));
+  const parEl = document.getElementById('cr-hc-' + h)?.querySelector('.hole-par');
+  const par = parEl ? (parseInt(parEl.textContent.replace('Par ','')) || (DEFAULT_PARS[h-1]||4)) : (DEFAULT_PARS[h-1]||4);
+  const raw = parseInt(inp.value);
+  inp.value = isNaN(raw) ? par : Math.max(1, Math.min(15, raw + delta));
   onCasualChange(h);
 };
 
@@ -3280,9 +3282,9 @@ function crApplyTee(course, teeName) {
           (h.yards ? '<span class="hole-yds">' + h.yards + 'y</span>' : '');
       }
       if (parEl2) parEl2.textContent = 'Par ' + h.par;
-      // Update score input and casualHoles with new par
-      if (inp) inp.value = h.par;
-      casualHoles[h.hole] = h.par;
+      // Update the placeholder to the new par only. Do NOT fill inp.value or write
+      // casualHoles — only holes the player actually enters should count.
+      if (inp) inp.placeholder = h.par;
     });
     updateCasualSummary();
   }
@@ -3606,7 +3608,7 @@ window._real_navCasual = function(btn) {
 };
 
 // Build/version stamp — confirms which version is actually running (catches stale cache)
-var APP_BUILD = '2026.08.06 · scorecard-no-prefill';
+var APP_BUILD = '2026.08.06 · casual-no-prefill';
 console.log('%cMorks Golf Tour build: ' + APP_BUILD, 'color:#c9a227;font-weight:bold;font-size:14px;');
 try {
   var _bt = document.createElement('div');
