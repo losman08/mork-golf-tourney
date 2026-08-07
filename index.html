@@ -2917,23 +2917,37 @@ window._real_saveCasualEdit = async function(rid, oldGross){
 async function loadStatsScreen() {
   const cont = document.getElementById('stats-content-main');
   if (!cont) return;
+  // Season Overview tile markup — reused by the instant cached render and the live self-heal below.
+  const overviewTiles = function(s){ s = s || {}; return `
+      <div class="stat-box"><div class="n">${s.roundsPlayed||0}</div><div class="l">Rounds</div></div>
+      <div class="stat-box"><div class="n">${s.wins||0}</div><div class="l">Wins</div></div>
+      <div class="stat-box"><div class="n">${s.top3||0}</div><div class="l">Top 3s</div></div>
+      <div class="stat-box"><div class="n">${s.seasonPoints||0}</div><div class="l">Season Pts</div></div>
+      <div class="stat-box"><div class="n">${s.bestRound||'—'}</div><div class="l">Best Round</div></div>
+      <div class="stat-box"><div class="n">${s.avgGross ? Math.round(s.avgGross) : '—'}</div><div class="l">Avg Gross</div></div>`; };
   // 1) Render Season Overview immediately from cached profile stats — no query, so this can never hang.
   const p = (userProfile && userProfile.stats) || {};
   cont.innerHTML = `
     <div class="section-title" style="font-size:1rem;margin-bottom:0.8rem;">Season Overview</div>
-    <div class="stats-grid" style="margin-bottom:1.5rem;">
-      <div class="stat-box"><div class="n">${p.roundsPlayed||0}</div><div class="l">Rounds</div></div>
-      <div class="stat-box"><div class="n">${p.wins||0}</div><div class="l">Wins</div></div>
-      <div class="stat-box"><div class="n">${p.top3||0}</div><div class="l">Top 3s</div></div>
-      <div class="stat-box"><div class="n">${p.seasonPoints||0}</div><div class="l">Season Pts</div></div>
-      <div class="stat-box"><div class="n">${p.bestRound||'—'}</div><div class="l">Best Round</div></div>
-      <div class="stat-box"><div class="n">${p.avgGross ? Math.round(p.avgGross) : '—'}</div><div class="l">Avg Gross</div></div>
-    </div>
+    <div class="stats-grid" id="season-overview-grid" style="margin-bottom:1.5rem;">${overviewTiles(p)}</div>
     <div id="stats-analytics"><div class="loading"><div class="spinner"></div></div></div>`;
   const analyt = document.getElementById('stats-analytics');
   if (!analyt) return;
-  // 2) Heavier analytics, with a timeout so a slow/stalled query degrades instead of spinning forever.
   const withTimeout = (pr, ms) => Promise.race([pr, new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))]);
+  // 1b) Self-heal the Season Overview: recompute live from current data, refresh the tiles in place,
+  // and persist to the player doc only if it drifted — so Profile / Players / Compare see fresh numbers
+  // too. Best-effort + timeout-guarded, so a slow query degrades to the cached tiles instead of hanging.
+  try {
+    const fresh = await withTimeout(computePlayerStats(currentUser.uid), 8000);
+    const grid = document.getElementById('season-overview-grid');
+    if (grid) grid.innerHTML = overviewTiles(fresh);
+    if (userProfile) userProfile.stats = fresh;
+    const changed = p.roundsPlayed !== fresh.roundsPlayed || p.wins !== fresh.wins ||
+      p.top3 !== fresh.top3 || p.seasonPoints !== fresh.seasonPoints ||
+      p.bestRound !== fresh.bestRound || Math.round(p.avgGross||0) !== Math.round(fresh.avgGross||0);
+    if (changed) { try { await updateDoc(doc(db,'players',currentUser.uid), { stats: fresh }); } catch(e){ console.error('stats persist', e); } }
+  } catch(e){ console.error('season overview refresh', e); }
+  // 2) Heavier analytics, with a timeout so a slow/stalled query degrades instead of spinning forever.
   try {
     const tSnap = await withTimeout(getDocs(query(collection(db, 'holeScores'), where('playerId', '==', currentUser.uid))), 8000);
     const cSnap = await withTimeout(getDocs(query(collection(db, 'casualRounds'), where('playerId', '==', currentUser.uid))), 8000);
@@ -3569,7 +3583,7 @@ window._real_navCasual = function(btn) {
 };
 
 // Build/version stamp — confirms which version is actually running (catches stale cache)
-var APP_BUILD = '2026.08.06 · recompute-stats-tool';
+var APP_BUILD = '2026.08.06 · stats-selfheal';
 console.log('%cMorks Golf Tour build: ' + APP_BUILD, 'color:#c9a227;font-weight:bold;font-size:14px;');
 try {
   var _bt = document.createElement('div');
