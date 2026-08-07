@@ -3042,6 +3042,11 @@ async function showAdminSettings() {
     </div>
     <button class="btn btn-forest" onclick="window._real_setTourneyStatus()">Update Status</button>
     <hr class="div">
+    <div class="section-title" style="font-size:0.95rem;margin-bottom:0.8rem;color:var(--forest);">Maintenance</div>
+    <div class="info-bar">Recompute every player's season stats from the current tournaments and casual rounds. Run this after deleting or reverting a tournament, or any time a player's Rounds / Wins / Points look out of date.</div>
+    <button class="btn btn-gold btn-full" onclick="window._real_recomputeAllStats()">Recompute All Player Stats</button>
+    <div id="recompute-result" style="margin-top:0.6rem;font-size:0.82rem;color:var(--text-mid);"></div>
+    <hr class="div">
     <div class="section-title" style="font-size:0.95rem;margin-bottom:0.8rem;color:var(--clay,#b00020);">Danger Zone</div>
     <div class="fg"><label>Delete Tournament</label>
       <select id="delete-sel">${allTournaments.map(t2=>`<option value="${t2.id}">${t2.name}</option>`).join('')}</select>
@@ -3050,6 +3055,39 @@ async function showAdminSettings() {
   </div>`;
 }
 window._real_showAdminSettings = showAdminSettings;
+
+// ── ADMIN MAINTENANCE: recompute every player's stored stats from current data ──
+// Fixes stale snapshots left behind when a finalized tournament is deleted or reverted
+// (those paths don't recompute prior participants). Reuses recomputePlayerStatsFor
+// (computePlayerStats -> updateDoc {stats}) per player; touches only the stats map.
+window._real_recomputeAllStats = async function() {
+  if(!confirm('Recompute season stats for ALL players from current tournaments + casual rounds? This overwrites the stored stats for every player.')) return;
+  const resEl = document.getElementById('recompute-result');
+  const setRes = function(msg){ if(resEl) resEl.textContent = msg; };
+  try {
+    setRes('Refreshing data…');
+    await loadGlobalData();
+    const players = (allPlayers || []).filter(function(p){ return p && p.id; });
+    if(!players.length){ setRes('No players found.'); toast('No players to recompute.'); return; }
+    let ok = 0, fail = 0;
+    for(let i=0;i<players.length;i++){
+      const p = players[i];
+      setRes('Recomputing ' + (i+1) + ' of ' + players.length + '…');
+      try { await recomputePlayerStatsFor(p.id); ok++; }
+      catch(e){ console.error('recompute failed for', p.id, e); fail++; }
+    }
+    // Refresh the current admin's in-memory stats so their own screens update immediately.
+    try { if(currentUser && userProfile) userProfile.stats = await computePlayerStats(currentUser.uid); }
+    catch(e){ console.error('self stats refresh', e); }
+    const msg = 'Recomputed ' + ok + ' player' + (ok===1?'':'s') + (fail ? (' — ' + fail + ' failed (see console)') : '') + '.';
+    setRes(msg);
+    toast('✅ ' + msg);
+  } catch(e){
+    console.error('recomputeAllStats', e);
+    setRes('Recompute failed — see console.');
+    toast('Recompute failed — nothing may have changed. Check your connection.');
+  }
+};
 
 window._real_setActiveTourney = async function() {
   const tid = document.getElementById('set-active-sel').value;
@@ -3531,7 +3569,7 @@ window._real_navCasual = function(btn) {
 };
 
 // Build/version stamp — confirms which version is actually running (catches stale cache)
-var APP_BUILD = '2026.08.06 · unified-finalize';
+var APP_BUILD = '2026.08.06 · recompute-stats-tool';
 console.log('%cMorks Golf Tour build: ' + APP_BUILD, 'color:#c9a227;font-weight:bold;font-size:14px;');
 try {
   var _bt = document.createElement('div');
