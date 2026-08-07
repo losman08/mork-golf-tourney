@@ -652,6 +652,18 @@ hr.div{border:none;border-top:1px solid var(--cream-dark);margin:1rem 0;}
   </div>
 </div>
 
+<div class="modal-bg" id="modal-blank-holes">
+  <div class="modal">
+    <div class="modal-header"><h3>⛳ Blank Holes</h3><button class="modal-close-btn" id="bh-close">✕</button></div>
+    <div id="bh-body"></div>
+    <div class="modal-footer" style="flex-wrap:wrap;gap:8px;">
+      <button class="btn btn-gold" id="bh-par">Count blanks as par (full 18)</button>
+      <button class="btn btn-forest" id="bh-partial">Save partial round</button>
+      <button class="btn btn-ghost" id="bh-cancel">Go back &amp; edit</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast"></div>
 
 <!-- ══ FIREBASE ══ -->
@@ -1719,12 +1731,45 @@ function updateScorecardSummary() {
   document.getElementById('sc-holes').textContent=entries.length;
 }
 
+// Blank-hole decision gate. Returns a promise resolving to 'par' | 'partial' | 'cancel'.
+// Runs BEFORE any Firestore write so the save path is never paused mid-flight.
+function promptBlankHoles(blanks){
+  return new Promise(function(resolve){
+    const body=document.getElementById('bh-body');
+    const parBtn=document.getElementById('bh-par');
+    const partialBtn=document.getElementById('bh-partial');
+    const cancelBtn=document.getElementById('bh-cancel');
+    const closeBtn=document.getElementById('bh-close');
+    const entered=18-blanks.length;
+    body.innerHTML='<p style="margin:0 0 8px;">'+blanks.length+' hole'+(blanks.length===1?'':'s')+' left blank: <strong>'+blanks.join(', ')+'</strong>.</p>'
+      +'<p style="margin:0;color:var(--text-mid);font-size:0.9rem;">Count them as par to save a full 18-hole round (counts toward your handicap), or save just the '+entered+' holes you entered — partial rounds don\'t count toward your handicap.</p>';
+    partialBtn.textContent='Save as '+entered+'-hole round';
+    function done(result){
+      parBtn.onclick=partialBtn.onclick=cancelBtn.onclick=closeBtn.onclick=null;
+      closeModal('modal-blank-holes');
+      resolve(result);
+    }
+    parBtn.onclick=function(){ done('par'); };
+    partialBtn.onclick=function(){ done('partial'); };
+    cancelBtn.onclick=function(){ done('cancel'); };
+    closeBtn.onclick=function(){ done('cancel'); };
+    openModal('modal-blank-holes');
+  });
+}
+
 async function submitScorecard() {
   if(!activeTournament||!currentUser) return;
-  const entries=Object.entries(scorecardData);
-  if(entries.length < 9){ toast('Enter at least 9 hole scores.'); return; }
   const t=activeTournament;
   const pars=t.holePars||DEFAULT_PARS;
+  let entries=Object.entries(scorecardData);
+  if(entries.length < 9){ toast('Enter at least 9 hole scores.'); return; }
+  if(entries.length < 18){
+    const blanks=[]; for(let h=1;h<=18;h++){ if(scorecardData[h]==null||scorecardData[h]===''){ blanks.push(h); } }
+    const choice=await promptBlankHoles(blanks);
+    if(choice==='cancel') return;
+    if(choice==='par'){ blanks.forEach(h=>{ scorecardData[h]=pars[h-1]||4; }); }
+    entries=Object.entries(scorecardData);
+  }
   const batch=writeBatch(db);
   // Delete existing then re-write
   const existing=await getDocs(query(collection(db,'holeScores'),where('tournamentId','==',t.id),where('playerId','==',currentUser.uid)));
@@ -2787,8 +2832,19 @@ window._real_plDetail = plDetail;
 window._real_plCompareView = plCompareView;
 
 async function saveCasualRound() {
-  const entries = Object.entries(casualHoles);
+  let entries = Object.entries(casualHoles);
   if (entries.length < 9) { toast('Enter at least 9 holes.'); return; }
+  const casualParFor=function(h){
+    var pEl=document.getElementById('cr-hc-'+h); var pl=pEl?pEl.querySelector('.hole-par'):null;
+    return pl?(parseInt((pl.textContent||'').replace('Par ',''))||(DEFAULT_PARS[h-1]||4)):(DEFAULT_PARS[h-1]||4);
+  };
+  if (entries.length < 18) {
+    const blanks=[]; for(let h=1;h<=18;h++){ if(casualHoles[h]==null||casualHoles[h]===''){ blanks.push(h); } }
+    const choice=await promptBlankHoles(blanks);
+    if(choice==='cancel') return;
+    if(choice==='par'){ blanks.forEach(h=>{ casualHoles[h]=casualParFor(h); }); }
+    entries=Object.entries(casualHoles);
+  }
   const course = document.getElementById('cr-course').value.trim() || 'Unknown Course';
   const date = document.getElementById('cr-date').value || new Date().toISOString().split('T')[0];
   const par = Number(document.getElementById('cr-par').value) || 72;
@@ -3608,7 +3664,7 @@ window._real_navCasual = function(btn) {
 };
 
 // Build/version stamp — confirms which version is actually running (catches stale cache)
-var APP_BUILD = '2026.08.07 · casual-no-prefill';
+var APP_BUILD = '2026.08.07 · blank-hole-prompt';
 console.log('%cMorks Golf Tour build: ' + APP_BUILD, 'color:#c9a227;font-weight:bold;font-size:14px;');
 try {
   var _bt = document.createElement('div');
