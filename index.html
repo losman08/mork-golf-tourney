@@ -2951,8 +2951,12 @@ async function loadStatsScreen() {
   try {
     const tSnap = await withTimeout(getDocs(query(collection(db, 'holeScores'), where('playerId', '==', currentUser.uid))), 8000);
     const cSnap = await withTimeout(getDocs(query(collection(db, 'casualRounds'), where('playerId', '==', currentUser.uid))), 8000);
+    // Only count tournament holes from FINALIZED (completed/locked) tournaments, so scores from an
+    // active/upcoming tournament (e.g. a test round in progress) don't pollute the analytics.
+    const finalizedIds = new Set((allTournaments || []).filter(function(t){ return t.status === 'completed' || t.status === 'locked'; }).map(function(t){ return t.id; }));
+    const tourneyHoles = tSnap.docs.map(d => d.data()).filter(h => finalizedIds.has(h.tournamentId));
     const byTourney = {};
-    tSnap.docs.forEach(d => { const data = d.data(); if (!byTourney[data.tournamentId]) byTourney[data.tournamentId] = []; byTourney[data.tournamentId].push(data); });
+    tourneyHoles.forEach(data => { if (!byTourney[data.tournamentId]) byTourney[data.tournamentId] = []; byTourney[data.tournamentId].push(data); });
     const casualRounds = cSnap.docs.map(d => d.data());
     const allScores = [];
     Object.values(byTourney).forEach(holes => { const total = holes.reduce((s, h) => s + h.score, 0); if (holes.length === 18) allScores.push(total); });
@@ -2961,8 +2965,8 @@ async function loadStatsScreen() {
     for (let h = 1; h <= 18; h++) holeStats[h] = { total: 0, count: 0, par: DEFAULT_PARS[h-1] || 4 };
     const buckets = { eagles: 0, birdies: 0, pars: 0, bogeys: 0, doubles: 0, worse: 0 };
     const bump = (diff) => { if (diff <= -2) buckets.eagles++; else if (diff === -1) buckets.birdies++; else if (diff === 0) buckets.pars++; else if (diff === 1) buckets.bogeys++; else if (diff === 2) buckets.doubles++; else buckets.worse++; };
-    // Tournament per-hole docs
-    tSnap.docs.forEach(d => { const data = d.data(); if (holeStats[data.holeNumber]) { holeStats[data.holeNumber].total += data.score; holeStats[data.holeNumber].count++; } bump(data.score - data.par); });
+    // Tournament per-hole docs (finalized only)
+    tourneyHoles.forEach(data => { if (holeStats[data.holeNumber]) { holeStats[data.holeNumber].total += data.score; holeStats[data.holeNumber].count++; } bump(data.score - data.par); });
     // Casual rounds feed distribution + hole difficulty too
     casualRounds.forEach(r => {
       const hs = r.holes || {};
@@ -3594,7 +3598,7 @@ window._real_navCasual = function(btn) {
 };
 
 // Build/version stamp — confirms which version is actually running (catches stale cache)
-var APP_BUILD = '2026.08.06 · delete-recompute';
+var APP_BUILD = '2026.08.06 · stats-dist-filter';
 console.log('%cMorks Golf Tour build: ' + APP_BUILD, 'color:#c9a227;font-weight:bold;font-size:14px;');
 try {
   var _bt = document.createElement('div');
