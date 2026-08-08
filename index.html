@@ -3148,6 +3148,18 @@ async function showAdminSettings() {
     </div>
     <button class="btn btn-forest" onclick="window._real_setTourneyStatus()">Update Status</button>
     <hr class="div">
+    <div class="section-title" style="font-size:0.95rem;margin-bottom:0.8rem;color:var(--forest);">Edit Tournament</div>
+    <div class="info-bar">Edit a tournament's name, date, or course. Changing the date can also change which tournament is auto-active. Scoring fields (par, slope, rating, format, points) aren't editable here yet.</div>
+    <div class="fg"><label>Tournament</label>
+      <select id="edit-tourney-sel" onchange="window._real_loadTournamentEdit()">${allTournaments.map(t2=>`<option value="${t2.id}">${esc(t2.name)}</option>`).join('')}</select>
+    </div>
+    <div class="fg"><label>Name</label><input type="text" id="et-name" value="${esc(allTournaments[0]?.name||'')}"></div>
+    <div class="two-col">
+      <div class="fg"><label>Date</label><input type="date" id="et-date" value="${allTournaments[0]?.date||''}"></div>
+      <div class="fg"><label>Course</label><input type="text" id="et-course" value="${esc(allTournaments[0]?.course||'')}"></div>
+    </div>
+    <button class="btn btn-forest btn-full" onclick="window._real_saveTournamentEdit()">Save Tournament</button>
+    <hr class="div">
     <div class="section-title" style="font-size:0.95rem;margin-bottom:0.8rem;color:var(--forest);">Maintenance</div>
     <div class="info-bar">Recompute every player's season stats from the current tournaments and casual rounds. Run this after deleting or reverting a tournament, or any time a player's Rounds / Wins / Points look out of date.</div>
     <button class="btn btn-gold btn-full" onclick="window._real_recomputeAllStats()">Recompute All Player Stats</button>
@@ -3258,6 +3270,35 @@ window._real_deleteTournament = async function() {
     toast('🗑️ Tournament deleted — player stats refreshed.');
     window._real_showAdminSettings();
   }catch(e){ console.error(e); toast('Delete failed — see console.'); }
+};
+
+// ── EDIT TOURNAMENT (metadata only: name / date / course) ──
+// Scoring fields and re-finalize are intentionally out of scope here (that's the C-b build).
+// Editing date is safe: pickActiveTournament re-derives active on loadGlobalData, and finalized
+// tournaments are excluded from active-derivation, so their stored results/stats are untouched.
+window._real_loadTournamentEdit = function(){
+  const tid = document.getElementById('edit-tourney-sel').value;
+  const t = allTournaments.find(function(x){ return x.id === tid; });
+  if(!t) return;
+  document.getElementById('et-name').value = t.name || '';
+  document.getElementById('et-date').value = t.date || '';
+  document.getElementById('et-course').value = t.course || '';
+};
+window._real_saveTournamentEdit = async function(){
+  const tid = document.getElementById('edit-tourney-sel').value;
+  const t = allTournaments.find(function(x){ return x.id === tid; });
+  if(!t){ toast('Tournament not found.'); return; }
+  const name = document.getElementById('et-name').value.trim();
+  const date = document.getElementById('et-date').value;
+  const course = document.getElementById('et-course').value.trim();
+  if(!name){ toast('Enter a tournament name.'); return; }
+  if(!date){ toast('Enter a tournament date.'); return; }
+  try {
+    await updateDoc(doc(db, 'tournaments', tid), { name: name, date: date, course: course });
+    await loadGlobalData();
+    toast('✅ "' + name + '" updated.');
+    window._real_showAdminSettings();
+  } catch(e){ console.error(e); toast('Update failed — see console.'); }
 };
 
 // Add Settings tile to admin grid
@@ -3673,7 +3714,7 @@ window._real_navCasual = function(btn) {
 };
 
 // Build/version stamp — confirms which version is actually running (catches stale cache)
-var APP_BUILD = '2026.08.07 · edit-round-date-tees';
+var APP_BUILD = '2026.08.07 · edit-tournament-meta';
 console.log('%cMorks Golf Tour build: ' + APP_BUILD, 'color:#c9a227;font-weight:bold;font-size:14px;');
 try {
   var _bt = document.createElement('div');
