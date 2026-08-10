@@ -3149,7 +3149,7 @@ async function showAdminSettings() {
     <button class="btn btn-forest" onclick="window._real_setTourneyStatus()">Update Status</button>
     <hr class="div">
     <div class="section-title" style="font-size:0.95rem;margin-bottom:0.8rem;color:var(--forest);">Edit Tournament</div>
-    <div class="info-bar">Edit a tournament's name, date, or course. Changing the date can also change which tournament is auto-active. Scoring fields (par, slope, rating, format, points) aren't editable here yet.</div>
+    <div class="info-bar">Edit a tournament's details. Name, date, and course are metadata-only. Changing a <b>scoring field</b> (format, par, rating, slope, or season points) on a <b>finalized</b> tournament automatically re-finalizes it — results and player stats are recomputed. The date can also change which tournament is auto-active.</div>
     <div class="fg"><label>Tournament</label>
       <select id="edit-tourney-sel" onchange="window._real_loadTournamentEdit()">${allTournaments.map(t2=>`<option value="${t2.id}">${esc(t2.name)}</option>`).join('')}</select>
     </div>
@@ -3157,6 +3157,29 @@ async function showAdminSettings() {
     <div class="two-col">
       <div class="fg"><label>Date</label><input type="date" id="et-date" value="${allTournaments[0]?.date||''}"></div>
       <div class="fg"><label>Course</label><input type="text" id="et-course" value="${esc(allTournaments[0]?.course||'')}"></div>
+    </div>
+    <div class="two-col">
+      <div class="fg"><label>Format</label>
+        <select id="et-format">
+          <option value="stroke"${(allTournaments[0]?.format||'stroke')==='stroke'?' selected':''}>Stroke Play</option>
+          <option value="system36"${(allTournaments[0]?.format)==='system36'?' selected':''}>System 36</option>
+          <option value="peoria"${(allTournaments[0]?.format)==='peoria'?' selected':''}>Blind Peoria</option>
+          <option value="stableford"${(allTournaments[0]?.format)==='stableford'?' selected':''}>Stableford</option>
+        </select>
+      </div>
+      <div class="fg"><label>Course Par</label><input type="number" id="et-par" min="60" max="80" value="${allTournaments[0]?.par!=null?allTournaments[0].par:72}"></div>
+    </div>
+    <div class="two-col">
+      <div class="fg"><label>Course Rating</label><input type="number" id="et-rating" step="0.1" min="55" max="80" value="${allTournaments[0]?.rating!=null?allTournaments[0].rating:(allTournaments[0]?.par!=null?allTournaments[0].par:72)}"></div>
+      <div class="fg"><label>Slope Rating</label><input type="number" id="et-slope" min="55" max="155" value="${allTournaments[0]?.slope!=null?allTournaments[0].slope:113}"></div>
+    </div>
+    <div class="fg">
+      <label>Season Points (1st/2nd/3rd)</label>
+      <div class="two-col">
+        <input type="number" id="et-pts1" placeholder="1st" value="${allTournaments[0]?.pointsMap?.[1]!=null?allTournaments[0].pointsMap[1]:100}">
+        <input type="number" id="et-pts2" placeholder="2nd" value="${allTournaments[0]?.pointsMap?.[2]!=null?allTournaments[0].pointsMap[2]:80}">
+      </div>
+      <input type="number" id="et-pts3" placeholder="3rd" value="${allTournaments[0]?.pointsMap?.[3]!=null?allTournaments[0].pointsMap[3]:60}" style="margin-top:8px;width:100%;padding:11px 13px;border:2px solid var(--cream-dark);border-radius:9px;font-size:0.93rem;font-family:'Inter',sans-serif;outline:none;">
     </div>
     <button class="btn btn-forest btn-full" onclick="window._real_saveTournamentEdit()">Save Tournament</button>
     <hr class="div">
@@ -3283,6 +3306,14 @@ window._real_loadTournamentEdit = function(){
   document.getElementById('et-name').value = t.name || '';
   document.getElementById('et-date').value = t.date || '';
   document.getElementById('et-course').value = t.course || '';
+  document.getElementById('et-format').value = t.format || 'stroke';
+  document.getElementById('et-par').value    = (t.par != null ? t.par : 72);
+  document.getElementById('et-rating').value = (t.rating != null ? t.rating : (t.par != null ? t.par : 72));
+  document.getElementById('et-slope').value  = (t.slope != null ? t.slope : 113);
+  var pm = t.pointsMap || {};
+  document.getElementById('et-pts1').value = (pm[1] != null ? pm[1] : 100);
+  document.getElementById('et-pts2').value = (pm[2] != null ? pm[2] : 80);
+  document.getElementById('et-pts3').value = (pm[3] != null ? pm[3] : 60);
 };
 window._real_saveTournamentEdit = async function(){
   const tid = document.getElementById('edit-tourney-sel').value;
@@ -3293,10 +3324,52 @@ window._real_saveTournamentEdit = async function(){
   const course = document.getElementById('et-course').value.trim();
   if(!name){ toast('Enter a tournament name.'); return; }
   if(!date){ toast('Enter a tournament date.'); return; }
+  // Scoring fields (mirror createTournament defaults).
+  const format = document.getElementById('et-format').value;
+  const par    = Number(document.getElementById('et-par').value) || 72;
+  const slope  = Number(document.getElementById('et-slope').value) || 113;
+  const rating = Number(document.getElementById('et-rating').value) || par;
+  const p1 = Number(document.getElementById('et-pts1').value) || 0;
+  const p2 = Number(document.getElementById('et-pts2').value) || 0;
+  const p3 = Number(document.getElementById('et-pts3').value) || 0;
+  const oldPm = t.pointsMap || {};
+  // Preserve fixed ranks 4–8 from the existing map (fall back to POINTS_MAP defaults).
+  const pointsMap = { 1:p1, 2:p2, 3:p3,
+    4:(oldPm[4]!=null?oldPm[4]:45), 5:(oldPm[5]!=null?oldPm[5]:30),
+    6:(oldPm[6]!=null?oldPm[6]:20), 7:(oldPm[7]!=null?oldPm[7]:15),
+    8:(oldPm[8]!=null?oldPm[8]:10) };
+  // Re-finalize ONLY when a scoring-affecting field actually changed AND the tournament is finalized.
+  // Metadata-only edits (name/date/course) must never trigger a recompute.
+  const scoringChanged =
+    (t.format||'stroke') !== format ||
+    Number(t.par!=null?t.par:72) !== par ||
+    Number(t.slope!=null?t.slope:113) !== slope ||
+    Number(t.rating!=null?t.rating:(t.par!=null?t.par:72)) !== rating ||
+    Number(oldPm[1]!=null?oldPm[1]:100) !== p1 ||
+    Number(oldPm[2]!=null?oldPm[2]:80) !== p2 ||
+    Number(oldPm[3]!=null?oldPm[3]:60) !== p3;
+  const isFinalized = (t.status === 'locked' || t.status === 'completed');
   try {
-    await updateDoc(doc(db, 'tournaments', tid), { name: name, date: date, course: course });
+    await updateDoc(doc(db, 'tournaments', tid), {
+      name: name, date: date, course: course,
+      format: format, par: par, slope: slope, rating: rating, pointsMap: pointsMap
+    });
     await loadGlobalData();
-    toast('✅ "' + name + '" updated.');
+    if(scoringChanged && isFinalized){
+      // Route through the same chokepoint the Lock button uses so results[] + player stats
+      // are recomputed from the now-updated tournament config. Re-fetch fresh so rankGross
+      // and the points map read the new values.
+      const freshT = allTournaments.find(function(x){ return x.id === tid; });
+      if(freshT){
+        const ok = await finalizeTournament(freshT, freshT.status);
+        toast(ok ? ('✅ "' + name + '" updated & re-finalized — results and stats recomputed.')
+                 : ('✅ "' + name + '" saved. Re-finalize was skipped (see note above).'));
+      } else {
+        toast('✅ "' + name + '" updated.');
+      }
+    } else {
+      toast('✅ "' + name + '" updated.');
+    }
     window._real_showAdminSettings();
   } catch(e){ console.error(e); toast('Update failed — see console.'); }
 };
@@ -3714,7 +3787,7 @@ window._real_navCasual = function(btn) {
 };
 
 // Build/version stamp — confirms which version is actually running (catches stale cache)
-var APP_BUILD = '2026.08.07 · edit-tournament-meta';
+var APP_BUILD = '2026.08.09 · edit-tournament-scoring';
 console.log('%cMorks Golf Tour build: ' + APP_BUILD, 'color:#c9a227;font-weight:bold;font-size:14px;');
 try {
   var _bt = document.createElement('div');
