@@ -204,6 +204,15 @@ td.pname{font-weight:600;font-family:'Playfair Display',serif;font-size:0.95rem;
 .hr-right{text-align:right;}
 .hr-right .score{font-weight:700;font-size:1rem;color:var(--forest);}
 .hr-right .pos{font-size:0.75rem;color:var(--text-light);}
+/* My Rounds (casual history) renders on the dark-green screen, so the shared
+   history-row colors (near-black name, forest-green score) are unreadable there.
+   Scope readable light tones to this container only — Home's #home-recent and any
+   other .history-row on light cards keep the base colors. */
+#casual-history-content .hr-left .name{color:var(--cream);}
+#casual-history-content .hr-left .meta{color:rgba(245,240,232,0.72);}
+#casual-history-content .hr-right .score{color:var(--gold);}
+#casual-history-content .hr-right .pos{color:rgba(245,240,232,0.72);}
+#casual-history-content .history-row{border-bottom-color:rgba(245,240,232,0.15);}
 
 /* ── ADMIN ── */
 .admin-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;}
@@ -3722,7 +3731,7 @@ document.addEventListener('DOMContentLoaded', () => {
   <div id="screen-casual-history" class="screen">
     <div class="topbar">
       <div><div class="topbar-title">My Rounds</div><div class="topbar-sub">Personal round history</div></div>
-      <div class="topbar-right"><button class="icon-btn" onclick="window._real_showScreen('casual');window._real_loadCasualRound()">← Back</button></div>
+      <div class="topbar-right"><button class="icon-btn" onclick="window._real_navTo('stats',null)">← Back</button></div>
     </div>
     <div class="pad" id="casual-history-content"><div class="loading"><div class="spinner"></div></div></div>
   </div>`);
@@ -3787,7 +3796,7 @@ window._real_navCasual = function(btn) {
 };
 
 // Build/version stamp — confirms which version is actually running (catches stale cache)
-var APP_BUILD = '2026.08.09 · edit-tournament-scoring';
+var APP_BUILD = '2026.08.09 · my-rounds-fixes';
 console.log('%cMorks Golf Tour build: ' + APP_BUILD, 'color:#c9a227;font-weight:bold;font-size:14px;');
 try {
   var _bt = document.createElement('div');
