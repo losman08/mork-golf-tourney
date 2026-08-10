@@ -2668,13 +2668,41 @@ async function computeCasualStats(uid){
     bestRound: grosses.length ? Math.min.apply(null, grosses) : null
   };
 }
+// Par-type scoring: average strokes OVER PAR on par-3s, par-4s and par-5s. Course-independent
+// (uses each hole's real par), so it's comparable across players and courses. Lower = better.
+function calcParTypeStats(records){
+  // records: [{score, par}, ...]
+  const acc = { 3:{t:0,n:0}, 4:{t:0,n:0}, 5:{t:0,n:0} };
+  (records||[]).forEach(function(r){
+    if(!r || typeof r.score!=='number') return;
+    const par = Number(r.par);
+    if(par!==3 && par!==4 && par!==5) return;
+    acc[par].t += (r.score - par); acc[par].n++;
+  });
+  const fmt = function(o){ return o.n ? { avg:+(o.t/o.n).toFixed(1), n:o.n } : { avg:null, n:0 }; };
+  return { p3:fmt(acc[3]), p4:fmt(acc[4]), p5:fmt(acc[5]) };
+}
+// Fetch a player's OWN hole data (finalized tournament holes + casual holes) and compute par-type.
+// Only ever called for the current user (own data is readable per Firestore rules).
+async function computeParTypeStats(uid){
+  const records = [];
+  try {
+    const finalizedIds = new Set((allTournaments||[]).filter(function(t){ return t.status==='completed'||t.status==='locked'; }).map(function(t){ return t.id; }));
+    const tSnap = await getDocs(query(collection(db,'holeScores'), where('playerId','==',uid)));
+    tSnap.docs.forEach(function(d){ const h=d.data(); if(finalizedIds.has(h.tournamentId) && typeof h.score==='number') records.push({ score:h.score, par:h.par }); });
+    const cSnap = await getDocs(query(collection(db,'casualRounds'), where('playerId','==',uid)));
+    cSnap.docs.forEach(function(d){ const r=d.data(); const hs=r.holes||{}; Object.keys(hs).forEach(function(k){ const hole=hs[k]; if(hole && typeof hole.score==='number') records.push({ score:hole.score, par:(hole.par||DEFAULT_PARS[parseInt(k,10)-1]||4) }); }); });
+  } catch(e){ console.error('computeParTypeStats', e); }
+  return calcParTypeStats(records);
+}
 async function refreshMyStats(){
   if(!currentUser) return;
   try {
     const s = await computePlayerStats(currentUser.uid);
     const cs = await computeCasualStats(currentUser.uid);
-    if(userProfile){ userProfile.stats = s; userProfile.casualStats = cs; }
-    await updateDoc(doc(db,'players',currentUser.uid), { stats: s, casualStats: cs });
+    const pt = await computeParTypeStats(currentUser.uid);
+    if(userProfile){ userProfile.stats = s; userProfile.casualStats = cs; userProfile.parTypeStats = pt; }
+    await updateDoc(doc(db,'players',currentUser.uid), { stats: s, casualStats: cs, parTypeStats: pt });
   } catch(e){ console.error('refreshMyStats', e); }
 }
 
@@ -2688,6 +2716,8 @@ function plStat(p){
   var num = function(v){ return (typeof v === 'number' && !isNaN(v)) ? v : null; };
   var avg = num(s.avgGross); if(avg==null) avg = num(cs.avgGross);
   var best = num(s.bestRound); if(best==null) best = num(cs.bestRound);
+  var pt = p.parTypeStats || {};
+  var ptAvg = function(o){ return (o && o.avg!=null && typeof o.avg==='number') ? o.avg : null; };
   return {
     hcp: (p.officialHandicap!=null ? Number(p.officialHandicap) : null),
     rounds: num(s.roundsPlayed),
@@ -2697,7 +2727,8 @@ function plStat(p){
     worstRound: num(s.worstRound),
     wins: num(s.wins),
     top3: num(s.top3),
-    seasonPoints: num(s.seasonPoints)
+    seasonPoints: num(s.seasonPoints),
+    p3: ptAvg(pt.p3), p4: ptAvg(pt.p4), p5: ptAvg(pt.p5)
   };
 }
 function plName(p){ return p.nickname ? (p.name + ' (' + p.nickname + ')') : (p.name || 'Unknown'); }
@@ -2781,6 +2812,7 @@ function plDetail(pid){
         + cell('Handicap', st.hcp) + cell('Rounds', st.rounds) + cell('Avg Gross', st.avgGross)
         + cell('Avg vs Par', plParFmt(plVsPar(p.id))) + cell('Best', st.bestRound) + cell('Worst', st.worstRound)
         + cell('Wins', st.wins) + cell('Top 3', st.top3) + cell('Season Pts', st.seasonPoints) + cell('Casual Rds', st.casualRounds)
+        + cell('Par 3 vs Par', plParFmt(st.p3)) + cell('Par 4 vs Par', plParFmt(st.p4)) + cell('Par 5 vs Par', plParFmt(st.p5))
       + '</div></div>'
     + '<div class="section-sub">Read-only view. Stats update when a player records or edits a round.</div>';
 }
@@ -2793,7 +2825,8 @@ function plCompareView(){
   var metrics = [
     ['Handicap','hcp',false,null], ['Rounds','rounds',true,null], ['Avg Gross','avgGross',false,null],
     ['Avg vs Par','vsPar',false,plParFmt], ['Best','bestRound',false,null], ['Worst','worstRound',false,null],
-    ['Wins','wins',true,null], ['Top 3','top3',true,null], ['Season Pts','seasonPoints',true,null], ['Casual Rds','casualRounds',true,null]
+    ['Wins','wins',true,null], ['Top 3','top3',true,null], ['Season Pts','seasonPoints',true,null], ['Casual Rds','casualRounds',true,null],
+    ['Par 3 vs par','p3',false,plParFmt], ['Par 4 vs par','p4',false,plParFmt], ['Par 5 vs par','p5',false,plParFmt]
   ];
   var stats = players.map(function(p){ var st = plStat(p); st.vsPar = plVsPar(p.id); return st; });
   var head = '<th>Stat</th>' + players.map(function(p){ return '<th class="c">' + avatarHtml(p,26) + '<br>' + esc(p.nickname||p.name||'?') + '</th>'; }).join('');
@@ -3059,34 +3092,57 @@ async function loadStatsScreen() {
     const byTourney = {};
     tourneyHoles.forEach(data => { if (!byTourney[data.tournamentId]) byTourney[data.tournamentId] = []; byTourney[data.tournamentId].push(data); });
     const casualRounds = cSnap.docs.map(d => d.data());
-    const allScores = [];
-    Object.values(byTourney).forEach(holes => { const total = holes.reduce((s, h) => s + h.score, 0); if (holes.length === 18) allScores.push(total); });
-    casualRounds.forEach(r => { if (r.holesPlayed === 18) allScores.push(r.gross); });
-    const holeStats = {};
-    for (let h = 1; h <= 18; h++) holeStats[h] = { total: 0, count: 0, par: DEFAULT_PARS[h-1] || 4 };
+    const parRecords = [];
     const buckets = { eagles: 0, birdies: 0, pars: 0, bogeys: 0, doubles: 0, worse: 0 };
     const bump = (diff) => { if (diff <= -2) buckets.eagles++; else if (diff === -1) buckets.birdies++; else if (diff === 0) buckets.pars++; else if (diff === 1) buckets.bogeys++; else if (diff === 2) buckets.doubles++; else buckets.worse++; };
-    // Tournament per-hole docs (finalized only)
-    tourneyHoles.forEach(data => { if (holeStats[data.holeNumber]) { holeStats[data.holeNumber].total += data.score; holeStats[data.holeNumber].count++; } bump(data.score - data.par); });
-    // Casual rounds feed distribution + hole difficulty too
+    // Tournament per-hole docs (finalized only) — feed distribution + par-type.
+    tourneyHoles.forEach(data => { if (typeof data.score === 'number') { parRecords.push({ score: data.score, par: data.par }); bump(data.score - data.par); } });
+    // Casual rounds feed distribution + par-type too.
     casualRounds.forEach(r => {
       const hs = r.holes || {};
       Object.keys(hs).forEach(k => {
-        const hole = hs[k]; const hn = parseInt(k, 10);
+        const hole = hs[k];
         if (hole && typeof hole.score === 'number') {
-          if (holeStats[hn]) { holeStats[hn].total += hole.score; holeStats[hn].count++; }
-          bump(hole.score - (hole.par || DEFAULT_PARS[hn-1] || 4));
+          const par = hole.par || DEFAULT_PARS[parseInt(k, 10) - 1] || 4;
+          parRecords.push({ score: hole.score, par: par });
+          bump(hole.score - par);
         }
       });
     });
     const totalHoles = Object.values(buckets).reduce((a, b) => a + b, 0);
     const pct = n => totalHoles ? Math.round((n / totalHoles) * 100) : 0;
-    const recentScores = [...allScores].slice(-10);
-    const trend = recentScores.length >= 3
-      ? (recentScores.slice(-3).reduce((a, b) => a + b, 0) / 3 - recentScores.slice(0, 3).reduce((a, b) => a + b, 0) / 3).toFixed(1)
-      : null;
+    const parType = calcParTypeStats(parRecords);
+    // Publish par-type to this player's PUBLIC doc so Players compare can read it (mirrors stats/casualStats).
+    // Best-effort + only-if-changed, so it can't hang the screen or spam writes.
+    try {
+      const prevPT = (userProfile && userProfile.parTypeStats) ? JSON.stringify(userProfile.parTypeStats) : null;
+      if (JSON.stringify(parType) !== prevPT) {
+        await updateDoc(doc(db, 'players', currentUser.uid), { parTypeStats: parType });
+        if (userProfile) userProfile.parTypeStats = parType;
+      }
+    } catch(e){ console.error('parType persist', e); }
+    // Scoring trend — chronological + par-normalized. Raw gross across different courses (par 71 vs 72,
+    // easy vs hard) isn't comparable, and the old array wasn't date-sorted, so both are fixed here.
+    const datedVsPar = [];
+    Object.keys(byTourney).forEach(function(tid){
+      const holes = byTourney[tid];
+      if (holes.length !== 18) return;
+      const t = (allTournaments || []).find(function(x){ return x.id === tid; }) || {};
+      const gross = holes.reduce(function(s, h){ return s + h.score; }, 0);
+      datedVsPar.push({ date: t.date || '', vsPar: gross - (Number(t.par) || 72) });
+    });
+    casualRounds.forEach(function(r){ if (r.holesPlayed === 18) datedVsPar.push({ date: r.date || '', vsPar: r.gross - (Number(r.par) || 72) }); });
+    datedVsPar.sort(function(a, b){ return (a.date || '').localeCompare(b.date || ''); });
+    const window10 = datedVsPar.slice(-10);
+    let trend = null, trendN = 0;
+    if (window10.length >= 6) {
+      const recent3 = window10.slice(-3).reduce(function(a, b){ return a + b.vsPar; }, 0) / 3;
+      const early3  = window10.slice(0, 3).reduce(function(a, b){ return a + b.vsPar; }, 0) / 3;
+      trend = +(recent3 - early3).toFixed(1);
+      trendN = window10.length;
+    }
     if (!totalHoles) {
-      analyt.innerHTML = `<div class="card card-sm" style="text-align:center;color:var(--text-light);font-size:0.9rem;padding:1.5rem;">Log a few rounds with hole-by-hole scores and your shot distribution, hole difficulty, and scoring trend will appear here.</div>`;
+      analyt.innerHTML = `<div class="card card-sm" style="text-align:center;color:var(--text-light);font-size:0.9rem;padding:1.5rem;">Log a few rounds with hole-by-hole scores and your shot distribution, par-type scoring, and scoring trend will appear here.</div>`;
       return;
     }
     analyt.innerHTML = `
@@ -3100,20 +3156,20 @@ async function loadStatsScreen() {
         ${renderDistBar('Worse', buckets.worse, pct(buckets.worse), '#8e1a10', 'white')}
         <div style="text-align:center;font-size:0.75rem;color:var(--text-light);margin-top:0.8rem;">${totalHoles} holes total</div>
       </div>
-      <div class="section-title" style="font-size:1rem;margin-bottom:0.8rem;">Hole Difficulty (Your Avg)</div>
-      <div class="card card-sm" style="overflow-x:auto;margin-bottom:1.5rem;">
-        <table style="min-width:520px;">
-          <thead><tr>${Array.from({length:18},(_,i)=>`<th class="c" style="font-size:0.65rem;">H${i+1}</th>`).join('')}</tr></thead>
-          <tbody><tr>${Array.from({length:18},(_,i)=>{ const h=i+1; const hs=holeStats[h]; const avg=hs.count?+(hs.total/hs.count).toFixed(1):null; const par=hs.par; const diff=avg?+(avg-par).toFixed(1):null; let bg=''; if(diff!==null){ if(diff<0) bg='background:#1a3a8a;color:white;'; else if(diff===0) bg='background:#d4edda;color:#155724;'; else if(diff<=0.5) bg='background:#fff3cd;color:#856404;'; else if(diff<=1) bg='background:#f8d7da;color:#721c24;'; else bg='background:#f5c6cb;color:#491217;'; } return `<td class="c" style="font-size:0.78rem;font-weight:600;padding:8px 4px;${bg}">${avg||'—'}</td>`; }).join('')}</tr></tbody>
+      <div class="section-title" style="font-size:1rem;margin-bottom:0.8rem;">Scoring by Par Type</div>
+      <div class="card card-sm" style="margin-bottom:1.5rem;">
+        <table style="width:100%;">
+          <thead><tr><th>Par</th><th class="c">Your Avg vs Par</th><th class="c">Holes</th></tr></thead>
+          <tbody>${[['Par 3','p3'],['Par 4','p4'],['Par 5','p5']].map(function(row){ var d=parType[row[1]]||{}; var avg=(d.avg!=null)?d.avg:null; var n=d.n||0; var disp=(avg==null)?'\u2014':(avg>0?'+'+avg:(avg<0?''+avg:'E')); var col='color:var(--text-light);'; if(avg!=null){ if(avg<=0) col='color:#1a3a8a;'; else if(avg<=0.5) col='color:#856404;'; else if(avg<=1) col='color:#c0392b;'; else col='color:#8e1a10;'; } return '<tr><td style="font-weight:600;">'+row[0]+'</td><td class="c bold" style="'+col+'">'+disp+'</td><td class="c" style="color:var(--text-light);">'+(n||'\u2014')+'</td></tr>'; }).join('')}</tbody>
         </table>
-        <div style="display:flex;gap:12px;margin-top:0.8rem;font-size:0.72rem;color:var(--text-light);flex-wrap:wrap;"><span>🟦 Under par &nbsp; 🟩 Even &nbsp; 🟨 +0.5 &nbsp; 🟥 +1 &nbsp; ⬛ +1.5+</span></div>
+        <div style="text-align:center;font-size:0.75rem;color:var(--text-light);margin-top:0.8rem;">Average strokes over par by hole type \u00b7 lower is better</div>
       </div>
       ${trend !== null ? `
-      <div class="section-title" style="font-size:1rem;margin-bottom:0.8rem;">Recent Trend (last 10 rounds)</div>
+      <div class="section-title" style="font-size:1rem;margin-bottom:0.8rem;">Recent Trend</div>
       <div class="card card-sm" style="text-align:center;margin-bottom:1.5rem;">
         <div style="font-size:2rem;font-weight:900;font-family:'Playfair Display',serif;color:var(--forest);">${trend > 0 ? '+' : ''}${trend}</div>
-        <div style="font-size:0.78rem;color:var(--text-light);margin-top:4px;">strokes vs first 3 rounds</div>
-        <div style="font-size:0.82rem;color:${trend < 0 ? '#27ae60' : '#c0392b'};margin-top:6px;font-weight:600;">${trend < 0 ? '📈 Improving!' : trend > 0 ? '📉 Room to grow' : '⛳ Steady'}</div>
+        <div style="font-size:0.78rem;color:var(--text-light);margin-top:4px;">strokes vs par \u00b7 recent 3 vs earlier 3 (last ${trendN} rounds)</div>
+        <div style="font-size:0.82rem;color:${trend < 0 ? '#27ae60' : trend > 0 ? '#c0392b' : 'var(--text-light)'};margin-top:6px;font-weight:600;">${trend < 0 ? '📈 Trending better' : trend > 0 ? '📉 Room to grow' : '⛳ Steady'}</div>
       </div>` : ''}`;
   } catch(e){
     console.error('stats analytics', e);
@@ -3796,7 +3852,7 @@ window._real_navCasual = function(btn) {
 };
 
 // Build/version stamp — confirms which version is actually running (catches stale cache)
-var APP_BUILD = '2026.08.09 · my-rounds-fixes';
+var APP_BUILD = '2026.08.09 · stats-par-type';
 console.log('%cMorks Golf Tour build: ' + APP_BUILD, 'color:#c9a227;font-weight:bold;font-size:14px;');
 try {
   var _bt = document.createElement('div');
