@@ -2682,27 +2682,85 @@ function calcParTypeStats(records){
   const fmt = function(o){ return o.n ? { avg:+(o.t/o.n).toFixed(1), n:o.n } : { avg:null, n:0 }; };
   return { p3:fmt(acc[3]), p4:fmt(acc[4]), p5:fmt(acc[5]) };
 }
-// Fetch a player's OWN hole data (finalized tournament holes + casual holes) and compute par-type.
-// Only ever called for the current user (own data is readable per Firestore rules).
-async function computeParTypeStats(uid){
-  const records = [];
+// Fetch a player's OWN hole data (finalized tournament holes + casual holes) ONCE and derive the full
+// per-hole analytics bundle: par-type averages, score-distribution buckets, scoring-quality rates
+// (par-or-better / blow-up / bounce-back) and the par-normalized scoring trend. Only ever called for
+// the current user (own data is readable per Firestore rules). One fetch, one bundle — so refreshMyStats
+// (publish) and loadStatsScreen (render) share a single source of truth instead of each re-querying.
+async function computeHoleAnalytics(uid){
+  const byTourney = {};
+  let casualRounds = [];
   try {
     const finalizedIds = new Set((allTournaments||[]).filter(function(t){ return t.status==='completed'||t.status==='locked'; }).map(function(t){ return t.id; }));
     const tSnap = await getDocs(query(collection(db,'holeScores'), where('playerId','==',uid)));
-    tSnap.docs.forEach(function(d){ const h=d.data(); if(finalizedIds.has(h.tournamentId) && typeof h.score==='number') records.push({ score:h.score, par:h.par }); });
+    tSnap.docs.forEach(function(d){ const h=d.data(); if(!finalizedIds.has(h.tournamentId)) return; (byTourney[h.tournamentId]=byTourney[h.tournamentId]||[]).push(h); });
     const cSnap = await getDocs(query(collection(db,'casualRounds'), where('playerId','==',uid)));
-    cSnap.docs.forEach(function(d){ const r=d.data(); const hs=r.holes||{}; Object.keys(hs).forEach(function(k){ const hole=hs[k]; if(hole && typeof hole.score==='number') records.push({ score:hole.score, par:(hole.par||DEFAULT_PARS[parseInt(k,10)-1]||4) }); }); });
-  } catch(e){ console.error('computeParTypeStats', e); }
-  return calcParTypeStats(records);
+    casualRounds = cSnap.docs.map(function(d){ return d.data(); });
+  } catch(e){ console.error('computeHoleAnalytics fetch', e); }
+  // Derive from the fetched data. parRecords/buckets feed distribution + par-type; roundDiffs is a
+  // list of per-round { holeNumber: scoreDiff } maps used for the ordered bounce-back pass.
+  const parRecords = [];
+  const buckets = { eagles:0, birdies:0, pars:0, bogeys:0, doubles:0, worse:0 };
+  const bump = function(diff){ if(diff<=-2) buckets.eagles++; else if(diff===-1) buckets.birdies++; else if(diff===0) buckets.pars++; else if(diff===1) buckets.bogeys++; else if(diff===2) buckets.doubles++; else buckets.worse++; };
+  const roundDiffs = [];
+  Object.keys(byTourney).forEach(function(tid){
+    const m = {};
+    byTourney[tid].forEach(function(h){ if(typeof h.score==='number'){ const diff=h.score-h.par; parRecords.push({ score:h.score, par:h.par }); bump(diff); m[h.holeNumber]=diff; } });
+    roundDiffs.push(m);
+  });
+  casualRounds.forEach(function(r){
+    const hs = r.holes||{}; const m = {};
+    Object.keys(hs).forEach(function(k){ const hole=hs[k]; if(hole && typeof hole.score==='number'){ const par=(hole.par||DEFAULT_PARS[parseInt(k,10)-1]||4); const diff=hole.score-par; parRecords.push({ score:hole.score, par:par }); bump(diff); m[parseInt(k,10)]=diff; } });
+    roundDiffs.push(m);
+  });
+  const parType = calcParTypeStats(parRecords);
+  const totalHoles = Object.values(buckets).reduce(function(a,b){ return a+b; }, 0);
+  const pctOf = function(n){ return totalHoles ? Math.round((n/totalHoles)*100) : null; };
+  // Bounce-back: after a bogey-or-worse hole, how often the very next hole in the SAME round is
+  // par-or-better. Ordered 1->18 pass per round; a missing next hole or a round boundary ends the chain.
+  let bbOpps = 0, bbHits = 0;
+  roundDiffs.forEach(function(m){
+    for(let n=1;n<=17;n++){
+      if(m[n]==null || m[n+1]==null) continue;
+      if(m[n] >= 1){ bbOpps++; if(m[n+1] <= 0) bbHits++; }
+    }
+  });
+  const rates = {
+    parOrBetter: pctOf(buckets.eagles + buckets.birdies + buckets.pars),
+    blowUp: pctOf(buckets.doubles + buckets.worse),
+    bounceBack: bbOpps ? Math.round((bbHits/bbOpps)*100) : null,
+    holes: totalHoles,
+    bbOpps: bbOpps
+  };
+  // Par-normalized scoring trend (chronological). 18-hole rounds only; raw gross across different
+  // courses (par 71 vs 72, easy vs hard) isn't comparable. recent 3 vs earlier 3 over the last 10.
+  const datedVsPar = [];
+  Object.keys(byTourney).forEach(function(tid){
+    const holes = byTourney[tid]; if(holes.length !== 18) return;
+    const t = (allTournaments||[]).find(function(x){ return x.id===tid; }) || {};
+    const gross = holes.reduce(function(s,h){ return s+h.score; }, 0);
+    datedVsPar.push({ date:t.date||'', vsPar:gross-(Number(t.par)||72) });
+  });
+  casualRounds.forEach(function(r){ if(r.holesPlayed===18) datedVsPar.push({ date:r.date||'', vsPar:r.gross-(Number(r.par)||72) }); });
+  datedVsPar.sort(function(a,b){ return (a.date||'').localeCompare(b.date||''); });
+  const window10 = datedVsPar.slice(-10);
+  let trend = null, trendN = 0;
+  if(window10.length >= 6){
+    const recent3 = window10.slice(-3).reduce(function(a,b){ return a+b.vsPar; }, 0) / 3;
+    const early3  = window10.slice(0,3).reduce(function(a,b){ return a+b.vsPar; }, 0) / 3;
+    trend = +(recent3 - early3).toFixed(1); trendN = window10.length;
+  }
+  return { parType:parType, buckets:buckets, totalHoles:totalHoles, rates:rates, trend:trend, trendN:trendN };
 }
 async function refreshMyStats(){
   if(!currentUser) return;
   try {
     const s = await computePlayerStats(currentUser.uid);
     const cs = await computeCasualStats(currentUser.uid);
-    const pt = await computeParTypeStats(currentUser.uid);
-    if(userProfile){ userProfile.stats = s; userProfile.casualStats = cs; userProfile.parTypeStats = pt; }
-    await updateDoc(doc(db,'players',currentUser.uid), { stats: s, casualStats: cs, parTypeStats: pt });
+    const a = await computeHoleAnalytics(currentUser.uid);
+    const pt = a.parType, hr = a.rates;
+    if(userProfile){ userProfile.stats = s; userProfile.casualStats = cs; userProfile.parTypeStats = pt; userProfile.holeRates = hr; }
+    await updateDoc(doc(db,'players',currentUser.uid), { stats: s, casualStats: cs, parTypeStats: pt, holeRates: hr });
   } catch(e){ console.error('refreshMyStats', e); }
 }
 
@@ -2718,6 +2776,8 @@ function plStat(p){
   var best = num(s.bestRound); if(best==null) best = num(cs.bestRound);
   var pt = p.parTypeStats || {};
   var ptAvg = function(o){ return (o && o.avg!=null && typeof o.avg==='number') ? o.avg : null; };
+  var hr = p.holeRates || {};
+  var rnum = function(v){ return (typeof v==='number' && !isNaN(v)) ? v : null; };
   return {
     hcp: (p.officialHandicap!=null ? Number(p.officialHandicap) : null),
     rounds: num(s.roundsPlayed),
@@ -2728,12 +2788,14 @@ function plStat(p){
     wins: num(s.wins),
     top3: num(s.top3),
     seasonPoints: num(s.seasonPoints),
-    p3: ptAvg(pt.p3), p4: ptAvg(pt.p4), p5: ptAvg(pt.p5)
+    p3: ptAvg(pt.p3), p4: ptAvg(pt.p4), p5: ptAvg(pt.p5),
+    parOrBetter: rnum(hr.parOrBetter), blowUp: rnum(hr.blowUp), bounceBack: rnum(hr.bounceBack)
   };
 }
 function plName(p){ return p.nickname ? (p.name + ' (' + p.nickname + ')') : (p.name || 'Unknown'); }
 function plVal(v){ return (v==null || v==='') ? '\u2014' : v; }
 function plParFmt(v){ return v==null ? null : (v>0 ? '+'+v : (v<0 ? ''+v : 'E')); }
+function plPctFmt(v){ return v==null ? null : (v + '%'); }
 
 // Avg strokes vs par across tournaments the player finished (from public t.results / t.par).
 function plVsPar(pid){
@@ -2813,6 +2875,7 @@ function plDetail(pid){
         + cell('Avg vs Par', plParFmt(plVsPar(p.id))) + cell('Best', st.bestRound) + cell('Worst', st.worstRound)
         + cell('Wins', st.wins) + cell('Top 3', st.top3) + cell('Season Pts', st.seasonPoints) + cell('Casual Rds', st.casualRounds)
         + cell('Par 3 vs Par', plParFmt(st.p3)) + cell('Par 4 vs Par', plParFmt(st.p4)) + cell('Par 5 vs Par', plParFmt(st.p5))
+        + cell('Par-or-Better', st.parOrBetter!=null?st.parOrBetter+'%':null) + cell('Blow-up %', st.blowUp!=null?st.blowUp+'%':null) + cell('Bounce-back', st.bounceBack!=null?st.bounceBack+'%':null)
       + '</div></div>'
     + '<div class="section-sub">Read-only view. Stats update when a player records or edits a round.</div>';
 }
@@ -2826,7 +2889,8 @@ function plCompareView(){
     ['Handicap','hcp',false,null], ['Rounds','rounds',true,null], ['Avg Gross','avgGross',false,null],
     ['Avg vs Par','vsPar',false,plParFmt], ['Best','bestRound',false,null], ['Worst','worstRound',false,null],
     ['Wins','wins',true,null], ['Top 3','top3',true,null], ['Season Pts','seasonPoints',true,null], ['Casual Rds','casualRounds',true,null],
-    ['Par 3 vs par','p3',false,plParFmt], ['Par 4 vs par','p4',false,plParFmt], ['Par 5 vs par','p5',false,plParFmt]
+    ['Par 3 vs par','p3',false,plParFmt], ['Par 4 vs par','p4',false,plParFmt], ['Par 5 vs par','p5',false,plParFmt],
+    ['Par-or-better %','parOrBetter',true,plPctFmt], ['Blow-up %','blowUp',false,plPctFmt], ['Bounce-back %','bounceBack',true,plPctFmt]
   ];
   var stats = players.map(function(p){ var st = plStat(p); st.vsPar = plVsPar(p.id); return st; });
   var head = '<th>Stat</th>' + players.map(function(p){ return '<th class="c">' + avatarHtml(p,26) + '<br>' + esc(p.nickname||p.name||'?') + '</th>'; }).join('');
@@ -3083,64 +3147,21 @@ async function loadStatsScreen() {
   } catch(e){ console.error('season overview refresh', e); }
   // 2) Heavier analytics, with a timeout so a slow/stalled query degrades instead of spinning forever.
   try {
-    const tSnap = await withTimeout(getDocs(query(collection(db, 'holeScores'), where('playerId', '==', currentUser.uid))), 8000);
-    const cSnap = await withTimeout(getDocs(query(collection(db, 'casualRounds'), where('playerId', '==', currentUser.uid))), 8000);
-    // Only count tournament holes from FINALIZED (completed/locked) tournaments, so scores from an
-    // active/upcoming tournament (e.g. a test round in progress) don't pollute the analytics.
-    const finalizedIds = new Set((allTournaments || []).filter(function(t){ return t.status === 'completed' || t.status === 'locked'; }).map(function(t){ return t.id; }));
-    const tourneyHoles = tSnap.docs.map(d => d.data()).filter(h => finalizedIds.has(h.tournamentId));
-    const byTourney = {};
-    tourneyHoles.forEach(data => { if (!byTourney[data.tournamentId]) byTourney[data.tournamentId] = []; byTourney[data.tournamentId].push(data); });
-    const casualRounds = cSnap.docs.map(d => d.data());
-    const parRecords = [];
-    const buckets = { eagles: 0, birdies: 0, pars: 0, bogeys: 0, doubles: 0, worse: 0 };
-    const bump = (diff) => { if (diff <= -2) buckets.eagles++; else if (diff === -1) buckets.birdies++; else if (diff === 0) buckets.pars++; else if (diff === 1) buckets.bogeys++; else if (diff === 2) buckets.doubles++; else buckets.worse++; };
-    // Tournament per-hole docs (finalized only) — feed distribution + par-type.
-    tourneyHoles.forEach(data => { if (typeof data.score === 'number') { parRecords.push({ score: data.score, par: data.par }); bump(data.score - data.par); } });
-    // Casual rounds feed distribution + par-type too.
-    casualRounds.forEach(r => {
-      const hs = r.holes || {};
-      Object.keys(hs).forEach(k => {
-        const hole = hs[k];
-        if (hole && typeof hole.score === 'number') {
-          const par = hole.par || DEFAULT_PARS[parseInt(k, 10) - 1] || 4;
-          parRecords.push({ score: hole.score, par: par });
-          bump(hole.score - par);
-        }
-      });
-    });
-    const totalHoles = Object.values(buckets).reduce((a, b) => a + b, 0);
+    // Single source of truth: one fetch, one bundle (distribution, par-type, quality rates, trend).
+    const A = await withTimeout(computeHoleAnalytics(currentUser.uid), 12000);
+    const buckets = A.buckets, totalHoles = A.totalHoles, parType = A.parType, rates = A.rates;
+    const trend = A.trend, trendN = A.trendN;
     const pct = n => totalHoles ? Math.round((n / totalHoles) * 100) : 0;
-    const parType = calcParTypeStats(parRecords);
-    // Publish par-type to this player's PUBLIC doc so Players compare can read it (mirrors stats/casualStats).
-    // Best-effort + only-if-changed, so it can't hang the screen or spam writes.
+    // Publish par-type + scoring-quality rates to this player's PUBLIC doc so Players compare can read
+    // them (mirrors stats/casualStats). Best-effort + only-if-changed, so it can't hang or spam writes.
     try {
       const prevPT = (userProfile && userProfile.parTypeStats) ? JSON.stringify(userProfile.parTypeStats) : null;
-      if (JSON.stringify(parType) !== prevPT) {
-        await updateDoc(doc(db, 'players', currentUser.uid), { parTypeStats: parType });
-        if (userProfile) userProfile.parTypeStats = parType;
+      const prevHR = (userProfile && userProfile.holeRates) ? JSON.stringify(userProfile.holeRates) : null;
+      if (JSON.stringify(parType) !== prevPT || JSON.stringify(rates) !== prevHR) {
+        await updateDoc(doc(db, 'players', currentUser.uid), { parTypeStats: parType, holeRates: rates });
+        if (userProfile) { userProfile.parTypeStats = parType; userProfile.holeRates = rates; }
       }
-    } catch(e){ console.error('parType persist', e); }
-    // Scoring trend — chronological + par-normalized. Raw gross across different courses (par 71 vs 72,
-    // easy vs hard) isn't comparable, and the old array wasn't date-sorted, so both are fixed here.
-    const datedVsPar = [];
-    Object.keys(byTourney).forEach(function(tid){
-      const holes = byTourney[tid];
-      if (holes.length !== 18) return;
-      const t = (allTournaments || []).find(function(x){ return x.id === tid; }) || {};
-      const gross = holes.reduce(function(s, h){ return s + h.score; }, 0);
-      datedVsPar.push({ date: t.date || '', vsPar: gross - (Number(t.par) || 72) });
-    });
-    casualRounds.forEach(function(r){ if (r.holesPlayed === 18) datedVsPar.push({ date: r.date || '', vsPar: r.gross - (Number(r.par) || 72) }); });
-    datedVsPar.sort(function(a, b){ return (a.date || '').localeCompare(b.date || ''); });
-    const window10 = datedVsPar.slice(-10);
-    let trend = null, trendN = 0;
-    if (window10.length >= 6) {
-      const recent3 = window10.slice(-3).reduce(function(a, b){ return a + b.vsPar; }, 0) / 3;
-      const early3  = window10.slice(0, 3).reduce(function(a, b){ return a + b.vsPar; }, 0) / 3;
-      trend = +(recent3 - early3).toFixed(1);
-      trendN = window10.length;
-    }
+    } catch(e){ console.error('analytics persist', e); }
     if (!totalHoles) {
       analyt.innerHTML = `<div class="card card-sm" style="text-align:center;color:var(--text-light);font-size:0.9rem;padding:1.5rem;">Log a few rounds with hole-by-hole scores and your shot distribution, par-type scoring, and scoring trend will appear here.</div>`;
       return;
@@ -3163,6 +3184,15 @@ async function loadStatsScreen() {
           <tbody>${[['Par 3','p3'],['Par 4','p4'],['Par 5','p5']].map(function(row){ var d=parType[row[1]]||{}; var avg=(d.avg!=null)?d.avg:null; var n=d.n||0; var disp=(avg==null)?'\u2014':(avg>0?'+'+avg:(avg<0?''+avg:'E')); var col='color:var(--text-light);'; if(avg!=null){ if(avg<=0) col='color:#1a3a8a;'; else if(avg<=0.5) col='color:#856404;'; else if(avg<=1) col='color:#c0392b;'; else col='color:#8e1a10;'; } return '<tr><td style="font-weight:600;">'+row[0]+'</td><td class="c bold" style="'+col+'">'+disp+'</td><td class="c" style="color:var(--text-light);">'+(n||'\u2014')+'</td></tr>'; }).join('')}</tbody>
         </table>
         <div style="text-align:center;font-size:0.75rem;color:var(--text-light);margin-top:0.8rem;">Average strokes over par by hole type \u00b7 lower is better</div>
+      </div>
+      <div class="section-title" style="font-size:1rem;margin-bottom:0.8rem;">Scoring Quality</div>
+      <div class="card card-sm" style="margin-bottom:1.5rem;">
+        <div class="stats-grid" style="margin-bottom:0;">
+          <div class="stat-box"><div class="n">${rates.parOrBetter!=null?rates.parOrBetter+'%':'\u2014'}</div><div class="l">Par or Better</div></div>
+          <div class="stat-box"><div class="n">${rates.blowUp!=null?rates.blowUp+'%':'\u2014'}</div><div class="l">Blow-ups (Dbl+)</div></div>
+          <div class="stat-box"><div class="n">${rates.bounceBack!=null?rates.bounceBack+'%':'\u2014'}</div><div class="l">Bounce-back</div></div>
+        </div>
+        <div style="text-align:center;font-size:0.75rem;color:var(--text-light);margin-top:0.8rem;">Par-or-better &amp; bounce-back: higher is better \u00b7 blow-ups: lower${rates.bbOpps?' \u00b7 '+rates.bbOpps+' bounce-back chances':''}</div>
       </div>
       ${trend !== null ? `
       <div class="section-title" style="font-size:1rem;margin-bottom:0.8rem;">Recent Trend</div>
@@ -3852,7 +3882,7 @@ window._real_navCasual = function(btn) {
 };
 
 // Build/version stamp — confirms which version is actually running (catches stale cache)
-var APP_BUILD = '2026.08.09 · stats-par-type';
+var APP_BUILD = '2026.08.10 · hole-analytics-rates';
 console.log('%cMorks Golf Tour build: ' + APP_BUILD, 'color:#c9a227;font-weight:bold;font-size:14px;');
 try {
   var _bt = document.createElement('div');
