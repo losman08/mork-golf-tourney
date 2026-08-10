@@ -115,6 +115,8 @@ html,body{height:100%;font-family:'Inter',sans-serif;background:var(--forest);co
 .card-sm{padding:1rem 1.2rem;}
 .card h3{font-family:'Playfair Display',serif;font-size:1.15rem;color:var(--forest);margin-bottom:1rem;padding-bottom:0.7rem;border-bottom:2px solid var(--cream-dark);}
 .section-title{font-family:'Playfair Display',serif;font-size:1.3rem;color:var(--cream);font-weight:700;margin-bottom:0.3rem;}
+.stat-q{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;margin-left:6px;border:1px solid var(--gold);color:var(--gold);border-radius:50%;font-size:0.7rem;font-weight:700;line-height:1;cursor:pointer;vertical-align:middle;font-family:'Inter',sans-serif;opacity:0.85;}
+.stat-q:hover{background:var(--gold);color:var(--forest);opacity:1;}
 .section-sub{color:rgba(245,240,232,0.5);font-size:0.82rem;margin-bottom:1.2rem;}
 
 /* ── HOME ── */
@@ -606,6 +608,16 @@ hr.div{border:none;border-top:1px solid var(--cream-dark);margin:1rem 0;}
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="window._real_closeModal('modal-edit-profile')">Cancel</button>
       <button class="btn btn-gold" onclick="window._real_saveProfileEdit()">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="modal-stat-info">
+  <div class="modal">
+    <div class="modal-header"><h3 id="si-title">About this stat</h3><button class="modal-close-btn" onclick="closeModal('modal-stat-info')">✕</button></div>
+    <div id="si-body" style="font-size:0.9rem;color:var(--text-mid);line-height:1.55;"></div>
+    <div class="modal-footer">
+      <button class="btn btn-forest" onclick="window._real_closeModal('modal-stat-info')">Got it</button>
     </div>
   </div>
 </div>
@@ -3187,7 +3199,7 @@ async function loadStatsScreen() {
       return;
     }
     analyt.innerHTML = `
-      <div class="section-title" style="font-size:1rem;margin-bottom:0.8rem;">Score Distribution</div>
+      <div class="section-title" style="font-size:1rem;margin-bottom:0.8rem;">Score Distribution<span class="stat-q" onclick="window._real_showStatInfo('distribution')">?</span></div>
       <div class="card card-sm" style="margin-bottom:1.5rem;">
         ${renderDistBar('Eagles 🦅', buckets.eagles, pct(buckets.eagles), '#1a3a8a', 'white')}
         ${renderDistBar('Birdies 🐦', buckets.birdies, pct(buckets.birdies), '#c9a227', '#1a3a2a')}
@@ -3197,7 +3209,7 @@ async function loadStatsScreen() {
         ${renderDistBar('Worse', buckets.worse, pct(buckets.worse), '#8e1a10', 'white')}
         <div style="text-align:center;font-size:0.75rem;color:var(--text-light);margin-top:0.8rem;">${totalHoles} holes total</div>
       </div>
-      <div class="section-title" style="font-size:1rem;margin-bottom:0.8rem;">Scoring by Par Type</div>
+      <div class="section-title" style="font-size:1rem;margin-bottom:0.8rem;">Scoring by Par Type<span class="stat-q" onclick="window._real_showStatInfo('par-type')">?</span></div>
       <div class="card card-sm" style="margin-bottom:1.5rem;">
         <table style="width:100%;">
           <thead><tr><th>Par</th><th class="c">Your Avg vs Par</th><th class="c">Holes</th></tr></thead>
@@ -3205,17 +3217,17 @@ async function loadStatsScreen() {
         </table>
         <div style="text-align:center;font-size:0.75rem;color:var(--text-light);margin-top:0.8rem;">Average strokes over par by hole type \u00b7 lower is better</div>
       </div>
-      <div class="section-title" style="font-size:1rem;margin-bottom:0.8rem;">Scoring Quality</div>
+      <div class="section-title" style="font-size:1rem;margin-bottom:0.8rem;">Scoring Quality<span class="stat-q" onclick="window._real_showStatInfo('scoring-quality')">?</span></div>
       <div class="card card-sm" style="margin-bottom:1.5rem;">
         <div class="stats-grid" style="margin-bottom:0;">
           <div class="stat-box"><div class="n">${rates.parOrBetter!=null?rates.parOrBetter+'%':'\u2014'}</div><div class="l">Par or Better</div></div>
           <div class="stat-box"><div class="n">${rates.blowUp!=null?rates.blowUp+'%':'\u2014'}</div><div class="l">Blow-ups (Dbl+)</div></div>
           <div class="stat-box"><div class="n">${rates.bounceBack!=null?rates.bounceBack+'%':'\u2014'}</div><div class="l">Bounce-back</div></div>
         </div>
-        <div style="text-align:center;font-size:0.75rem;color:var(--text-light);margin-top:0.8rem;">Par-or-better &amp; bounce-back: higher is better \u00b7 blow-ups: lower${rates.bbOpps?' \u00b7 '+rates.bbOpps+' bounce-back chances':''}</div>
+        <div style="text-align:center;font-size:0.75rem;color:var(--text-light);margin-top:0.8rem;">Par-or-better &amp; bounce-back: higher is better \u00b7 blow-ups: lower${rates.holes?' \u00b7 '+rates.holes+' holes':''}${rates.bbOpps?' \u00b7 '+rates.bbOpps+' bounce-back chances':''}</div>
       </div>
       ${splits.rounds ? `
-      <div class="section-title" style="font-size:1rem;margin-bottom:0.8rem;">Front 9 vs Back 9</div>
+      <div class="section-title" style="font-size:1rem;margin-bottom:0.8rem;">Front 9 vs Back 9<span class="stat-q" onclick="window._real_showStatInfo('front-back')">?</span></div>
       <div class="card card-sm" style="margin-bottom:1.5rem;">
         <div class="stats-grid" style="margin-bottom:0;">
           <div class="stat-box"><div class="n">${vpFmt(splits.front)}</div><div class="l">Front 9 avg</div></div>
@@ -3224,7 +3236,7 @@ async function loadStatsScreen() {
         <div style="text-align:center;font-size:0.75rem;color:var(--text-light);margin-top:0.8rem;">Avg strokes vs par per nine \u00b7 lower is better \u00b7 ${splits.rounds} full round${splits.rounds===1?'':'s'}${strongerNine?' \u00b7 '+strongerNine+' 9 is your stronger side':''}</div>
       </div>` : ''}
       ${trend !== null ? `
-      <div class="section-title" style="font-size:1rem;margin-bottom:0.8rem;">Recent Trend</div>
+      <div class="section-title" style="font-size:1rem;margin-bottom:0.8rem;">Recent Trend<span class="stat-q" onclick="window._real_showStatInfo('trend')">?</span></div>
       <div class="card card-sm" style="text-align:center;margin-bottom:1.5rem;">
         <div style="font-size:2rem;font-weight:900;font-family:'Playfair Display',serif;color:var(--forest);">${trend > 0 ? '+' : ''}${trend}</div>
         <div style="font-size:0.78rem;color:var(--text-light);margin-top:4px;">strokes vs par \u00b7 recent 3 vs earlier 3 (last ${trendN} rounds)</div>
@@ -3247,6 +3259,24 @@ function renderDistBar(label, count, pct, color, textColor) {
     <div style="width:44px;text-align:right;font-size:0.78rem;font-weight:600;color:var(--text-mid);">${count} (${pct}%)</div>
   </div>`;
 }
+
+// Plain-English explanations for each analytics panel. Kept short and matched exactly to how each
+// number is computed above. Rendered via textContent (never innerHTML), so the copy stays literal.
+var STAT_INFO = {
+  'distribution':     { title:'Score Distribution', body:'Every hole from your completed rounds, grouped by how you scored against par \u2014 eagles down to blow-ups. Just a running count.' },
+  'par-type':         { title:'Scoring by Par Type', body:'Your average score vs par on par-3s, 4s and 5s, kept separate. \u201CE\u201D is even, \u201C+1\u201D is a stroke over on average. Lower is better.' },
+  'scoring-quality':  { title:'Scoring Quality', body:'Three rates across all your holes: Par or Better (par or lower), Blow-ups (double bogey or worse), and Bounce-back \u2014 how often you answer a bogey-or-worse hole with a par-or-better on the very next hole in the same round.' },
+  'front-back':       { title:'Front 9 vs Back 9', body:'Your average score vs par on holes 1\u20139 vs 10\u201318, using rounds where you entered all 18 holes. The lower number is the nine you play better.' },
+  'trend':            { title:'Recent Trend', body:'Your last 3 rounds vs the 3 before them, measured as strokes vs par so different courses compare fairly. A negative number means you\u2019re scoring better lately.' }
+};
+function showStatInfo(key){
+  var info = STAT_INFO[key]; if(!info) return;
+  var t = document.getElementById('si-title'); var b = document.getElementById('si-body');
+  if(t) t.textContent = info.title;
+  if(b) b.textContent = info.body;
+  openModal('modal-stat-info');
+}
+window._real_showStatInfo = showStatInfo;
 
 // ── ADMIN: INVITE CODE SETTINGS ──
 async function showAdminSettings() {
@@ -3911,7 +3941,7 @@ window._real_navCasual = function(btn) {
 };
 
 // Build/version stamp — confirms which version is actually running (catches stale cache)
-var APP_BUILD = '2026.08.10 · front-back-splits';
+var APP_BUILD = '2026.08.10 · stat-explainers';
 console.log('%cMorks Golf Tour build: ' + APP_BUILD, 'color:#c9a227;font-weight:bold;font-size:14px;');
 try {
   var _bt = document.createElement('div');
