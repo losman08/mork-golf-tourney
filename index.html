@@ -385,7 +385,7 @@ hr.div{border:none;border-top:1px solid var(--cream-dark);margin:1rem 0;}
 
         <!-- Season standings -->
         <div style="margin-top:1.2rem;">
-          <div class="section-title" style="font-size:1.05rem;">Season Standings</div>
+          <div class="section-title" style="font-size:1.05rem;">Tour Standings</div>
           <div class="section-sub">Points across all tournaments</div>
           <div id="home-season-lb" class="lb-table-wrap"></div>
         </div>
@@ -1225,7 +1225,7 @@ function renderHomeSeasonLb() {
   });
   const ranked=Object.entries(pts).sort((a,b)=>b[1]-a[1]).slice(0,8);
   const el=document.getElementById('home-season-lb');
-  if(!ranked.length){ el.innerHTML=`<div class="empty"><div class="ei">📊</div><p>No season data yet</p></div>`; return; }
+  if(!ranked.length){ el.innerHTML=`<div class="empty"><div class="ei">📊</div><p>No tournament results yet</p></div>`; return; }
   el.innerHTML=`<table><thead><tr><th class="c">#</th><th>Player</th><th class="c">Points</th></tr></thead><tbody>${
     ranked.map(([pid,p],i)=>{
       const name=allPlayers.find(x=>x.id===pid)?.name||'Unknown';
@@ -2666,18 +2666,23 @@ async function computePlayerStats(uid){
   };
 }
 async function computeCasualStats(uid){
-  // Casual-only summary for the Casual Rounds leaderboard. Written to the player's PUBLIC doc so
-  // every member can read it (the casualRounds docs themselves stay private per Firestore rules).
+  // Casual-only summary for the Casual Rounds leaderboard AND the Career Overall panel. Written to the
+  // player's PUBLIC doc so every member can read it (the casualRounds docs stay private per rules).
   const cSnap = await getDocs(query(collection(db,'casualRounds'), where('playerId','==',uid)));
-  let rounds = 0; const grosses = [];
+  let rounds = 0; const grosses = []; const vsPars = [];
   cSnap.docs.forEach(function(d){
     const r = d.data(); rounds++;
-    if (r.holesPlayed === 18 && typeof r.gross === 'number') grosses.push(r.gross);
+    if (r.holesPlayed === 18 && typeof r.gross === 'number') {
+      grosses.push(r.gross);
+      if (typeof r.par === 'number') vsPars.push(r.gross - r.par);
+    }
   });
   return {
     rounds: rounds,
     avgGross: grosses.length ? Math.round(grosses.reduce(function(a,b){return a+b;},0)/grosses.length) : null,
-    bestRound: grosses.length ? Math.min.apply(null, grosses) : null
+    bestRound: grosses.length ? Math.min.apply(null, grosses) : null,
+    worstRound: grosses.length ? Math.max.apply(null, grosses) : null,
+    avgVsPar: vsPars.length ? Math.round(vsPars.reduce(function(a,b){return a+b;},0)/vsPars.length) : null
   };
 }
 // Par-type scoring: average strokes OVER PAR on par-3s, par-4s and par-5s. Course-independent
@@ -2887,7 +2892,7 @@ function plDetail(pid){
       + '<div class="stats-grid">'
         + cell('Handicap', st.hcp) + cell('Rounds', st.rounds) + cell('Avg Gross', st.avgGross)
         + cell('Avg vs Par', plParFmt(plVsPar(p.id))) + cell('Best', st.bestRound) + cell('Worst', st.worstRound)
-        + cell('Wins', st.wins) + cell('Top 3', st.top3) + cell('Season Pts', st.seasonPoints) + cell('Casual Rds', st.casualRounds)
+        + cell('Wins', st.wins) + cell('Top 3', st.top3) + cell('Tourney Pts', st.seasonPoints) + cell('Casual Rds', st.casualRounds)
         + cell('Par 3 vs Par', plParFmt(st.p3)) + cell('Par 4 vs Par', plParFmt(st.p4)) + cell('Par 5 vs Par', plParFmt(st.p5))
         + cell('Par-or-Better', st.parOrBetter!=null?st.parOrBetter+'%':null) + cell('Blow-up %', st.blowUp!=null?st.blowUp+'%':null) + cell('Bounce-back', st.bounceBack!=null?st.bounceBack+'%':null)
         + cell('Front 9 vs Par', plParFmt(st.front)) + cell('Back 9 vs Par', plParFmt(st.back))
@@ -2903,7 +2908,7 @@ function plCompareView(){
   var metrics = [
     ['Handicap','hcp',false,null], ['Rounds','rounds',true,null], ['Avg Gross','avgGross',false,null],
     ['Avg vs Par','vsPar',false,plParFmt], ['Best','bestRound',false,null], ['Worst','worstRound',false,null],
-    ['Wins','wins',true,null], ['Top 3','top3',true,null], ['Season Pts','seasonPoints',true,null], ['Casual Rds','casualRounds',true,null],
+    ['Wins','wins',true,null], ['Top 3','top3',true,null], ['Tourney Pts','seasonPoints',true,null], ['Casual Rds','casualRounds',true,null],
     ['Par 3 vs par','p3',false,plParFmt], ['Par 4 vs par','p4',false,plParFmt], ['Par 5 vs par','p5',false,plParFmt],
     ['Par-or-better %','parOrBetter',true,plPctFmt], ['Blow-up %','blowUp',false,plPctFmt], ['Bounce-back %','bounceBack',true,plPctFmt],
     ['Front 9 vs par','front',false,plParFmt], ['Back 9 vs par','back',false,plParFmt]
@@ -3131,36 +3136,61 @@ window._real_saveCasualEdit = async function(rid, oldGross){
 async function loadStatsScreen() {
   const cont = document.getElementById('stats-content-main');
   if (!cont) return;
-  // Season Overview tile markup — reused by the instant cached render and the live self-heal below.
-  const overviewTiles = function(s){ s = s || {}; return `
-      <div class="stat-box"><div class="n">${s.roundsPlayed||0}</div><div class="l">Rounds</div></div>
-      <div class="stat-box"><div class="n">${s.wins||0}</div><div class="l">Wins</div></div>
-      <div class="stat-box"><div class="n">${s.top3||0}</div><div class="l">Top 3s</div></div>
-      <div class="stat-box"><div class="n">${s.seasonPoints||0}</div><div class="l">Season Pts</div></div>
-      <div class="stat-box"><div class="n">${s.bestRound||'—'}</div><div class="l">Best Round</div></div>
-      <div class="stat-box"><div class="n">${s.avgGross ? Math.round(s.avgGross) : '—'}</div><div class="l">Avg Gross</div></div>`; };
-  // 1) Render Season Overview immediately from cached profile stats — no query, so this can never hang.
+  // Career Overall tile markup — reused by the instant cached render and the live self-heal below.
+  // 4 casual-focused tiles (2x2). The Handicap Index is the one figure that, by WHS design, uses ALL
+  // eligible rounds; a null index (<3 rounds) falls back to the player's entered handicap.
+  const ovFmt = { vsPar: function(v){ return v==null ? '\u2014' : (v>0?'+'+v:(v<0?''+v:'E')); },
+                  hcp: function(v){ return v==null ? '\u2014' : (typeof v==='number' ? v.toFixed(1) : v); },
+                  bw: function(b,w){ return (b==null && w==null) ? '\u2014' : ((b==null?'\u2014':b)+' / '+(w==null?'\u2014':w)); } };
+  const overviewTiles = function(ov){ ov = ov || {}; return `
+      <div class="stat-box"><div class="n">${ov.rounds||0}</div><div class="l">Rounds</div></div>
+      <div class="stat-box"><div class="n">${ovFmt.hcp(ov.handicapIndex)}</div><div class="l">Handicap Index</div></div>
+      <div class="stat-box"><div class="n">${ovFmt.vsPar(ov.avgVsPar)}</div><div class="l">Avg vs Par</div></div>
+      <div class="stat-box"><div class="n">${ovFmt.bw(ov.bestRound, ov.worstRound)}</div><div class="l">Best / Worst</div></div>`; };
+  // 1) Render Career Overall immediately from cached casual stats — no query, so this can never hang.
   const p = (userProfile && userProfile.stats) || {};
+  const cs = (userProfile && userProfile.casualStats) || {};
+  const ov0 = {
+    rounds: cs.rounds||0,
+    handicapIndex: (userProfile && userProfile.handicapIndex!=null) ? userProfile.handicapIndex
+                   : ((userProfile && userProfile.officialHandicap!=null) ? Number(userProfile.officialHandicap) : null),
+    avgVsPar: cs.avgVsPar!=null ? cs.avgVsPar : null,
+    bestRound: cs.bestRound!=null ? cs.bestRound : null,
+    worstRound: cs.worstRound!=null ? cs.worstRound : null
+  };
   cont.innerHTML = `
-    <div class="section-title" style="font-size:1rem;margin-bottom:0.8rem;">Season Overview</div>
-    <div class="stats-grid" id="season-overview-grid" style="margin-bottom:1.5rem;">${overviewTiles(p)}</div>
+    <div class="section-title" style="font-size:1rem;margin-bottom:0.8rem;">Career Overall</div>
+    <div class="stats-grid" id="career-overall-grid" style="grid-template-columns:repeat(2,1fr);margin-bottom:1.5rem;">${overviewTiles(ov0)}</div>
     <div id="stats-analytics"><div class="loading"><div class="spinner"></div></div></div>`;
   const analyt = document.getElementById('stats-analytics');
   if (!analyt) return;
   const withTimeout = (pr, ms) => Promise.race([pr, new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))]);
-  // 1b) Self-heal the Season Overview: recompute live from current data, refresh the tiles in place,
+  // 1b) Self-heal the Career Overall panel: recompute live from current data, refresh the tiles in place,
   // and persist to the player doc only if it drifted — so Profile / Players / Compare see fresh numbers
   // too. Best-effort + timeout-guarded, so a slow query degrades to the cached tiles instead of hanging.
   try {
+    // Keep blended player stats fresh (Players list + Compare columns read userProfile.stats).
     const fresh = await withTimeout(computePlayerStats(currentUser.uid), 8000);
-    const grid = document.getElementById('season-overview-grid');
-    if (grid) grid.innerHTML = overviewTiles(fresh);
     if (userProfile) userProfile.stats = fresh;
     const changed = p.roundsPlayed !== fresh.roundsPlayed || p.wins !== fresh.wins ||
       p.top3 !== fresh.top3 || p.seasonPoints !== fresh.seasonPoints ||
       p.bestRound !== fresh.bestRound || Math.round(p.avgGross||0) !== Math.round(fresh.avgGross||0);
     if (changed) { try { await updateDoc(doc(db,'players',currentUser.uid), { stats: fresh }); } catch(e){ console.error('stats persist', e); } }
-  } catch(e){ console.error('season overview refresh', e); }
+  } catch(e){ console.error('player stats refresh', e); }
+  try {
+    // Career Overall tiles: fresh casual figures + the WHS handicap index (index uses all eligible rounds).
+    const freshCasual = await withTimeout(computeCasualStats(currentUser.uid), 8000);
+    let hIdx = ov0.handicapIndex;
+    try {
+      const hr = calcHandicapIndex(await withTimeout(gatherPlayerRounds(currentUser.uid), 8000));
+      hIdx = (hr.index!=null) ? hr.index : ((userProfile && userProfile.officialHandicap!=null) ? Number(userProfile.officialHandicap) : null);
+    } catch(e){ console.error('hcp idx', e); }
+    const ov = { rounds:freshCasual.rounds||0, handicapIndex:hIdx, avgVsPar:freshCasual.avgVsPar, bestRound:freshCasual.bestRound, worstRound:freshCasual.worstRound };
+    const grid = document.getElementById('career-overall-grid');
+    if (grid) grid.innerHTML = overviewTiles(ov);
+    if (userProfile) { userProfile.casualStats = freshCasual; userProfile.handicapIndex = hIdx; }
+    try { await updateDoc(doc(db,'players',currentUser.uid), { casualStats: freshCasual, handicapIndex: hIdx }); } catch(e){ console.error('overview persist', e); }
+  } catch(e){ console.error('career overall refresh', e); }
   // 2) Heavier analytics, with a timeout so a slow/stalled query degrades instead of spinning forever.
   try {
     // Single source of truth: one fetch, one bundle (distribution, par-type, quality rates, trend).
@@ -3220,7 +3250,7 @@ async function loadStatsScreen() {
       ${splits.rounds ? `
       <div class="section-title" style="font-size:1rem;margin-bottom:0.8rem;">Front 9 vs Back 9<span class="stat-q" onclick="window._real_showStatInfo('front-back')">?</span></div>
       <div class="card card-sm" style="margin-bottom:1.5rem;">
-        <div class="stats-grid" style="margin-bottom:0;">
+        <div class="stats-grid" style="grid-template-columns:repeat(2,1fr);margin-bottom:0;">
           <div class="stat-box"><div class="n">${vpFmt(splits.front)}</div><div class="l">Front 9 avg</div></div>
           <div class="stat-box"><div class="n">${vpFmt(splits.back)}</div><div class="l">Back 9 avg</div></div>
         </div>
@@ -3235,7 +3265,7 @@ async function loadStatsScreen() {
       </div>` : ''}`;
   } catch(e){
     console.error('stats analytics', e);
-    analyt.innerHTML = `<div class="card card-sm" style="text-align:center;color:var(--text-light);font-size:0.85rem;padding:1.2rem;">Detailed analytics couldn't load${e&&e.message==='timeout'?' (timed out)':''}. Your season totals above are current.</div>`;
+    analyt.innerHTML = `<div class="card card-sm" style="text-align:center;color:var(--text-light);font-size:0.85rem;padding:1.2rem;">Detailed analytics couldn't load${e&&e.message==='timeout'?' (timed out)':''}. Your totals above are current.</div>`;
   }
 }
 window._real_loadStatsScreen = loadStatsScreen;
@@ -3932,7 +3962,7 @@ window._real_navCasual = function(btn) {
 };
 
 // Build/version stamp — confirms which version is actually running (catches stale cache)
-var APP_BUILD = '2026.08.10 · casual-only-skills';
+var APP_BUILD = '2026.08.10 · career-overall';
 console.log('%cMorks Golf Tour build: ' + APP_BUILD, 'color:#c9a227;font-weight:bold;font-size:14px;');
 try {
   var _bt = document.createElement('div');
