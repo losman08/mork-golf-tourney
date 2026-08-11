@@ -2700,12 +2700,10 @@ function calcParTypeStats(records){
 // the current user (own data is readable per Firestore rules). One fetch, one bundle — so refreshMyStats
 // (publish) and loadStatsScreen (render) share a single source of truth instead of each re-querying.
 async function computeHoleAnalytics(uid){
-  const byTourney = {};
+  // CASUAL-ONLY: these skill panels intentionally read only the player's casual rounds, kept separate
+  // from tournament scoring (which lives in leaderboards/standings). One fetch, one bundle.
   let casualRounds = [];
   try {
-    const finalizedIds = new Set((allTournaments||[]).filter(function(t){ return t.status==='completed'||t.status==='locked'; }).map(function(t){ return t.id; }));
-    const tSnap = await getDocs(query(collection(db,'holeScores'), where('playerId','==',uid)));
-    tSnap.docs.forEach(function(d){ const h=d.data(); if(!finalizedIds.has(h.tournamentId)) return; (byTourney[h.tournamentId]=byTourney[h.tournamentId]||[]).push(h); });
     const cSnap = await getDocs(query(collection(db,'casualRounds'), where('playerId','==',uid)));
     casualRounds = cSnap.docs.map(function(d){ return d.data(); });
   } catch(e){ console.error('computeHoleAnalytics fetch', e); }
@@ -2715,11 +2713,6 @@ async function computeHoleAnalytics(uid){
   const buckets = { eagles:0, birdies:0, pars:0, bogeys:0, doubles:0, worse:0 };
   const bump = function(diff){ if(diff<=-2) buckets.eagles++; else if(diff===-1) buckets.birdies++; else if(diff===0) buckets.pars++; else if(diff===1) buckets.bogeys++; else if(diff===2) buckets.doubles++; else buckets.worse++; };
   const roundDiffs = [];
-  Object.keys(byTourney).forEach(function(tid){
-    const m = {};
-    byTourney[tid].forEach(function(h){ if(typeof h.score==='number'){ const diff=h.score-h.par; parRecords.push({ score:h.score, par:h.par }); bump(diff); m[h.holeNumber]=diff; } });
-    roundDiffs.push(m);
-  });
   casualRounds.forEach(function(r){
     const hs = r.holes||{}; const m = {};
     Object.keys(hs).forEach(function(k){ const hole=hs[k]; if(hole && typeof hole.score==='number'){ const par=(hole.par||DEFAULT_PARS[parseInt(k,10)-1]||4); const diff=hole.score-par; parRecords.push({ score:hole.score, par:par }); bump(diff); m[parseInt(k,10)]=diff; } });
@@ -2760,12 +2753,6 @@ async function computeHoleAnalytics(uid){
   // Par-normalized scoring trend (chronological). 18-hole rounds only; raw gross across different
   // courses (par 71 vs 72, easy vs hard) isn't comparable. recent 3 vs earlier 3 over the last 10.
   const datedVsPar = [];
-  Object.keys(byTourney).forEach(function(tid){
-    const holes = byTourney[tid]; if(holes.length !== 18) return;
-    const t = (allTournaments||[]).find(function(x){ return x.id===tid; }) || {};
-    const gross = holes.reduce(function(s,h){ return s+h.score; }, 0);
-    datedVsPar.push({ date:t.date||'', vsPar:gross-(Number(t.par)||72) });
-  });
   casualRounds.forEach(function(r){ if(r.holesPlayed===18) datedVsPar.push({ date:r.date||'', vsPar:r.gross-(Number(r.par)||72) }); });
   datedVsPar.sort(function(a,b){ return (a.date||'').localeCompare(b.date||''); });
   const window10 = datedVsPar.slice(-10);
@@ -2956,7 +2943,7 @@ function plCompareView(){
   cont.innerHTML =
     '<button class="btn btn-ghost btn-ghost-light btn-sm" style="margin-bottom:0.8rem;" onclick="window._real_plList()">\u2190 All players</button>'
     + '<div class="lb-table-wrap"><table><thead><tr>' + head + '</tr></thead><tbody>' + body + '</tbody></table></div>'
-    + '<div class="section-sub" style="margin-top:0.6rem;">Gold marks the leader per stat \u00b7 lower is better for gross, handicap &amp; vs-par; higher for the rest.</div>'
+    + '<div class="section-sub" style="margin-top:0.6rem;">Gold marks the leader per stat \u00b7 lower is better for gross, handicap &amp; vs-par; higher for the rest. Par-type, scoring-quality and nine-split rows use casual rounds only.</div>'
     + h2h;
 }
 
@@ -3199,6 +3186,10 @@ async function loadStatsScreen() {
       return;
     }
     analyt.innerHTML = `
+      <div style="display:flex;align-items:center;gap:9px;margin-bottom:1rem;flex-wrap:wrap;">
+        <span style="font-size:0.68rem;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;color:var(--gold);border:1px solid var(--gold);padding:2px 9px;border-radius:20px;">Casual</span>
+        <span style="font-size:0.75rem;color:rgba(245,240,232,0.65);">Skill breakdown from your casual rounds only</span>
+      </div>
       <div class="section-title" style="font-size:1rem;margin-bottom:0.8rem;">Score Distribution<span class="stat-q" onclick="window._real_showStatInfo('distribution')">?</span></div>
       <div class="card card-sm" style="margin-bottom:1.5rem;">
         ${renderDistBar('Eagles 🦅', buckets.eagles, pct(buckets.eagles), '#1a3a8a', 'white')}
@@ -3941,7 +3932,7 @@ window._real_navCasual = function(btn) {
 };
 
 // Build/version stamp — confirms which version is actually running (catches stale cache)
-var APP_BUILD = '2026.08.10 · stat-explainers';
+var APP_BUILD = '2026.08.10 · casual-only-skills';
 console.log('%cMorks Golf Tour build: ' + APP_BUILD, 'color:#c9a227;font-weight:bold;font-size:14px;');
 try {
   var _bt = document.createElement('div');
