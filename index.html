@@ -36,10 +36,10 @@ html,body{height:100%;font-family:'Inter',sans-serif;background:var(--forest);co
 #bottom-nav{position:fixed;bottom:0;left:0;right:0;background:var(--forest-mid);border-top:1px solid rgba(201,162,39,0.4);display:none;z-index:50;}
 .bnav-inner{display:flex;justify-content:flex-start;padding:6px 4px env(safe-area-inset-bottom);overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;gap:0;}
 .bnav-inner::-webkit-scrollbar{display:none;}
-.bnav-btn{display:flex;flex-direction:column;align-items:center;gap:2px;padding:5px 8px;border:none;background:transparent;color:rgba(245,240,232,0.8);font-size:0.58rem;letter-spacing:0.04em;text-transform:uppercase;cursor:pointer;font-family:'Inter',sans-serif;transition:color 0.2s;min-width:52px;flex-shrink:0;}
+.bnav-btn{display:flex;flex-direction:column;align-items:center;gap:2px;padding:5px 8px;border:none;background:transparent;color:rgba(245,240,232,0.8);font-size:0.58rem;letter-spacing:0.04em;text-transform:uppercase;cursor:pointer;font-family:'Inter',sans-serif;transition:color 0.2s;min-width:52px;flex-shrink:0;position:relative;}
 .bnav-btn .icon{font-size:1.1rem;}
 .bnav-btn.active{color:var(--gold);}
-.bnav-btn.active::after{content:'';width:22px;height:3px;border-radius:2px;background:var(--gold);}
+.bnav-btn.active::before{content:'';position:absolute;top:0;left:50%;transform:translateX(-50%);width:28px;height:3px;border-radius:2px;background:var(--gold);}
 
 /* ── SCREENS ── */
 .screen{display:none;min-height:100%;padding:0;}
@@ -421,6 +421,7 @@ hr.div{border:none;border-top:1px solid var(--cream-dark);margin:1rem 0;}
         <button class="lb-tab" onclick="window._real_switchLbTab('hsi',this)">HSI</button>
       </div>
       <div class="pad" style="padding-top:0.8rem;">
+        <div id="lb-admin-actions" style="margin-bottom:0.6rem;"></div>
         <div id="lb-content"></div>
       </div>
     </div>
@@ -585,10 +586,12 @@ hr.div{border:none;border-top:1px solid var(--cream-dark);margin:1rem 0;}
 <div class="modal-bg" id="modal-edit-score">
   <div class="modal">
     <div class="modal-header"><h3>✏️ Edit Player Scores</h3><button class="modal-close-btn" onclick="closeModal('modal-edit-score')">✕</button></div>
+    <div class="fg"><label>Tournament</label><select id="es-tourney-sel" onchange="loadPlayerScoresForEdit()"></select></div>
     <div class="fg"><label>Player</label><select id="es-player-sel" onchange="loadPlayerScoresForEdit()"></select></div>
     <div id="es-holes-grid" class="hole-grid" style="margin-top:0.5rem;"></div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="window._real_closeModal('modal-edit-score')">Cancel</button>
+      <button class="btn btn-ghost" onclick="window._real_clearPlayerScores()">Clear</button>
       <button class="btn btn-gold" onclick="window._real_saveEditedScores()">Save Scores</button>
     </div>
   </div>
@@ -884,6 +887,7 @@ window._real_createTournament=createTournament; window._real_showAdminPlayers=sh
 window._real_showAdminScores=showAdminScores; window._real_showAdminPeoria=showAdminPeoria;
 window._real_showAdminLock=showAdminLock; window._real_showAdminExport=showAdminExport; window._real_loadAdmin=loadAdmin;
 window._real_loadPlayerScoresForEdit=loadPlayerScoresForEdit; window._real_saveEditedScores=saveEditedScores;
+window._real_clearPlayerScores=clearPlayerScores;
 
 // ── AUTH ──
 async function doLogin() {
@@ -1475,6 +1479,8 @@ async function loadLeaderboard() {
   const t=allTournaments.find(x=>x.id===tid)||activeTournament;
   if(!t) return;
   editingTourneyId=tid;
+  const laa=document.getElementById('lb-admin-actions');
+  if(laa) laa.innerHTML=(userProfile&&userProfile.role==='admin')?`<button class="btn btn-ghost btn-full" onclick="window._real_showAdminScores()">✏️ Edit / clear scores</button>`:'';
   document.getElementById('lb-title').textContent=t.name;
   document.getElementById('lb-sub').textContent=`${t.course||''} · Par ${t.par||72}`;
   document.getElementById('lb-content').innerHTML=`<div class="loading"><div class="spinner"></div><p>Loading...</p></div>`;
@@ -2064,6 +2070,10 @@ async function showAdminScores() {
   if(!allTournaments.length){ document.getElementById('admin-content').innerHTML=`<div class="empty"><div class="ei">🏆</div><p>No tournaments</p></div>`; return; }
   const tid=editingTourneyId||allTournaments[0]?.id;
   const t=allTournaments.find(x=>x.id===tid)||allTournaments[0];
+  // populate tournament select in modal
+  const tsel=document.getElementById('es-tourney-sel');
+  tsel.innerHTML=allTournaments.map(x=>`<option value="${x.id}">${esc(x.name)}${x.date?(' · '+x.date):''}${x.status?(' · '+x.status):''}</option>`).join('');
+  tsel.value=tid;
   // populate player select in modal
   const sel=document.getElementById('es-player-sel');
   sel.innerHTML=allPlayers.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('');
@@ -2074,7 +2084,7 @@ async function showAdminScores() {
 
 async function loadPlayerScoresForEdit() {
   const sel=document.getElementById('es-player-sel');
-  const pid=sel.value; const tid=sel.dataset.tid||editingTourneyId||allTournaments[0]?.id;
+  const pid=sel.value; const tid=document.getElementById('es-tourney-sel')?.value||sel.dataset.tid||editingTourneyId||allTournaments[0]?.id;
   const t=allTournaments.find(x=>x.id===tid)||allTournaments[0];
   if(!t||!pid) return;
   const snap=await getDocs(query(collection(db,'holeScores'),where('tournamentId','==',tid),where('playerId','==',pid)));
@@ -2093,7 +2103,7 @@ async function loadPlayerScoresForEdit() {
 
 async function saveEditedScores() {
   const sel=document.getElementById('es-player-sel');
-  const pid=sel.value; const tid=sel.dataset.tid||editingTourneyId||allTournaments[0]?.id;
+  const pid=sel.value; const tid=document.getElementById('es-tourney-sel')?.value||sel.dataset.tid||editingTourneyId||allTournaments[0]?.id;
   const t=allTournaments.find(x=>x.id===tid)||allTournaments[0];
   if(!t||!pid) return;
   const pars=t.holePars||DEFAULT_PARS;
@@ -2107,6 +2117,19 @@ async function saveEditedScores() {
   await batch.commit();
   closeModal('modal-edit-score');
   toast('✅ Scores saved!');
+}
+
+async function clearPlayerScores() {
+  const tid=document.getElementById('es-tourney-sel')?.value||editingTourneyId||allTournaments[0]?.id;
+  const pid=document.getElementById('es-player-sel')?.value;
+  if(!tid||!pid) return;
+  if(!confirm("Clear ALL of this player's scores for this tournament? They can be re-entered.")) return;
+  const batch=writeBatch(db);
+  const snap=await getDocs(query(collection(db,'holeScores'),where('tournamentId','==',tid),where('playerId','==',pid)));
+  snap.docs.forEach(d=>batch.delete(d.ref));
+  await batch.commit();
+  loadPlayerScoresForEdit();
+  toast('🧹 Scores cleared');
 }
 
 async function showAdminPeoria() {
@@ -4000,7 +4023,7 @@ window._real_navCasual = function(btn) {
 };
 
 // Build/version stamp — confirms which version is actually running (catches stale cache)
-var APP_BUILD = '2026.08.12 · contrast-nav';
+var APP_BUILD = '2026.08.12 · admin-score-tools';
 console.log('%cMorks Golf Tour build: ' + APP_BUILD, 'color:#c9a227;font-weight:bold;font-size:14px;');
 try {
   var _bt = document.createElement('div');
