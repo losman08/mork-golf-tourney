@@ -19,8 +19,8 @@
   --gold-light: #ffe066;
   --gold-pale: #fffbe6;
   --text-dark: #1a1a1a;
-  --text-mid: #4a4a4a;
-  --text-light: #8a8a8a;
+  --text-mid: #1a1a1a;
+  --text-light: #1a1a1a;
   --danger: #c0392b;
   --info: #2980b9;
   --shadow: 0 4px 20px rgba(0,0,0,0.10);
@@ -33,12 +33,13 @@ html,body{height:100%;font-family:'Inter',sans-serif;background:var(--forest);co
 /* ── LAYOUT ── */
 #app{display:flex;flex-direction:column;height:100vh;overflow:hidden;}
 #screen-area{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:80px;}
-#bottom-nav{position:fixed;bottom:0;left:0;right:0;background:var(--forest);border-top:1px solid rgba(201,162,39,0.4);display:none;z-index:50;}
+#bottom-nav{position:fixed;bottom:0;left:0;right:0;background:var(--forest-mid);border-top:1px solid rgba(201,162,39,0.4);display:none;z-index:50;}
 .bnav-inner{display:flex;justify-content:flex-start;padding:6px 4px env(safe-area-inset-bottom);overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;gap:0;}
 .bnav-inner::-webkit-scrollbar{display:none;}
-.bnav-btn{display:flex;flex-direction:column;align-items:center;gap:2px;padding:5px 8px;border:none;background:transparent;color:rgba(245,240,232,0.4);font-size:0.58rem;letter-spacing:0.04em;text-transform:uppercase;cursor:pointer;font-family:'Inter',sans-serif;transition:color 0.2s;min-width:52px;flex-shrink:0;}
+.bnav-btn{display:flex;flex-direction:column;align-items:center;gap:2px;padding:5px 8px;border:none;background:transparent;color:rgba(245,240,232,0.8);font-size:0.58rem;letter-spacing:0.04em;text-transform:uppercase;cursor:pointer;font-family:'Inter',sans-serif;transition:color 0.2s;min-width:52px;flex-shrink:0;}
 .bnav-btn .icon{font-size:1.1rem;}
 .bnav-btn.active{color:var(--gold);}
+.bnav-btn.active::after{content:'';width:22px;height:3px;border-radius:2px;background:var(--gold);}
 
 /* ── SCREENS ── */
 .screen{display:none;min-height:100%;padding:0;}
@@ -2382,7 +2383,7 @@ async function loadHistoryDetail(tid) {
     <td class="c">${vsPar(r.gross, t.par||72)}</td>
   </tr>`).join('');
   document.getElementById('hd-table').innerHTML = `<div class="lb-table-wrap"><table>
-    <thead><tr>${rHdrs}</tr></thead><tbody>${rows||'<tr><td colspan="4" style="text-align:center;padding:1.5rem;color:#888">No scores recorded</td></tr>'}</tbody>
+    <thead><tr>${rHdrs}</tr></thead><tbody>${rows||'<tr><td colspan="4" style="text-align:center;padding:1.5rem;color:var(--text-light)">No scores recorded</td></tr>'}</tbody>
   </table></div>`;
   // Hole-by-hole breakdown
   if (ranked.length) {
@@ -3794,7 +3795,7 @@ function ctBuildDrop(inp, courses) {
     nameEl.style.cssText = 'font-weight:600;color:#1a1a1a;';
     nameEl.textContent = c.name;
     var metaEl = document.createElement('div');
-    metaEl.style.cssText = 'font-size:0.72rem;color:#8a8a8a;margin-top:1px;';
+    metaEl.style.cssText = 'font-size:0.72rem;color:var(--text-light);margin-top:1px;';
     metaEl.textContent = (c.city||'') + (c.state ? ', '+c.state : '') + ' · Par ' + (c.par||'?');
     item.appendChild(nameEl);
     item.appendChild(metaEl);
@@ -3999,7 +4000,7 @@ window._real_navCasual = function(btn) {
 };
 
 // Build/version stamp — confirms which version is actually running (catches stale cache)
-var APP_BUILD = '2026.08.12 · casual-tourney-toggle';
+var APP_BUILD = '2026.08.12 · contrast-nav';
 console.log('%cMorks Golf Tour build: ' + APP_BUILD, 'color:#c9a227;font-weight:bold;font-size:14px;');
 try {
   var _bt = document.createElement('div');
