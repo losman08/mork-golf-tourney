@@ -347,7 +347,7 @@ hr.div{border:none;border-top:1px solid var(--cream-dark);margin:1rem 0;}
     <!-- ══ HOME ══ -->
     <div id="screen-home" class="screen">
       <div class="topbar">
-        <div style="display:flex;align-items:center;gap:10px;"><img src="logo.jpg" alt="MT" style="height:36px;width:56px;object-fit:contain;border-radius:5px;" onerror="this.style.display='none'"><div><div class="topbar-title">Morks Golf Tour</div><div class="topbar-sub">Season Dashboard</div></div></div>
+        <div style="display:flex;align-items:center;gap:10px;"><img src="logo.jpg" alt="MT" style="height:36px;width:56px;object-fit:contain;border-radius:5px;" onerror="this.style.display='none'"><div><div class="topbar-title">Morks Golf Tour</div><div class="topbar-sub">Dashboard</div></div></div>
         <div class="topbar-right">
           <button class="icon-btn" onclick="window._real_doSignOut()" title="Sign Out">🚪</button>
         </div>
@@ -567,7 +567,7 @@ hr.div{border:none;border-top:1px solid var(--cream-dark);margin:1rem 0;}
       <div class="fg"><label>Slope Rating</label><input type="number" id="ct-slope" value="113" min="55" max="155"></div>
     </div>
     <div class="fg">
-      <label>Season Points (1st/2nd/3rd)</label>
+      <label>Tournament Points (1st/2nd/3rd)</label>
       <div class="two-col">
         <input type="number" id="ct-pts1" value="100" placeholder="1st">
         <input type="number" id="ct-pts2" value="80" placeholder="2nd">
@@ -3324,7 +3324,7 @@ async function showAdminSettings() {
     <button class="btn btn-forest" onclick="window._real_setTourneyStatus()">Update Status</button>
     <hr class="div">
     <div class="section-title" style="font-size:0.95rem;margin-bottom:0.8rem;color:var(--forest);">Edit Tournament</div>
-    <div class="info-bar">Edit a tournament's details. Name, date, and course are metadata-only. Changing a <b>scoring field</b> (format, par, rating, slope, or season points) on a <b>finalized</b> tournament automatically re-finalizes it — results and player stats are recomputed. The date can also change which tournament is auto-active.</div>
+    <div class="info-bar">Edit a tournament's details. Name, date, and course are metadata-only. Changing a <b>scoring field</b> (format, par, rating, slope, or tournament points) on a <b>finalized</b> tournament automatically re-finalizes it — results and player stats are recomputed. The date can also change which tournament is auto-active.</div>
     <div class="fg"><label>Tournament</label>
       <select id="edit-tourney-sel" onchange="window._real_loadTournamentEdit()">${allTournaments.map(t2=>`<option value="${t2.id}">${esc(t2.name)}</option>`).join('')}</select>
     </div>
@@ -3349,7 +3349,7 @@ async function showAdminSettings() {
       <div class="fg"><label>Slope Rating</label><input type="number" id="et-slope" min="55" max="155" value="${allTournaments[0]?.slope!=null?allTournaments[0].slope:113}"></div>
     </div>
     <div class="fg">
-      <label>Season Points (1st/2nd/3rd)</label>
+      <label>Tournament Points (1st/2nd/3rd)</label>
       <div class="two-col">
         <input type="number" id="et-pts1" placeholder="1st" value="${allTournaments[0]?.pointsMap?.[1]!=null?allTournaments[0].pointsMap[1]:100}">
         <input type="number" id="et-pts2" placeholder="2nd" value="${allTournaments[0]?.pointsMap?.[2]!=null?allTournaments[0].pointsMap[2]:80}">
@@ -3359,7 +3359,7 @@ async function showAdminSettings() {
     <button class="btn btn-forest btn-full" onclick="window._real_saveTournamentEdit()">Save Tournament</button>
     <hr class="div">
     <div class="section-title" style="font-size:0.95rem;margin-bottom:0.8rem;color:var(--forest);">Maintenance</div>
-    <div class="info-bar">Recompute every player's season stats from the current tournaments and casual rounds. Run this after deleting or reverting a tournament, or any time a player's Rounds / Wins / Points look out of date.</div>
+    <div class="info-bar">Recompute every player's stats from the current tournaments and casual rounds. Run this after deleting or reverting a tournament, or any time a player's Rounds / Wins / Points look out of date.</div>
     <button class="btn btn-gold btn-full" onclick="window._real_recomputeAllStats()">Recompute All Player Stats</button>
     <div id="recompute-result" style="margin-top:0.6rem;font-size:0.82rem;color:var(--text-mid);"></div>
     <hr class="div">
@@ -3962,7 +3962,7 @@ window._real_navCasual = function(btn) {
 };
 
 // Build/version stamp — confirms which version is actually running (catches stale cache)
-var APP_BUILD = '2026.08.10 · career-overall';
+var APP_BUILD = '2026.08.10 · label-cleanup';
 console.log('%cMorks Golf Tour build: ' + APP_BUILD, 'color:#c9a227;font-weight:bold;font-size:14px;');
 try {
   var _bt = document.createElement('div');
