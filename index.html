@@ -77,6 +77,7 @@ html,body{height:100%;font-family:'Inter',sans-serif;background:var(--forest);co
 .btn-danger{background:var(--danger);color:white;}
 .btn-ghost{background:transparent;border:2px solid var(--cream-dark);color:var(--text-mid);}
 .btn.btn-ghost-light{color:var(--cream);border-color:var(--gold);}
+.btn.btn-ghost-gold{color:var(--gold);border-color:var(--gold);}
 .btn.btn-ghost-light:hover{color:#fff;border-color:var(--gold-light);}
 .btn-ghost:hover{border-color:var(--forest-light);color:var(--forest);}
 .btn-full{width:100%;}
@@ -441,7 +442,7 @@ hr.div{border:none;border-top:1px solid var(--cream-dark);margin:1rem 0;}
           <div class="sc-stat"><div class="val" id="sc-holes">0</div><div class="lbl">Holes</div></div>
         </div>
         <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:0.8rem;align-items:center;">
-  <span style="font-size:0.65rem;color:var(--text-light);margin-right:2px;text-transform:uppercase;letter-spacing:0.05em;">Score key:</span>
+  <span style="font-size:0.65rem;color:var(--gold);margin-right:2px;text-transform:uppercase;letter-spacing:0.05em;">Score key:</span>
   <span style="background:#fff8e1;border:1.5px solid #daa520;border-radius:4px;padding:1px 6px;font-size:0.65rem;font-weight:700;">Albatross</span>
   <span style="background:#e8eaf6;border:1.5px solid #5c6bc0;border-radius:4px;padding:1px 6px;font-size:0.65rem;font-weight:700;color:#283593;">Eagle</span>
   <span style="background:#e8f5e9;border:1.5px solid #4caf50;border-radius:4px;padding:1px 6px;font-size:0.65rem;font-weight:700;color:#1b5e20;">Birdie</span>
@@ -1480,7 +1481,7 @@ async function loadLeaderboard() {
   if(!t) return;
   editingTourneyId=tid;
   const laa=document.getElementById('lb-admin-actions');
-  if(laa) laa.innerHTML=(userProfile&&userProfile.role==='admin')?`<button class="btn btn-ghost btn-full" onclick="window._real_showAdminScores()">✏️ Edit / clear scores</button>`:'';
+  if(laa) laa.innerHTML=(userProfile&&userProfile.role==='admin')?`<button class="btn btn-ghost btn-ghost-gold btn-full" onclick="window._real_showAdminScores()">✏️ Edit / clear scores</button>`:'';
   document.getElementById('lb-title').textContent=t.name;
   document.getElementById('lb-sub').textContent=`${t.course||''} · Par ${t.par||72}`;
   document.getElementById('lb-content').innerHTML=`<div class="loading"><div class="spinner"></div><p>Loading...</p></div>`;
@@ -2589,7 +2590,7 @@ async function loadCasualRound() {
       <div class="sc-stat"><div class="val" id="cr-holes">0</div><div class="lbl">Holes</div></div>
     </div>
     <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:0.8rem;align-items:center;">
-  <span style="font-size:0.65rem;color:var(--text-light);margin-right:2px;text-transform:uppercase;letter-spacing:0.05em;">Score key:</span>
+  <span style="font-size:0.65rem;color:var(--gold);margin-right:2px;text-transform:uppercase;letter-spacing:0.05em;">Score key:</span>
   <span style="background:#fff8e1;border:1.5px solid #daa520;border-radius:4px;padding:1px 6px;font-size:0.65rem;font-weight:700;">Albatross</span>
   <span style="background:#e8eaf6;border:1.5px solid #5c6bc0;border-radius:4px;padding:1px 6px;font-size:0.65rem;font-weight:700;color:#283593;">Eagle</span>
   <span style="background:#e8f5e9;border:1.5px solid #4caf50;border-radius:4px;padding:1px 6px;font-size:0.65rem;font-weight:700;color:#1b5e20;">Birdie</span>
@@ -3438,7 +3439,7 @@ window._real_showAdminSettings = showAdminSettings;
 // (those paths don't recompute prior participants). Reuses recomputePlayerStatsFor
 // (computePlayerStats -> updateDoc {stats}) per player; touches only the stats map.
 window._real_recomputeAllStats = async function() {
-  if(!confirm('Recompute season stats for ALL players from current tournaments + casual rounds? This overwrites the stored stats for every player.')) return;
+  if(!confirm('Recompute all-time stats for ALL players from current tournaments + casual rounds? This overwrites the stored stats for every player.')) return;
   const resEl = document.getElementById('recompute-result');
   const setRes = function(msg){ if(resEl) resEl.textContent = msg; };
   try {
@@ -4023,7 +4024,7 @@ window._real_navCasual = function(btn) {
 };
 
 // Build/version stamp — confirms which version is actually running (catches stale cache)
-var APP_BUILD = '2026.08.12 · admin-score-tools';
+var APP_BUILD = '2026.08.12 · gold-copy-fixes';
 console.log('%cMorks Golf Tour build: ' + APP_BUILD, 'color:#c9a227;font-weight:bold;font-size:14px;');
 try {
   var _bt = document.createElement('div');
