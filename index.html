@@ -2705,46 +2705,58 @@ function calcParTypeStats(records){
 // the current user (own data is readable per Firestore rules). One fetch, one bundle — so refreshMyStats
 // (publish) and loadStatsScreen (render) share a single source of truth instead of each re-querying.
 async function computeHoleAnalytics(uid){
-  // CASUAL-ONLY: these skill panels intentionally read only the player's casual rounds, kept separate
-  // from tournament scoring (which lives in leaderboards/standings). One fetch, one bundle.
-  let casualRounds = [];
+  // Fetch the player's casual rounds AND finalized-tournament rounds ONCE, then derive TWO analytics
+  // bundles (casual + tournament) so My Stats can toggle between them. Compare/publish still use casual.
+  const casualObjs = [], tourneyObjs = [];
   try {
     const cSnap = await getDocs(query(collection(db,'casualRounds'), where('playerId','==',uid)));
-    casualRounds = cSnap.docs.map(function(d){ return d.data(); });
+    cSnap.docs.forEach(function(d){
+      const r = d.data(); const hs = r.holes||{}; const holes = [];
+      Object.keys(hs).forEach(function(k){ const h=hs[k]; if(h && typeof h.score==='number'){ holes.push({ holeNumber:parseInt(k,10), score:h.score, par:(h.par||DEFAULT_PARS[parseInt(k,10)-1]||4) }); } });
+      casualObjs.push({ holes:holes, gross:r.gross, roundPar:(typeof r.par==='number'?r.par:null), date:r.date||'', holesPlayed:r.holesPlayed });
+    });
+    const finalizedIds = new Set((allTournaments||[]).filter(function(t){ return t.status==='completed'||t.status==='locked'; }).map(function(t){ return t.id; }));
+    const tSnap = await getDocs(query(collection(db,'holeScores'), where('playerId','==',uid)));
+    const byT = {};
+    tSnap.docs.forEach(function(d){ const h=d.data(); if(!finalizedIds.has(h.tournamentId)) return; (byT[h.tournamentId]=byT[h.tournamentId]||[]).push(h); });
+    Object.keys(byT).forEach(function(tid){
+      const raw = byT[tid]; const t = (allTournaments||[]).find(function(x){ return x.id===tid; }) || {};
+      const holes = raw.filter(function(h){ return typeof h.score==='number'; }).map(function(h){ return { holeNumber:h.holeNumber, score:h.score, par:h.par }; });
+      const gross = holes.reduce(function(s,h){ return s+h.score; }, 0);
+      const roundPar = Number(t.par) || holes.reduce(function(s,h){ return s+(h.par||0); }, 0) || 72;
+      tourneyObjs.push({ holes:holes, gross:gross, roundPar:roundPar, date:t.date||'', holesPlayed:raw.length });
+    });
   } catch(e){ console.error('computeHoleAnalytics fetch', e); }
-  // Derive from the fetched data. parRecords/buckets feed distribution + par-type; roundDiffs is a
-  // list of per-round { holeNumber: scoreDiff } maps used for the ordered bounce-back pass.
+  return { casual: deriveAnalytics(casualObjs), tournament: deriveAnalytics(tourneyObjs) };
+}
+// Pure: derive the full per-hole analytics bundle from a list of round objects
+// ({ holes:[{holeNumber,score,par}], gross, roundPar, date, holesPlayed }). Same logic for casual or
+// tournament rounds — the source difference is handled entirely by the fetcher above.
+function deriveAnalytics(roundObjs){
   const parRecords = [];
   const buckets = { eagles:0, birdies:0, pars:0, bogeys:0, doubles:0, worse:0 };
   const bump = function(diff){ if(diff<=-2) buckets.eagles++; else if(diff===-1) buckets.birdies++; else if(diff===0) buckets.pars++; else if(diff===1) buckets.bogeys++; else if(diff===2) buckets.doubles++; else buckets.worse++; };
   const roundDiffs = [];
-  casualRounds.forEach(function(r){
-    const hs = r.holes||{}; const m = {};
-    Object.keys(hs).forEach(function(k){ const hole=hs[k]; if(hole && typeof hole.score==='number'){ const par=(hole.par||DEFAULT_PARS[parseInt(k,10)-1]||4); const diff=hole.score-par; parRecords.push({ score:hole.score, par:par }); bump(diff); m[parseInt(k,10)]=diff; } });
+  const datedVsPar = [];
+  roundObjs.forEach(function(r){
+    const m = {};
+    (r.holes||[]).forEach(function(h){ if(typeof h.score==='number'){ const diff=h.score-h.par; parRecords.push({ score:h.score, par:h.par }); bump(diff); m[h.holeNumber]=diff; } });
     roundDiffs.push(m);
+    if(r.holesPlayed===18 && typeof r.gross==='number' && r.roundPar!=null) datedVsPar.push({ date:r.date||'', vsPar:r.gross - r.roundPar });
   });
   const parType = calcParTypeStats(parRecords);
   const totalHoles = Object.values(buckets).reduce(function(a,b){ return a+b; }, 0);
   const pctOf = function(n){ return totalHoles ? Math.round((n/totalHoles)*100) : null; };
-  // Bounce-back: after a bogey-or-worse hole, how often the very next hole in the SAME round is
-  // par-or-better. Ordered 1->18 pass per round; a missing next hole or a round boundary ends the chain.
   let bbOpps = 0, bbHits = 0;
   roundDiffs.forEach(function(m){
-    for(let n=1;n<=17;n++){
-      if(m[n]==null || m[n+1]==null) continue;
-      if(m[n] >= 1){ bbOpps++; if(m[n+1] <= 0) bbHits++; }
-    }
+    for(let n=1;n<=17;n++){ if(m[n]==null || m[n+1]==null) continue; if(m[n] >= 1){ bbOpps++; if(m[n+1] <= 0) bbHits++; } }
   });
   const rates = {
     parOrBetter: pctOf(buckets.eagles + buckets.birdies + buckets.pars),
     blowUp: pctOf(buckets.doubles + buckets.worse),
     bounceBack: bbOpps ? Math.round((bbHits/bbOpps)*100) : null,
-    holes: totalHoles,
-    bbOpps: bbOpps
+    holes: totalHoles, bbOpps: bbOpps
   };
-  // Front 9 vs Back 9: avg strokes vs par per nine. The sum of per-hole diffs on holes 1-9 IS the
-  // front-nine gross-minus-par for that round (same for 10-18). A round counts only if BOTH nines are
-  // complete (all 9 holes present), so gross-only and partial rounds are excluded.
   let fSum = 0, bSum = 0, splitRounds = 0;
   roundDiffs.forEach(function(m){
     let fOk = true, bOk = true, f = 0, b = 0;
@@ -2755,10 +2767,6 @@ async function computeHoleAnalytics(uid){
   const splits = splitRounds
     ? { front:+(fSum/splitRounds).toFixed(1), back:+(bSum/splitRounds).toFixed(1), rounds:splitRounds }
     : { front:null, back:null, rounds:0 };
-  // Par-normalized scoring trend (chronological). 18-hole rounds only; raw gross across different
-  // courses (par 71 vs 72, easy vs hard) isn't comparable. recent 3 vs earlier 3 over the last 10.
-  const datedVsPar = [];
-  casualRounds.forEach(function(r){ if(r.holesPlayed===18) datedVsPar.push({ date:r.date||'', vsPar:r.gross-(Number(r.par)||72) }); });
   datedVsPar.sort(function(a,b){ return (a.date||'').localeCompare(b.date||''); });
   const window10 = datedVsPar.slice(-10);
   let trend = null, trendN = 0;
@@ -2775,7 +2783,7 @@ async function refreshMyStats(){
     const s = await computePlayerStats(currentUser.uid);
     const cs = await computeCasualStats(currentUser.uid);
     const a = await computeHoleAnalytics(currentUser.uid);
-    const pt = a.parType, hr = a.rates, sp = a.splits;
+    const pt = a.casual.parType, hr = a.casual.rates, sp = a.casual.splits;
     if(userProfile){ userProfile.stats = s; userProfile.casualStats = cs; userProfile.parTypeStats = pt; userProfile.holeRates = hr; userProfile.splits = sp; }
     await updateDoc(doc(db,'players',currentUser.uid), { stats: s, casualStats: cs, parTypeStats: pt, holeRates: hr, splits: sp });
   } catch(e){ console.error('refreshMyStats', e); }
@@ -3161,6 +3169,7 @@ async function loadStatsScreen() {
   cont.innerHTML = `
     <div class="section-title" style="font-size:1rem;margin-bottom:0.8rem;">Career Overall</div>
     <div class="stats-grid" id="career-overall-grid" style="grid-template-columns:repeat(2,1fr);margin-bottom:1.5rem;">${overviewTiles(ov0)}</div>
+    <div id="stats-source-toggle" style="margin-bottom:0.9rem;"></div>
     <div id="stats-analytics"><div class="loading"><div class="spinner"></div></div></div>`;
   const analyt = document.getElementById('stats-analytics');
   if (!analyt) return;
@@ -3193,16 +3202,12 @@ async function loadStatsScreen() {
   } catch(e){ console.error('career overall refresh', e); }
   // 2) Heavier analytics, with a timeout so a slow/stalled query degrades instead of spinning forever.
   try {
-    // Single source of truth: one fetch, one bundle (distribution, par-type, quality rates, trend).
+    // One fetch -> two bundles (casual + tournament). The toggle re-renders from these without refetching.
     const A = await withTimeout(computeHoleAnalytics(currentUser.uid), 12000);
-    const buckets = A.buckets, totalHoles = A.totalHoles, parType = A.parType, rates = A.rates, splits = A.splits;
-    const trend = A.trend, trendN = A.trendN;
-    const vpFmt = function(v){ return v==null ? '\u2014' : (v>0?'+'+v:(v<0?''+v:'E')); };
-    const strongerNine = (splits.front!=null && splits.back!=null) ? (splits.front<splits.back?'Front':(splits.back<splits.front?'Back':null)) : null;
-    const pct = n => totalHoles ? Math.round((n / totalHoles) * 100) : 0;
-    // Publish par-type + scoring-quality rates to this player's PUBLIC doc so Players compare can read
-    // them (mirrors stats/casualStats). Best-effort + only-if-changed, so it can't hang or spam writes.
+    _hAnalytics = A; _hSource = 'casual';
+    // Publish CASUAL aggregates to the public doc so Players/Compare can read them (Compare stays casual).
     try {
+      const parType = A.casual.parType, rates = A.casual.rates, splits = A.casual.splits;
       const prevPT = (userProfile && userProfile.parTypeStats) ? JSON.stringify(userProfile.parTypeStats) : null;
       const prevHR = (userProfile && userProfile.holeRates) ? JSON.stringify(userProfile.holeRates) : null;
       const prevSP = (userProfile && userProfile.splits) ? JSON.stringify(userProfile.splits) : null;
@@ -3211,15 +3216,61 @@ async function loadStatsScreen() {
         if (userProfile) { userProfile.parTypeStats = parType; userProfile.holeRates = rates; userProfile.splits = splits; }
       }
     } catch(e){ console.error('analytics persist', e); }
-    if (!totalHoles) {
-      analyt.innerHTML = `<div class="card card-sm" style="text-align:center;color:var(--text-light);font-size:0.9rem;padding:1.5rem;">Log a few rounds with hole-by-hole scores and your shot distribution, par-type scoring, and scoring trend will appear here.</div>`;
-      return;
-    }
-    analyt.innerHTML = `
-      <div style="display:flex;align-items:center;gap:9px;margin-bottom:1rem;flex-wrap:wrap;">
-        <span style="font-size:0.68rem;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;color:var(--gold);border:1px solid var(--gold);padding:2px 9px;border-radius:20px;">Casual</span>
-        <span style="font-size:0.75rem;color:rgba(245,240,232,0.65);">Skill breakdown from your casual rounds only</span>
-      </div>
+    renderStatsToggle();
+    renderStatsPanels();
+  } catch(e){
+    console.error('stats analytics', e);
+    analyt.innerHTML = `<div class="card card-sm" style="text-align:center;color:var(--text-light);font-size:0.85rem;padding:1.2rem;">Detailed analytics couldn't load${e&&e.message==='timeout'?' (timed out)':''}. Your totals above are current.</div>`;
+  }
+}
+window._real_loadStatsScreen = loadStatsScreen;
+window._shimFlush();
+
+function renderDistBar(label, count, pct, color, textColor) {
+  return `<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+    <div style="width:80px;font-size:0.78rem;color:var(--text-mid);">${label}</div>
+    <div style="flex:1;background:var(--cream-dark);border-radius:20px;overflow:hidden;height:18px;">
+      <div style="width:${pct}%;background:${color};height:100%;border-radius:20px;transition:width 0.5s;"></div>
+    </div>
+    <div style="width:44px;text-align:right;font-size:0.78rem;font-weight:600;color:var(--text-mid);">${count} (${pct}%)</div>
+  </div>`;
+}
+
+// Plain-English explanations for each analytics panel. Kept short and matched exactly to how each
+// number is computed above. Rendered via textContent (never innerHTML), so the copy stays literal.
+var STAT_INFO = {
+  'distribution':     { title:'Score Distribution', body:'Every hole from your completed rounds, grouped by how you scored against par \u2014 eagles down to blow-ups. Just a running count.' },
+  'par-type':         { title:'Scoring by Par Type', body:'Your average score vs par on par-3s, 4s and 5s, kept separate. \u201CE\u201D is even, \u201C+1\u201D is a stroke over on average. Lower is better.' },
+  'scoring-quality':  { title:'Scoring Quality', body:'Three rates across all your holes: Par or Better (par or lower), Blow-ups (double bogey or worse), and Bounce-back \u2014 how often you answer a bogey-or-worse hole with a par-or-better on the very next hole in the same round.' },
+  'front-back':       { title:'Front 9 vs Back 9', body:'Your average score vs par on holes 1\u20139 vs 10\u201318, using rounds where you entered all 18 holes. The lower number is the nine you play better.' },
+  'trend':            { title:'Recent Trend', body:'Your last 3 rounds vs the 3 before them, measured as strokes vs par so different courses compare fairly. A negative number means you\u2019re scoring better lately.' }
+};
+function showStatInfo(key){
+  var info = STAT_INFO[key]; if(!info) return;
+  var t = document.getElementById('si-title'); var b = document.getElementById('si-body');
+  if(t) t.textContent = info.title;
+  if(b) b.textContent = info.body;
+  openModal('modal-stat-info');
+}
+window._real_showStatInfo = showStatInfo;
+
+// ── My Stats skill panels: casual/tournament toggle ──
+// _hAnalytics holds BOTH bundles from one fetch; _hSource is the active view. Toggling re-renders from
+// the cached bundles (no refetch). Compare/publish always use the casual bundle.
+let _hAnalytics = null;
+let _hSource = 'casual';
+function skillPanelsHTML(bundle, source){
+  bundle = bundle || {};
+  const buckets = bundle.buckets || {}, totalHoles = bundle.totalHoles || 0, parType = bundle.parType || {};
+  const rates = bundle.rates || {}, splits = bundle.splits || { rounds:0 }, trend = (bundle.trend!=null?bundle.trend:null), trendN = bundle.trendN || 0;
+  const srcWord = source==='tournament' ? 'tournament' : 'casual';
+  if(!totalHoles){
+    return `<div class="card card-sm" style="text-align:center;color:var(--text-light);font-size:0.9rem;padding:1.5rem;">No ${srcWord} rounds with hole-by-hole scores yet. Log some and your distribution, par-type scoring, and trend will appear here.</div>`;
+  }
+  const vpFmt = function(v){ return v==null ? '\u2014' : (v>0?'+'+v:(v<0?''+v:'E')); };
+  const strongerNine = (splits.front!=null && splits.back!=null) ? (splits.front<splits.back?'Front':(splits.back<splits.front?'Back':null)) : null;
+  const pct = function(n){ return totalHoles ? Math.round((n / totalHoles) * 100) : 0; };
+  return `
       <div class="section-title" style="font-size:1rem;margin-bottom:0.8rem;">Score Distribution<span class="stat-q" onclick="window._real_showStatInfo('distribution')">?</span></div>
       <div class="card card-sm" style="margin-bottom:1.5rem;">
         ${renderDistBar('Eagles 🦅', buckets.eagles, pct(buckets.eagles), '#1a3a8a', 'white')}
@@ -3263,41 +3314,27 @@ async function loadStatsScreen() {
         <div style="font-size:0.78rem;color:var(--text-light);margin-top:4px;">strokes vs par \u00b7 recent 3 vs earlier 3 (last ${trendN} rounds)</div>
         <div style="font-size:0.82rem;color:${trend < 0 ? '#27ae60' : trend > 0 ? '#c0392b' : 'var(--text-light)'};margin-top:6px;font-weight:600;">${trend < 0 ? '📈 Trending better' : trend > 0 ? '📉 Room to grow' : '⛳ Steady'}</div>
       </div>` : ''}`;
-  } catch(e){
-    console.error('stats analytics', e);
-    analyt.innerHTML = `<div class="card card-sm" style="text-align:center;color:var(--text-light);font-size:0.85rem;padding:1.2rem;">Detailed analytics couldn't load${e&&e.message==='timeout'?' (timed out)':''}. Your totals above are current.</div>`;
-  }
 }
-window._real_loadStatsScreen = loadStatsScreen;
-window._shimFlush();
-
-function renderDistBar(label, count, pct, color, textColor) {
-  return `<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
-    <div style="width:80px;font-size:0.78rem;color:var(--text-mid);">${label}</div>
-    <div style="flex:1;background:var(--cream-dark);border-radius:20px;overflow:hidden;height:18px;">
-      <div style="width:${pct}%;background:${color};height:100%;border-radius:20px;transition:width 0.5s;"></div>
-    </div>
-    <div style="width:44px;text-align:right;font-size:0.78rem;font-weight:600;color:var(--text-mid);">${count} (${pct}%)</div>
-  </div>`;
+function renderStatsToggle(){
+  const el = document.getElementById('stats-source-toggle');
+  if(!el) return;
+  const btn = function(src, label){
+    const active = _hSource===src;
+    return '<button onclick="window._real_setStatsSource(\''+src+'\')" style="border:none;cursor:pointer;font-family:inherit;font-size:0.78rem;font-weight:600;padding:6px 16px;border-radius:16px;'+(active?'background:var(--gold);color:var(--forest);':'background:transparent;color:rgba(245,240,232,0.75);')+'">'+label+'</button>';
+  };
+  const caption = _hSource==='tournament' ? 'Skill breakdown from your finalized tournament rounds' : 'Skill breakdown from your casual rounds';
+  el.innerHTML = '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">'
+    + '<div style="display:inline-flex;background:rgba(0,0,0,0.18);border-radius:19px;padding:3px;">'+btn('casual','Casual')+btn('tournament','Tournament')+'</div>'
+    + '<span style="font-size:0.72rem;color:rgba(245,240,232,0.6);">'+caption+'</span></div>';
 }
-
-// Plain-English explanations for each analytics panel. Kept short and matched exactly to how each
-// number is computed above. Rendered via textContent (never innerHTML), so the copy stays literal.
-var STAT_INFO = {
-  'distribution':     { title:'Score Distribution', body:'Every hole from your completed rounds, grouped by how you scored against par \u2014 eagles down to blow-ups. Just a running count.' },
-  'par-type':         { title:'Scoring by Par Type', body:'Your average score vs par on par-3s, 4s and 5s, kept separate. \u201CE\u201D is even, \u201C+1\u201D is a stroke over on average. Lower is better.' },
-  'scoring-quality':  { title:'Scoring Quality', body:'Three rates across all your holes: Par or Better (par or lower), Blow-ups (double bogey or worse), and Bounce-back \u2014 how often you answer a bogey-or-worse hole with a par-or-better on the very next hole in the same round.' },
-  'front-back':       { title:'Front 9 vs Back 9', body:'Your average score vs par on holes 1\u20139 vs 10\u201318, using rounds where you entered all 18 holes. The lower number is the nine you play better.' },
-  'trend':            { title:'Recent Trend', body:'Your last 3 rounds vs the 3 before them, measured as strokes vs par so different courses compare fairly. A negative number means you\u2019re scoring better lately.' }
-};
-function showStatInfo(key){
-  var info = STAT_INFO[key]; if(!info) return;
-  var t = document.getElementById('si-title'); var b = document.getElementById('si-body');
-  if(t) t.textContent = info.title;
-  if(b) b.textContent = info.body;
-  openModal('modal-stat-info');
+function renderStatsPanels(){
+  const analyt = document.getElementById('stats-analytics');
+  if(!analyt || !_hAnalytics) return;
+  const bundle = _hAnalytics[_hSource] || _hAnalytics.casual || {};
+  analyt.innerHTML = skillPanelsHTML(bundle, _hSource);
 }
-window._real_showStatInfo = showStatInfo;
+function setStatsSource(src){ if(src!=='casual' && src!=='tournament') return; _hSource = src; renderStatsToggle(); renderStatsPanels(); }
+window._real_setStatsSource = setStatsSource;
 
 // ── ADMIN: INVITE CODE SETTINGS ──
 async function showAdminSettings() {
@@ -3962,7 +3999,7 @@ window._real_navCasual = function(btn) {
 };
 
 // Build/version stamp — confirms which version is actually running (catches stale cache)
-var APP_BUILD = '2026.08.10 · label-cleanup';
+var APP_BUILD = '2026.08.12 · casual-tourney-toggle';
 console.log('%cMorks Golf Tour build: ' + APP_BUILD, 'color:#c9a227;font-weight:bold;font-size:14px;');
 try {
   var _bt = document.createElement('div');
