@@ -2939,17 +2939,40 @@ function plCompareView(){
   var cont = document.getElementById('players-content');
   document.getElementById('players-sub').textContent = 'Comparison';
   var metrics = [
-    ['Handicap','hcp',false,null], ['Rounds','rounds',true,null], ['Avg Gross','avgGross',false,null],
-    ['Avg vs Par','vsPar',false,plParFmt], ['Best','bestRound',false,null], ['Worst','worstRound',false,null],
-    ['Wins','wins',true,null], ['Top 3','top3',true,null], ['Tourney Pts','seasonPoints',true,null], ['Casual Rds','casualRounds',true,null],
-    ['Par 3 vs par','p3',false,plParFmt], ['Par 4 vs par','p4',false,plParFmt], ['Par 5 vs par','p5',false,plParFmt],
-    ['Par-or-better %','parOrBetter',true,plPctFmt], ['Blow-up %','blowUp',false,plPctFmt], ['Bounce-back %','bounceBack',true,plPctFmt],
-    ['Front 9 vs par','front',false,plParFmt], ['Back 9 vs par','back',false,plParFmt]
+    ['Handicap','hcp',false,null,'Player'],
+    ['Casual Rounds','casualRounds',true,null,'Casual'],
+    ['Avg Gross','avgGross',false,null,'Casual'],
+    ['Best','bestRound',false,null,'Casual'],
+    ['Worst','worstRound',false,null,'Casual'],
+    ['Par 3 vs par','p3',false,plParFmt,'Casual'],
+    ['Par 4 vs par','p4',false,plParFmt,'Casual'],
+    ['Par 5 vs par','p5',false,plParFmt,'Casual'],
+    ['Par-or-better %','parOrBetter',true,plPctFmt,'Casual'],
+    ['Blow-up %','blowUp',false,plPctFmt,'Casual'],
+    ['Bounce-back %','bounceBack',true,plPctFmt,'Casual'],
+    ['Front 9 vs par','front',false,plParFmt,'Casual'],
+    ['Back 9 vs par','back',false,plParFmt,'Casual'],
+    ['Wins','wins',true,null,'Tournament'],
+    ['Top 3','top3',true,null,'Tournament'],
+    ['Tourney Pts','seasonPoints',true,null,'Tournament'],
+    ['Avg vs Par','vsPar',false,plParFmt,'Tournament']
   ];
-  var stats = players.map(function(p){ var st = plStat(p); st.vsPar = plVsPar(p.id); return st; });
+  var stats = players.map(function(p){
+    var st = plStat(p); st.vsPar = plVsPar(p.id);
+    var cs = p.casualStats || {};
+    var cnum = function(v){ return (typeof v==='number' && !isNaN(v)) ? v : null; };
+    st.avgGross = cnum(cs.avgGross); st.bestRound = cnum(cs.bestRound); st.worstRound = cnum(cs.worstRound);
+    return st;
+  });
   var head = '<th>Stat</th>' + players.map(function(p){ return '<th class="c">' + avatarHtml(p,26) + '<br>' + esc(p.nickname||p.name||'?') + '</th>'; }).join('');
+  var curGroup = null;
   var body = metrics.map(function(m){
-    var key = m[1], higher = m[2], fmt = m[3];
+    var key = m[1], higher = m[2], fmt = m[3], group = m[4];
+    var header = '';
+    if(group !== curGroup){
+      curGroup = group;
+      header = '<tr><td colspan="' + (players.length+1) + '" style="background:var(--forest);color:var(--gold);font-weight:700;font-size:0.78rem;letter-spacing:0.03em;padding:0.35rem 0.55rem;">' + group + '</td></tr>';
+    }
     var vals = stats.map(function(s){ return s[key]; });
     var nums = vals.filter(function(v){ return v!=null; });
     var bestv = nums.length ? (higher ? Math.max.apply(null,nums) : Math.min.apply(null,nums)) : null;
@@ -2958,7 +2981,7 @@ function plCompareView(){
       var disp = fmt ? plVal(fmt(v)) : plVal(v);
       return '<td class="c' + (isBest?' bold':'') + '"' + (isBest?' style="color:var(--forest);background:rgba(201,162,39,0.16);"':'') + '>' + disp + '</td>';
     }).join('');
-    return '<tr><td>' + m[0] + '</td>' + cells + '</tr>';
+    return header + '<tr><td>' + m[0] + '</td>' + cells + '</tr>';
   }).join('');
   // Head-to-head matrix — tournaments both players finished
   var anyH2H = false;
@@ -2981,7 +3004,7 @@ function plCompareView(){
   cont.innerHTML =
     '<button class="btn btn-ghost btn-ghost-light btn-sm" style="margin-bottom:0.8rem;" onclick="window._real_plList()">\u2190 All players</button>'
     + '<div class="lb-table-wrap"><table><thead><tr>' + head + '</tr></thead><tbody>' + body + '</tbody></table></div>'
-    + '<div class="section-sub" style="margin-top:0.6rem;">Gold marks the leader per stat \u00b7 lower is better for gross, handicap &amp; vs-par; higher for the rest. Par-type, scoring-quality and nine-split rows use casual rounds only.</div>'
+    + '<div class="section-sub" style="margin-top:0.6rem;">Gold marks the leader per stat \u00b7 lower is better for gross, handicap &amp; vs-par; higher for the rest. Casual stats use casual rounds only; Wins, Top 3 &amp; Tourney Pts are tournament-only.</div>'
     + h2h;
 }
 
@@ -4024,7 +4047,7 @@ window._real_navCasual = function(btn) {
 };
 
 // Build/version stamp — confirms which version is actually running (catches stale cache)
-var APP_BUILD = '2026.08.12 · gold-copy-fixes';
+var APP_BUILD = '2026.08.12 · compare-groups';
 console.log('%cMorks Golf Tour build: ' + APP_BUILD, 'color:#c9a227;font-weight:bold;font-size:14px;');
 try {
   var _bt = document.createElement('div');
