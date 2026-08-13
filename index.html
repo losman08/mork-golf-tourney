@@ -2133,12 +2133,20 @@ async function clearPlayerScores() {
   toast('🧹 Scores cleared');
 }
 
-async function showAdminPeoria() {
-  const t=activeTournament||allTournaments[0]; if(!t){ toast('No tournament.'); return; }
+async function showAdminPeoria(tid) {
+  const t=(tid && (allTournaments||[]).find(function(x){return x.id===tid;})) || activeTournament || allTournaments[0]; if(!t){ toast('No tournament.'); return; }
   const el=document.getElementById('admin-content'); el.innerHTML='';
   const drawn=Array.isArray(t.peoriaHoles)&&t.peoriaHoles.length===6;
   const card=document.createElement('div'); card.className='card';
   const h3=document.createElement('h3'); h3.textContent='🎲 Blind Peoria — Random Hole Draw'; card.appendChild(h3);
+  if((allTournaments||[]).length>1){
+    const selWrap=document.createElement('div'); selWrap.className='fg'; selWrap.style.marginBottom='0.8rem';
+    const lbl=document.createElement('label'); lbl.textContent='Tournament'; selWrap.appendChild(lbl);
+    const sel=document.createElement('select');
+    sel.innerHTML=allTournaments.map(function(x){ return '<option value="'+x.id+'"'+(x.id===t.id?' selected':'')+'>'+esc(x.name)+(x.date?(' · '+x.date):'')+(x.status?(' · '+x.status):'')+'</option>'; }).join('');
+    sel.onchange=function(){ showAdminPeoria(this.value); };
+    selWrap.appendChild(sel); card.appendChild(selWrap);
+  }
   const info=document.createElement('div'); info.className='info-bar';
   const grid=document.createElement('div'); grid.className='blind-hole-grid'; grid.id='peoria-draw-stage';
   if(drawn){
@@ -2296,7 +2304,7 @@ window._real_drawPeoriaHoles=function(tid){
 window._real_resetPeoriaHoles=async function(tid){
   if(!confirm('Clear the drawn holes and allow a new draw? Only do this if the previous draw was a genuine mistake — redrawing undermines the blind format.')) return;
   await updateDoc(doc(db,'tournaments',tid),{peoriaHoles:[],peoriaDrawnAt:null});
-  await loadGlobalData(); toast('Cleared — you can redraw.'); window._real_showAdminPeoria();
+  await loadGlobalData(); toast('Cleared — you can redraw.'); window._real_showAdminPeoria(tid);
 };
 
 // ── Shared finalize + stats recompute (Deploy A: unify status/lock) ──
@@ -4049,7 +4057,7 @@ window._real_navCasual = function(btn) {
 };
 
 // Build/version stamp — confirms which version is actually running (catches stale cache)
-var APP_BUILD = '2026.08.12 · peoria-draw-suspense';
+var APP_BUILD = '2026.08.12 · peoria-draw-picker';
 console.log('%cMorks Golf Tour build: ' + APP_BUILD, 'color:#c9a227;font-weight:bold;font-size:14px;');
 try {
   var _bt = document.createElement('div');
