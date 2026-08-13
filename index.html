@@ -604,7 +604,7 @@ hr.div{border:none;border-top:1px solid var(--cream-dark);margin:1rem 0;}
     <div class="modal-header"><h3>✏️ Edit Profile</h3><button class="modal-close-btn" onclick="closeModal('modal-edit-profile')">✕</button></div>
     <div class="fg"><label>Full Name</label><input type="text" id="ep-name"></div>
     <div class="fg"><label>Nickname</label><input type="text" id="ep-nickname" placeholder="optional"></div>
-    <div class="fg"><label>GHIN Handicap</label><input type="number" id="ep-hcp" step="0.1" min="0" max="54" placeholder="optional"></div>
+    <div class="fg"><label>GHIN Handicap</label><input type="number" id="ep-hcp" step="0.1" min="0" max="54" placeholder="optional" readonly style="background:#eee;color:#666;cursor:not-allowed;"><div style="font-size:0.7rem;color:var(--text-light);margin-top:2px;">Admin-managed — contact an admin to change your handicap.</div></div>
     <div class="fg"><label>Profile Photo</label>
       <div id="ep-photo-preview"></div>
       <input type="file" accept="image/*" id="ep-photo-input" style="display:none;" onchange="window._real_onEpPhotoSelected(this)">
@@ -914,7 +914,7 @@ async function doRegister() {
   try {
     const cred=await createUserWithEmailAndPassword(auth,email,pass);
     await setDoc(doc(db,'players',cred.user.uid),{
-      name, nickname: nickname||null, email, role:'player', officialHandicap: hcp?Number(hcp):null,
+      name, nickname: nickname||null, email, role:'player', officialHandicap: hcp?Math.max(0,Math.min(54,Number(hcp))):null,
       status:'active', createdDate: serverTimestamp(),
       stats:{ roundsPlayed:0,wins:0,top3:0,avgGross:0,avgNet:0,bestRound:null,worstRound:null,seasonPoints:0 }
     });
@@ -2062,7 +2062,7 @@ window._real_saveAdminPlayerEdit = async function(){
     await updateDoc(doc(db,'players',pid), {
       name: name,
       nickname: nickname || null,
-      officialHandicap: hcpRaw !== '' ? Number(hcpRaw) : null,
+      officialHandicap: hcpRaw !== '' ? Math.max(0,Math.min(54,Number(hcpRaw))) : null,
       role: role
     });
     closeModal('modal-admin-edit-player');
@@ -3138,12 +3138,17 @@ window._real_editProfile = function(){
 window._real_saveProfileEdit = async function(){
   const name = document.getElementById('ep-name').value.trim();
   const nickname = document.getElementById('ep-nickname').value.trim();
-  const hcpRaw = document.getElementById('ep-hcp').value;
   if(!name){ toast('Name is required.'); return; }
+  // Name-uniqueness guardrail: block a name already used by another active player.
+  const nameTaken = (allPlayers||[]).some(function(p){
+    return p.id !== currentUser.uid && p.status === 'active' && (p.name||'').trim().toLowerCase() === name.toLowerCase();
+  });
+  if(nameTaken){ toast('That name is already taken by another player.'); return; }
   try {
-    const upd = { name: name, nickname: nickname||null, officialHandicap: hcpRaw!==''?Number(hcpRaw):null, photo: epPhotoDataUri||null };
+    // Handicap intentionally omitted — GHIN is admin-managed only (self-edit field is read-only).
+    const upd = { name: name, nickname: nickname||null, photo: epPhotoDataUri||null };
     await updateDoc(doc(db,'players',currentUser.uid), upd);
-    userProfile.name = upd.name; userProfile.nickname = upd.nickname; userProfile.officialHandicap = upd.officialHandicap; userProfile.photo = upd.photo;
+    userProfile.name = upd.name; userProfile.nickname = upd.nickname; userProfile.photo = upd.photo;
     closeModal('modal-edit-profile');
     toast('✅ Profile updated.');
     loadProfile();
@@ -4068,7 +4073,7 @@ window._real_navCasual = function(btn) {
 };
 
 // Build/version stamp — confirms which version is actually running (catches stale cache)
-var APP_BUILD = '2026.08.12 · format-model-align';
+var APP_BUILD = '2026.08.13 · profile-guardrails';
 console.log('%cMorks Golf Tour build: ' + APP_BUILD, 'color:#c9a227;font-weight:bold;font-size:14px;');
 try {
   var _bt = document.createElement('div');
