@@ -2255,21 +2255,23 @@ window._real_drawPeoriaHoles=function(tid){
     for(let i=pool.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); const tmp=pool[i]; pool[i]=pool[j]; pool[j]=tmp; }
     const chosen=pool.slice(0,6);
     const cells=Array.prototype.slice.call(stage.children);
-    // Deceleration schedule — delays stretch out like a wheel slowing to a stop (~1.5s/hole spin).
-    const DELAYS=[45,45,50,55,60,70,80,95,110,130,150,175,200,230];
+    // Deceleration schedule — delays stretch out like a wheel slowing to a stop (~2s/hole spin; final hole drags to ~3s).
+    const DELAYS=[45,45,50,55,60,70,80,95,110,130,150,175,200,230,260,290];
+    const FINAL_EXTRA=[310,340,350]; // last hole only: +1s of extra drag for suspense
     let idx=0;
     function settle(){
       if(idx>=6){ commit(); return; }
       const cell=cells[idx]; let tick=0;
+      const sched=(idx===5) ? DELAYS.concat(FINAL_EXTRA) : DELAYS;
       function step(){
         cell.textContent=1+Math.floor(Math.random()*18);
         tick++;
-        if(tick<DELAYS.length){ setTimeout(step, DELAYS[tick]); }
+        if(tick<sched.length){ setTimeout(step, sched[tick]); }
         else {
           cell.textContent=chosen[idx]; cell.classList.add('selected');
           _peoriaDipSpin();
           _peoriaEnding2();
-          idx++; setTimeout(settle,1800);
+          idx++; setTimeout(settle,1300);
         }
       }
       step();
@@ -4047,7 +4049,7 @@ window._real_navCasual = function(btn) {
 };
 
 // Build/version stamp — confirms which version is actually running (catches stale cache)
-var APP_BUILD = '2026.08.12 · peoria-draw-shuffle';
+var APP_BUILD = '2026.08.12 · peoria-draw-suspense';
 console.log('%cMorks Golf Tour build: ' + APP_BUILD, 'color:#c9a227;font-weight:bold;font-size:14px;');
 try {
   var _bt = document.createElement('div');
