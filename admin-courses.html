@@ -608,14 +608,34 @@ window.deleteCourse = async function(id, name) {
   }
 };
 
-// ── DOWNLOAD ALL COURSES (full library JSON backup) ──
+// ── DOWNLOAD ALL COURSES (full library as import-format CSV) ──
 window.downloadAllCourses = function() {
   if (!allCourses || !allCourses.length) { alert('No courses loaded yet — hit Refresh first.'); return; }
-  var json = JSON.stringify(allCourses, null, 2);
-  var blob = new Blob([json], {type:'application/json'});
+  var hdr = ['name','city','state','type','tee_name','rating','slope'];
+  for (var h=1;h<=18;h++) hdr.push('h'+h+'_par','h'+h+'_yds','h'+h+'_hcp');
+  var q = function(v){ return '"'+String(v==null?'':v).replace(/"/g,'""')+'"'; };
+  var lines = [hdr.map(q).join(',')];
+  allCourses.forEach(function(c){
+    var tees = (c.tees && c.tees.length) ? c.tees : [{name:'White', holes:null}];
+    tees.forEach(function(t){
+      var holes = (t.holes||[]).slice().sort(function(a,b){return (a.hole||0)-(b.hole||0);});
+      var row = [c.name, c.city, c.state, c.type, t.name||'White', t.rating!=null?t.rating:'', t.slope!=null?t.slope:''];
+      for (var i=0;i<18;i++){
+        var hole = holes[i];
+        if (hole) {
+          row.push(hole.par!=null?hole.par:'', hole.yards!=null?hole.yards:'', hole.hcp!=null?hole.hcp:'');
+        } else {
+          // fallback to course-level pars/SI if a tee lacks per-hole data
+          row.push((c.holePars&&c.holePars[i]!=null)?c.holePars[i]:'', '', (c.holeHcp&&c.holeHcp[i]!=null)?c.holeHcp[i]:'');
+        }
+      }
+      lines.push(row.map(q).join(','));
+    });
+  });
+  var blob = new Blob([lines.join('\n')], {type:'text/csv'});
   var url = URL.createObjectURL(blob);
   var a = document.createElement('a');
-  a.href = url; a.download = 'courseLibrary.json';
+  a.href = url; a.download = 'courseLibrary.csv';
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
 };
