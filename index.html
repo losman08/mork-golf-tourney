@@ -2427,8 +2427,12 @@ async function loadHistoryDetail(tid) {
   // Hole-by-hole breakdown
   if (ranked.length) {
     const pars = t.holePars || DEFAULT_PARS;
-    let holeHtml = `<div class="card" style="margin-top:1rem;overflow-x:auto;"><h3>Hole-by-Hole Breakdown</h3><table style="min-width:600px;">
-      <thead><tr><th>Player</th>${pars.map((_,i)=>`<th class="c" style="font-size:0.68rem;">${i+1}</th>`).join('')}<th class="c">Total</th></tr></thead>
+    const bpHoles = (Array.isArray(t.peoriaHoles)&&t.peoriaHoles.length===6) ? t.peoriaHoles.slice() : [];
+    const isBP = hn => bpHoles.indexOf(hn)>=0;
+    const bpMark = 'border-left:2px solid var(--gold);border-right:2px solid var(--gold);';
+    const bpLegend = bpHoles.length ? `<div class="section-sub" style="margin:-0.2rem 0 0.6rem;">Blind Peoria counting holes (marked <span style="color:var(--gold);font-weight:700;">BP</span>): ${bpHoles.slice().sort((a,b)=>a-b).join(', ')}</div>` : '';
+    let holeHtml = `<div class="card" style="margin-top:1rem;overflow-x:auto;"><h3>Hole-by-Hole Breakdown</h3>${bpLegend}<table style="min-width:600px;">
+      <thead><tr><th>Player</th>${pars.map((_,i)=>`<th class="c" style="font-size:0.68rem;${isBP(i+1)?bpMark:''}">${i+1}${isBP(i+1)?'<br><span style="font-size:0.55rem;color:var(--gold);font-weight:700;letter-spacing:0.04em;">BP</span>':''}</th>`).join('')}<th class="c">Total</th></tr></thead>
       <tbody>`;
     ranked.forEach(r => {
       holeHtml += `<tr><td class="pname" style="font-size:0.82rem;">${esc(r.name)}</td>`;
@@ -2445,7 +2449,7 @@ async function loadHistoryDetail(tid) {
           else if (d === 1) bg = 'background:#f8d7da;color:#721c24;';
           else if (d >= 2) bg = 'background:#f5c6cb;color:#491217;';
         }
-        holeHtml += `<td class="c" style="font-size:0.78rem;font-weight:600;padding:6px 4px;${bg}">${score||'—'}</td>`;
+        holeHtml += `<td class="c" style="font-size:0.78rem;font-weight:600;padding:6px 4px;${bg}${isBP(h)?bpMark:''}">${score||'—'}</td>`;
       });
       holeHtml += `<td class="c bold">${r.gross||'—'}</td></tr>`;
     });
@@ -4062,7 +4066,7 @@ window._real_navCasual = function(btn) {
 };
 
 // Build/version stamp — confirms which version is actually running (catches stale cache)
-var APP_BUILD = '2026.08.12 · peoria-hole-callout';
+var APP_BUILD = '2026.08.12 · peoria-callout-history';
 console.log('%cMorks Golf Tour build: ' + APP_BUILD, 'color:#c9a227;font-weight:bold;font-size:14px;');
 try {
   var _bt = document.createElement('div');
