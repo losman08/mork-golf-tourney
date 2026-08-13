@@ -1671,6 +1671,10 @@ function renderLeaderboardContent() {
       <td class="c"><span class="badge ${badgeClass(r.rank)}">${r.rank}</span></td>
       <td class="pname">${avatarHtml(r.name,26)}${esc(r.name)}</td>${r.cols}</tr>`).join('')}
     </tbody></table></div>`;
+  if(currentLbTab==='peoria' && Array.isArray(t?.peoriaHoles) && t.peoriaHoles.length===6){
+    const _bpHoles=[...t.peoriaHoles].sort(function(a,b){return a-b;}).join(', ');
+    el.insertAdjacentHTML('afterbegin','<div class="section-sub" style="margin-bottom:0.6rem;">Counting holes: '+_bpHoles+'</div>');
+  }
 }
 
 // ── SCORECARD ──
@@ -2091,11 +2095,12 @@ async function loadPlayerScoresForEdit() {
   const snap=await getDocs(query(collection(db,'holeScores'),where('tournamentId','==',tid),where('playerId','==',pid)));
   const existing={}; snap.docs.forEach(d=>{ const data=d.data(); existing[data.holeNumber]=data.score; });
   const pars=t.holePars||DEFAULT_PARS;
+  const bpHoles=(Array.isArray(t.peoriaHoles)&&t.peoriaHoles.length===6)?t.peoriaHoles:[];
   let html='';
   for(let h=1;h<=18;h++){
-    const par=pars[h-1]||4; const score=existing[h]||'';
+    const par=pars[h-1]||4; const score=existing[h]||''; const isBP=bpHoles.indexOf(h)>=0;
     html+=`<div class="hole-card ${score?'filled':''}">
-      <div class="hole-label">Hole ${h} <span class="hole-par">P${par}</span></div>
+      <div class="hole-label">Hole ${h} <span class="hole-par">P${par}</span>${isBP?' <span style="background:var(--gold);color:var(--forest);font-size:0.6rem;font-weight:700;padding:1px 5px;border-radius:8px;letter-spacing:0.04em;">BP</span>':''}</div>
       <input type="number" id="es-h-${h}" value="${score}" min="1" max="15" style="width:100%;padding:6px;border:2px solid var(--cream-dark);border-radius:6px;font-size:0.9rem;text-align:center;font-family:'Inter',sans-serif;outline:none;">
     </div>`;
   }
@@ -4057,7 +4062,7 @@ window._real_navCasual = function(btn) {
 };
 
 // Build/version stamp — confirms which version is actually running (catches stale cache)
-var APP_BUILD = '2026.08.12 · peoria-draw-picker';
+var APP_BUILD = '2026.08.12 · peoria-hole-callout';
 console.log('%cMorks Golf Tour build: ' + APP_BUILD, 'color:#c9a227;font-weight:bold;font-size:14px;');
 try {
   var _bt = document.createElement('div');
