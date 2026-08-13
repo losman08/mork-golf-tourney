@@ -2253,7 +2253,7 @@ window._real_drawPeoriaHoles=function(tid){
     _peoriaStartSpin();
     const pool=[]; for(let h=1;h<=18;h++) pool.push(h);
     for(let i=pool.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); const tmp=pool[i]; pool[i]=pool[j]; pool[j]=tmp; }
-    const chosen=pool.slice(0,6).sort(function(a,b){return a-b;});
+    const chosen=pool.slice(0,6);
     const cells=Array.prototype.slice.call(stage.children);
     // Deceleration schedule — delays stretch out like a wheel slowing to a stop (~1.5s/hole spin).
     const DELAYS=[45,45,50,55,60,70,80,95,110,130,150,175,200,230];
@@ -4047,7 +4047,7 @@ window._real_navCasual = function(btn) {
 };
 
 // Build/version stamp — confirms which version is actually running (catches stale cache)
-var APP_BUILD = '2026.08.12 · compare-groups';
+var APP_BUILD = '2026.08.12 · peoria-draw-shuffle';
 console.log('%cMorks Golf Tour build: ' + APP_BUILD, 'color:#c9a227;font-weight:bold;font-size:14px;');
 try {
   var _bt = document.createElement('div');
