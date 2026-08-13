@@ -417,9 +417,9 @@ hr.div{border:none;border-top:1px solid var(--cream-dark);margin:1rem 0;}
       <div class="lb-tabs" id="lb-format-tabs">
         <button class="lb-tab active" onclick="window._real_switchLbTab('gross',this)">Gross</button>
         <button class="lb-tab" onclick="window._real_switchLbTab('net',this)">Net</button>
+        <button class="lb-tab" onclick="window._real_switchLbTab('hsi',this)">HSI</button>
         <button class="lb-tab" onclick="window._real_switchLbTab('system36',this)">System 36</button>
         <button class="lb-tab" onclick="window._real_switchLbTab('peoria',this)">Blind Peoria</button>
-        <button class="lb-tab" onclick="window._real_switchLbTab('hsi',this)">HSI</button>
       </div>
       <div class="pad" style="padding-top:0.8rem;">
         <div id="lb-admin-actions" style="margin-bottom:0.6rem;"></div>
@@ -557,10 +557,11 @@ hr.div{border:none;border-top:1px solid var(--cream-dark);margin:1rem 0;}
     <div class="two-col">
       <div class="fg"><label>Format</label>
         <select id="ct-format">
-          <option value="stroke">Stroke Play</option>
+          <option value="stroke">Gross</option>
+          <option value="net">Net</option>
+          <option value="hsi">HSI</option>
           <option value="system36">System 36</option>
           <option value="peoria">Blind Peoria</option>
-          <option value="stableford">Stableford</option>
         </select>
       </div>
       <div class="fg"><label>Course Par</label><input type="number" id="ct-par" value="72" min="60" max="80"></div>
@@ -1202,7 +1203,7 @@ function renderHomeEvent() {
     <div class="hero-label">Current Event</div>
     <div class="hero-title">${esc(t.name)}</div>
     <div class="hero-meta">📍 ${t.course||'TBD'} &nbsp;·&nbsp; 📅 ${t.date||''} &nbsp;·&nbsp; Par ${t.par||72}</div>
-    <div class="hero-badge">${(t.format||'stroke').toUpperCase()}</div>
+    <div class="hero-badge">${({stroke:'Gross',gross:'Gross',net:'Net',hsi:'HSI',system36:'System 36',peoria:'Blind Peoria',stableford:'Stableford'})[t.format]||'Gross'}</div>
     <div class="mini-lb" id="home-mini-lb"><div class="loading"><div class="spinner"></div></div></div>
     <button class="btn btn-gold" style="margin-top:1rem;width:100%;" onclick="window._real_navTo('scorecard',null)">⛳ Enter My Scores</button>
   </div>`;
@@ -3440,10 +3441,11 @@ async function showAdminSettings() {
     <div class="two-col">
       <div class="fg"><label>Format</label>
         <select id="et-format">
-          <option value="stroke"${(allTournaments[0]?.format||'stroke')==='stroke'?' selected':''}>Stroke Play</option>
+          <option value="stroke"${(allTournaments[0]?.format||'stroke')==='stroke'?' selected':''}>Gross</option>
+          <option value="net"${(allTournaments[0]?.format)==='net'?' selected':''}>Net</option>
+          <option value="hsi"${(allTournaments[0]?.format)==='hsi'?' selected':''}>HSI</option>
           <option value="system36"${(allTournaments[0]?.format)==='system36'?' selected':''}>System 36</option>
           <option value="peoria"${(allTournaments[0]?.format)==='peoria'?' selected':''}>Blind Peoria</option>
-          <option value="stableford"${(allTournaments[0]?.format)==='stableford'?' selected':''}>Stableford</option>
         </select>
       </div>
       <div class="fg"><label>Course Par</label><input type="number" id="et-par" min="60" max="80" value="${allTournaments[0]?.par!=null?allTournaments[0].par:72}"></div>
@@ -4066,7 +4068,7 @@ window._real_navCasual = function(btn) {
 };
 
 // Build/version stamp — confirms which version is actually running (catches stale cache)
-var APP_BUILD = '2026.08.12 · peoria-callout-history';
+var APP_BUILD = '2026.08.12 · format-model-align';
 console.log('%cMorks Golf Tour build: ' + APP_BUILD, 'color:#c9a227;font-weight:bold;font-size:14px;');
 try {
   var _bt = document.createElement('div');
