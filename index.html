@@ -123,7 +123,7 @@ html,body{height:100%;font-family:'Inter',sans-serif;background:var(--forest);co
 
 /* ── HOME ── */
 .home-hero{background:linear-gradient(160deg,var(--forest-light) 0%,var(--forest-mid) 50%,var(--forest) 100%);padding:1.5rem;border-radius:var(--radius);margin-bottom:1rem;position:relative;overflow:hidden;}
-.home-hero::before{content:'⛳';position:absolute;right:-10px;top:-10px;font-size:80px;opacity:0.18;}
+.home-hero::before{content:'⛳';position:absolute;right:-10px;top:-10px;font-size:80px;opacity:0.4;}
 .hero-label{font-size:0.7rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--gold);margin-bottom:6px;}
 .hero-title{font-family:'Playfair Display',serif;font-size:1.5rem;color:var(--cream);font-weight:900;line-height:1.2;}
 .hero-meta{font-size:0.82rem;color:rgba(245,240,232,0.6);margin-top:6px;}
@@ -1089,6 +1089,9 @@ function onTileDragStart(e) {
   this.classList.add('dragging');
   document.getElementById('home-tile-grid')._dragging = true;
   e.dataTransfer.effectAllowed = 'move';
+  // Firefox (and the HTML5 DnD spec) require data to be set on dragstart, or the drag never
+  // begins — this is why desktop drag did nothing while mobile touch-drag worked.
+  try { e.dataTransfer.setData('text/plain', this.dataset.id || ''); } catch(_){}
 }
 function onTileDragOver(e) {
   e.preventDefault();
@@ -1097,6 +1100,7 @@ function onTileDragOver(e) {
 }
 function onTileDragLeave(e) { this.classList.remove('drag-over'); }
 function onTileDrop(e) {
+  e.preventDefault();
   e.stopPropagation();
   if (this === dragSrc) return;
   const grid = document.getElementById('home-tile-grid');
@@ -4162,7 +4166,7 @@ window._real_navCasual = function(btn) {
 };
 
 // Build/version stamp — confirms which version is actually running (catches stale cache)
-var APP_BUILD = '2026.08.13 · hero-brightness';
+var APP_BUILD = '2026.08.13 · hero-bright-tiledrag';
 console.log('%cMorks Golf Tour build: ' + APP_BUILD, 'color:#c9a227;font-weight:bold;font-size:14px;');
 try {
   var _bt = document.createElement('div');
