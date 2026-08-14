@@ -148,6 +148,8 @@ html,body{height:100%;font-family:'Inter',sans-serif;background:var(--forest);co
 .pts-lbl{font-size:0.68rem;color:var(--text-light);margin-bottom:2px;font-weight:600;}
 .pts-in{width:100%;padding:9px 10px;border:2px solid var(--cream-dark);border-radius:8px;font-size:0.9rem;font-family:'Inter',sans-serif;outline:none;box-sizing:border-box;}
 .pts-note{font-size:0.68rem;color:var(--text-light);margin-top:6px;}
+.sc-grid{border-collapse:collapse;}
+.sc-grid th,.sc-grid td{border:1px solid var(--cream-dark);}
 
 .lb-table-wrap{background:var(--cream);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);}
 table{width:100%;border-collapse:collapse;}
@@ -1759,6 +1761,9 @@ function renderLeaderboardContent() {
     const _bpHoles=[...t.peoriaHoles].sort(function(a,b){return a-b;}).join(', ');
     el.insertAdjacentHTML('afterbegin','<div class="section-sub" style="margin-bottom:0.6rem;">Counting holes: '+_bpHoles+'</div>');
   }
+  // Shared hole-by-hole scorecard below the standings (raw gross scores; format-agnostic —
+  // format-aware stroke/points indicators come with the drill-down build).
+  el.insertAdjacentHTML('beforeend', renderHoleByHole(t, rankGross(scores, t)));
 }
 
 // ── SCORECARD ──
@@ -2558,6 +2563,44 @@ async function loadHistory() {
 }
 window._real_loadHistory = loadHistory;
 
+// Shared hole-by-hole scorecard renderer — used by the history drilldown AND the leaderboard
+// screen. Gridlines via .sc-grid; BP-inverse: BP header cells are gold with forest number/"BP"
+// text (the score cells below keep their score-vs-par color + gold side-borders bracketing the
+// column). Takes the tournament + a gross-ranked list ([{name, holes, gross}]).
+function renderHoleByHole(t, ranked){
+  if(!ranked || !ranked.length) return '';
+  const pars = t.holePars || DEFAULT_PARS;
+  const bpHoles = (Array.isArray(t.peoriaHoles)&&t.peoriaHoles.length===6) ? t.peoriaHoles.slice() : [];
+  const isBP = hn => bpHoles.indexOf(hn)>=0;
+  const bpSide = 'border-left:2px solid var(--gold);border-right:2px solid var(--gold);';
+  const bpHdr = 'background:var(--gold);color:var(--forest);'+bpSide;
+  const bpLegend = bpHoles.length ? `<div class="section-sub" style="margin:-0.2rem 0 0.6rem;">Blind Peoria counting holes (marked <span style="color:var(--gold);font-weight:700;">BP</span>): ${bpHoles.slice().sort((a,b)=>a-b).join(', ')}</div>` : '';
+  let holeHtml = `<div class="card" style="margin-top:1rem;overflow-x:auto;"><h3>Hole-by-Hole Breakdown</h3>${bpLegend}<table class="sc-grid" style="min-width:600px;">
+    <thead><tr><th>Player</th>${pars.map((_,i)=>`<th class="c" style="font-size:0.68rem;${isBP(i+1)?bpHdr:''}">${i+1}${isBP(i+1)?'<br><span style="font-size:0.55rem;color:var(--forest);font-weight:700;letter-spacing:0.04em;">BP</span>':''}</th>`).join('')}<th class="c">Total</th></tr></thead>
+    <tbody>`;
+  ranked.forEach(r => {
+    holeHtml += `<tr><td class="pname" style="font-size:0.82rem;">${esc(r.name)}</td>`;
+    pars.forEach((_,i) => {
+      const h = i+1;
+      const score = r.holes[h]?.score;
+      const par = pars[i];
+      let bg = '';
+      if (score) {
+        const d = score - par;
+        if (d <= -2) bg = 'background:#1a3a8a;color:white;';
+        else if (d === -1) bg = 'background:#e8c84a;color:#1a3a2a;';
+        else if (d === 0) bg = 'background:#d4edda;color:#155724;';
+        else if (d === 1) bg = 'background:#f8d7da;color:#721c24;';
+        else if (d >= 2) bg = 'background:#f5c6cb;color:#491217;';
+      }
+      holeHtml += `<td class="c" style="font-size:0.78rem;font-weight:600;padding:6px 4px;${bg}${isBP(h)?bpSide:''}">${score||'—'}</td>`;
+    });
+    holeHtml += `<td class="c bold">${r.gross||'—'}</td></tr>`;
+  });
+  holeHtml += `</tbody></table></div>`;
+  return holeHtml;
+}
+
 async function loadHistoryDetail(tid) {
   const t = allTournaments.find(x => x.id === tid);
   if (!t) return;
@@ -2576,40 +2619,8 @@ async function loadHistoryDetail(tid) {
   document.getElementById('hd-table').innerHTML = `<div class="lb-table-wrap"><table>
     <thead><tr>${rHdrs}</tr></thead><tbody>${rows||'<tr><td colspan="4" style="text-align:center;padding:1.5rem;color:var(--text-light)">No scores recorded</td></tr>'}</tbody>
   </table></div>`;
-  // Hole-by-hole breakdown
-  if (ranked.length) {
-    const pars = t.holePars || DEFAULT_PARS;
-    const bpHoles = (Array.isArray(t.peoriaHoles)&&t.peoriaHoles.length===6) ? t.peoriaHoles.slice() : [];
-    const isBP = hn => bpHoles.indexOf(hn)>=0;
-    const bpMark = 'border-left:2px solid var(--gold);border-right:2px solid var(--gold);';
-    const bpLegend = bpHoles.length ? `<div class="section-sub" style="margin:-0.2rem 0 0.6rem;">Blind Peoria counting holes (marked <span style="color:var(--gold);font-weight:700;">BP</span>): ${bpHoles.slice().sort((a,b)=>a-b).join(', ')}</div>` : '';
-    let holeHtml = `<div class="card" style="margin-top:1rem;overflow-x:auto;"><h3>Hole-by-Hole Breakdown</h3>${bpLegend}<table style="min-width:600px;">
-      <thead><tr><th>Player</th>${pars.map((_,i)=>`<th class="c" style="font-size:0.68rem;${isBP(i+1)?bpMark:''}">${i+1}${isBP(i+1)?'<br><span style="font-size:0.55rem;color:var(--gold);font-weight:700;letter-spacing:0.04em;">BP</span>':''}</th>`).join('')}<th class="c">Total</th></tr></thead>
-      <tbody>`;
-    ranked.forEach(r => {
-      holeHtml += `<tr><td class="pname" style="font-size:0.82rem;">${esc(r.name)}</td>`;
-      pars.forEach((_,i) => {
-        const h = i+1;
-        const score = r.holes[h]?.score;
-        const par = pars[i];
-        let bg = '';
-        if (score) {
-          const d = score - par;
-          if (d <= -2) bg = 'background:#1a3a8a;color:white;';
-          else if (d === -1) bg = 'background:#e8c84a;color:#1a3a2a;';
-          else if (d === 0) bg = 'background:#d4edda;color:#155724;';
-          else if (d === 1) bg = 'background:#f8d7da;color:#721c24;';
-          else if (d >= 2) bg = 'background:#f5c6cb;color:#491217;';
-        }
-        holeHtml += `<td class="c" style="font-size:0.78rem;font-weight:600;padding:6px 4px;${bg}${isBP(h)?bpMark:''}">${score||'—'}</td>`;
-      });
-      holeHtml += `<td class="c bold">${r.gross||'—'}</td></tr>`;
-    });
-    holeHtml += `</tbody></table></div>`;
-    document.getElementById('hd-holes').innerHTML = holeHtml;
-  } else {
-    document.getElementById('hd-holes').innerHTML = '';
-  }
+  // Hole-by-hole breakdown (shared render — also used on the leaderboard screen)
+  document.getElementById('hd-holes').innerHTML = ranked.length ? renderHoleByHole(t, ranked) : '';
 }
 window._real_loadHistoryDetail = loadHistoryDetail;
 
@@ -4296,7 +4307,7 @@ window._real_navCasual = function(btn) {
 };
 
 // Build/version stamp — confirms which version is actually running (catches stale cache)
-var APP_BUILD = '2026.08.14 · points-ladder';
+var APP_BUILD = '2026.08.14 · scorecard-grid';
 console.log('%cMorks Golf Tour build: ' + APP_BUILD, 'color:#c9a227;font-weight:bold;font-size:14px;');
 try {
   var _bt = document.createElement('div');
