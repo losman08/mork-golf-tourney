@@ -145,6 +145,9 @@ html,body{height:100%;font-family:'Inter',sans-serif;background:var(--forest);co
 .lb-tab-inplay::after{content:'';display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--gold);margin-left:6px;vertical-align:middle;}
 .lb-tab-inplay.active::after{background:var(--forest);}
 .lb-format-note{font-size:0.72rem;color:var(--gold);opacity:0.9;padding:6px 1rem 0;}
+.pts-lbl{font-size:0.68rem;color:var(--text-light);margin-bottom:2px;font-weight:600;}
+.pts-in{width:100%;padding:9px 10px;border:2px solid var(--cream-dark);border-radius:8px;font-size:0.9rem;font-family:'Inter',sans-serif;outline:none;box-sizing:border-box;}
+.pts-note{font-size:0.68rem;color:var(--text-light);margin-top:6px;}
 
 .lb-table-wrap{background:var(--cream);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);}
 table{width:100%;border-collapse:collapse;}
@@ -575,12 +578,18 @@ hr.div{border:none;border-top:1px solid var(--cream-dark);margin:1rem 0;}
       <div class="fg"><label>Slope Rating</label><input type="number" id="ct-slope" value="113" min="55" max="155"></div>
     </div>
     <div class="fg">
-      <label>Tournament Points (1st/2nd/3rd)</label>
-      <div class="two-col">
-        <input type="number" id="ct-pts1" value="100" placeholder="1st">
-        <input type="number" id="ct-pts2" value="80" placeholder="2nd">
+      <label>Tournament Points (by place)</label>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:4px;">
+        <div><div class="pts-lbl">1st</div><input type="number" id="ct-pts1" value="100" class="pts-in"></div>
+        <div><div class="pts-lbl">2nd</div><input type="number" id="ct-pts2" value="80" class="pts-in"></div>
+        <div><div class="pts-lbl">3rd</div><input type="number" id="ct-pts3" value="60" class="pts-in"></div>
+        <div><div class="pts-lbl">4th</div><input type="number" id="ct-pts4" value="45" class="pts-in"></div>
+        <div><div class="pts-lbl">5th</div><input type="number" id="ct-pts5" value="30" class="pts-in"></div>
+        <div><div class="pts-lbl">6th</div><input type="number" id="ct-pts6" value="20" class="pts-in"></div>
+        <div><div class="pts-lbl">7th</div><input type="number" id="ct-pts7" value="15" class="pts-in"></div>
+        <div><div class="pts-lbl">8th</div><input type="number" id="ct-pts8" value="10" class="pts-in"></div>
       </div>
-      <input type="number" id="ct-pts3" value="60" placeholder="3rd" style="margin-top:8px;width:100%;padding:11px 13px;border:2px solid var(--cream-dark);border-radius:9px;font-size:0.93rem;font-family:'Inter',sans-serif;outline:none;">
+      <div class="pts-note">9th place and beyond each receive 5 pts.</div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="window._real_closeModal('modal-create-tourney')">Cancel</button>
@@ -2066,12 +2075,13 @@ async function createTournament() {
   const par=Number(document.getElementById('ct-par').value)||72;
   const slope=Number(document.getElementById('ct-slope').value)||113;
   const rating=Number(document.getElementById('ct-rating').value)||par;
-  const pts=[Number(document.getElementById('ct-pts1').value)||100,Number(document.getElementById('ct-pts2').value)||80,Number(document.getElementById('ct-pts3').value)||60];
+  const _cpv = function(id,def){ var v=Number(document.getElementById(id).value); return (isFinite(v)&&v>=0)?v:def; };
+  const ctPointsMap = { 1:_cpv('ct-pts1',100),2:_cpv('ct-pts2',80),3:_cpv('ct-pts3',60),4:_cpv('ct-pts4',45),5:_cpv('ct-pts5',30),6:_cpv('ct-pts6',20),7:_cpv('ct-pts7',15),8:_cpv('ct-pts8',10) };
   var holePars = window._ctHolePars || DEFAULT_PARS;
   window._ctHolePars = null;
   await addDoc(collection(db,'tournaments'),{
     name, date, course, format, par, slope, rating, holePars:holePars,
-    status:'upcoming', pointsMap:{ 1:pts[0],2:pts[1],3:pts[2],4:45,5:30,6:20,7:15,8:10 },
+    status:'upcoming', pointsMap: ctPointsMap,
     createdBy:currentUser.uid, createdAt:serverTimestamp(), results:[], peoriaHoles:[]
   });
   closeModal('modal-create-tourney');
@@ -3661,12 +3671,18 @@ async function showAdminSettings() {
       <div class="fg"><label>Slope Rating</label><input type="number" id="et-slope" min="55" max="155" value="${allTournaments[0]?.slope!=null?allTournaments[0].slope:113}"></div>
     </div>
     <div class="fg">
-      <label>Tournament Points (1st/2nd/3rd)</label>
-      <div class="two-col">
-        <input type="number" id="et-pts1" placeholder="1st" value="${allTournaments[0]?.pointsMap?.[1]!=null?allTournaments[0].pointsMap[1]:100}">
-        <input type="number" id="et-pts2" placeholder="2nd" value="${allTournaments[0]?.pointsMap?.[2]!=null?allTournaments[0].pointsMap[2]:80}">
+      <label>Tournament Points (by place)</label>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:4px;">
+        <div><div class="pts-lbl">1st</div><input type="number" id="et-pts1" class="pts-in" value="${allTournaments[0]?.pointsMap?.[1]!=null?allTournaments[0].pointsMap[1]:100}"></div>
+        <div><div class="pts-lbl">2nd</div><input type="number" id="et-pts2" class="pts-in" value="${allTournaments[0]?.pointsMap?.[2]!=null?allTournaments[0].pointsMap[2]:80}"></div>
+        <div><div class="pts-lbl">3rd</div><input type="number" id="et-pts3" class="pts-in" value="${allTournaments[0]?.pointsMap?.[3]!=null?allTournaments[0].pointsMap[3]:60}"></div>
+        <div><div class="pts-lbl">4th</div><input type="number" id="et-pts4" class="pts-in" value="${allTournaments[0]?.pointsMap?.[4]!=null?allTournaments[0].pointsMap[4]:45}"></div>
+        <div><div class="pts-lbl">5th</div><input type="number" id="et-pts5" class="pts-in" value="${allTournaments[0]?.pointsMap?.[5]!=null?allTournaments[0].pointsMap[5]:30}"></div>
+        <div><div class="pts-lbl">6th</div><input type="number" id="et-pts6" class="pts-in" value="${allTournaments[0]?.pointsMap?.[6]!=null?allTournaments[0].pointsMap[6]:20}"></div>
+        <div><div class="pts-lbl">7th</div><input type="number" id="et-pts7" class="pts-in" value="${allTournaments[0]?.pointsMap?.[7]!=null?allTournaments[0].pointsMap[7]:15}"></div>
+        <div><div class="pts-lbl">8th</div><input type="number" id="et-pts8" class="pts-in" value="${allTournaments[0]?.pointsMap?.[8]!=null?allTournaments[0].pointsMap[8]:10}"></div>
       </div>
-      <input type="number" id="et-pts3" placeholder="3rd" value="${allTournaments[0]?.pointsMap?.[3]!=null?allTournaments[0].pointsMap[3]:60}" style="margin-top:8px;width:100%;padding:11px 13px;border:2px solid var(--cream-dark);border-radius:9px;font-size:0.93rem;font-family:'Inter',sans-serif;outline:none;">
+      <div class="pts-note">9th place and beyond each receive 5 pts.</div>
     </div>
     <button class="btn btn-forest btn-full" onclick="window._real_saveTournamentEdit()">Save Tournament</button>
     <hr class="div">
@@ -3801,6 +3817,11 @@ window._real_loadTournamentEdit = function(){
   document.getElementById('et-pts1').value = (pm[1] != null ? pm[1] : 100);
   document.getElementById('et-pts2').value = (pm[2] != null ? pm[2] : 80);
   document.getElementById('et-pts3').value = (pm[3] != null ? pm[3] : 60);
+  document.getElementById('et-pts4').value = (pm[4] != null ? pm[4] : 45);
+  document.getElementById('et-pts5').value = (pm[5] != null ? pm[5] : 30);
+  document.getElementById('et-pts6').value = (pm[6] != null ? pm[6] : 20);
+  document.getElementById('et-pts7').value = (pm[7] != null ? pm[7] : 15);
+  document.getElementById('et-pts8').value = (pm[8] != null ? pm[8] : 10);
 };
 window._real_saveTournamentEdit = async function(){
   const tid = document.getElementById('edit-tourney-sel').value;
@@ -3816,15 +3837,11 @@ window._real_saveTournamentEdit = async function(){
   const par    = Number(document.getElementById('et-par').value) || 72;
   const slope  = Number(document.getElementById('et-slope').value) || 113;
   const rating = Number(document.getElementById('et-rating').value) || par;
-  const p1 = Number(document.getElementById('et-pts1').value) || 0;
-  const p2 = Number(document.getElementById('et-pts2').value) || 0;
-  const p3 = Number(document.getElementById('et-pts3').value) || 0;
+  const _epv = function(id,def){ var v=Number(document.getElementById(id).value); return (isFinite(v)&&v>=0)?v:def; };
+  const p1=_epv('et-pts1',100), p2=_epv('et-pts2',80), p3=_epv('et-pts3',60), p4=_epv('et-pts4',45),
+        p5=_epv('et-pts5',30), p6=_epv('et-pts6',20), p7=_epv('et-pts7',15), p8=_epv('et-pts8',10);
   const oldPm = t.pointsMap || {};
-  // Preserve fixed ranks 4–8 from the existing map (fall back to POINTS_MAP defaults).
-  const pointsMap = { 1:p1, 2:p2, 3:p3,
-    4:(oldPm[4]!=null?oldPm[4]:45), 5:(oldPm[5]!=null?oldPm[5]:30),
-    6:(oldPm[6]!=null?oldPm[6]:20), 7:(oldPm[7]!=null?oldPm[7]:15),
-    8:(oldPm[8]!=null?oldPm[8]:10) };
+  const pointsMap = { 1:p1, 2:p2, 3:p3, 4:p4, 5:p5, 6:p6, 7:p7, 8:p8 };
   // Re-finalize ONLY when a scoring-affecting field actually changed AND the tournament is finalized.
   // Metadata-only edits (name/date/course) must never trigger a recompute.
   const scoringChanged =
@@ -3834,7 +3851,12 @@ window._real_saveTournamentEdit = async function(){
     Number(t.rating!=null?t.rating:(t.par!=null?t.par:72)) !== rating ||
     Number(oldPm[1]!=null?oldPm[1]:100) !== p1 ||
     Number(oldPm[2]!=null?oldPm[2]:80) !== p2 ||
-    Number(oldPm[3]!=null?oldPm[3]:60) !== p3;
+    Number(oldPm[3]!=null?oldPm[3]:60) !== p3 ||
+    Number(oldPm[4]!=null?oldPm[4]:45) !== p4 ||
+    Number(oldPm[5]!=null?oldPm[5]:30) !== p5 ||
+    Number(oldPm[6]!=null?oldPm[6]:20) !== p6 ||
+    Number(oldPm[7]!=null?oldPm[7]:15) !== p7 ||
+    Number(oldPm[8]!=null?oldPm[8]:10) !== p8;
   const isFinalized = (t.status === 'locked' || t.status === 'completed');
   try {
     await updateDoc(doc(db, 'tournaments', tid), {
@@ -4274,7 +4296,7 @@ window._real_navCasual = function(btn) {
 };
 
 // Build/version stamp — confirms which version is actually running (catches stale cache)
-var APP_BUILD = '2026.08.14 · format-first-math';
+var APP_BUILD = '2026.08.14 · points-ladder';
 console.log('%cMorks Golf Tour build: ' + APP_BUILD, 'color:#c9a227;font-weight:bold;font-size:14px;');
 try {
   var _bt = document.createElement('div');
