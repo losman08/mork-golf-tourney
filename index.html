@@ -142,6 +142,9 @@ html,body{height:100%;font-family:'Inter',sans-serif;background:var(--forest);co
 .lb-tab{padding:7px 16px;border-radius:20px;font-size:0.8rem;font-weight:600;cursor:pointer;border:none;white-space:nowrap;transition:all 0.2s;font-family:'Inter',sans-serif;}
 .lb-tab.active{background:var(--gold);color:var(--forest);}
 .lb-tab:not(.active){background:rgba(245,240,232,0.1);color:rgba(245,240,232,0.7);}
+.lb-tab-inplay::after{content:'';display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--gold);margin-left:6px;vertical-align:middle;}
+.lb-tab-inplay.active::after{background:var(--forest);}
+.lb-format-note{font-size:0.72rem;color:var(--gold);opacity:0.9;padding:6px 1rem 0;}
 
 .lb-table-wrap{background:var(--cream);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);}
 table{width:100%;border-collapse:collapse;}
@@ -415,12 +418,13 @@ hr.div{border:none;border-top:1px solid var(--cream-dark);margin:1rem 0;}
         <button class="lb-tab" id="lb-mode-alltime" onclick="window._real_switchLbMode('alltime',this)">📊 All-Time</button>
       </div>
       <div class="lb-tabs" id="lb-format-tabs">
-        <button class="lb-tab active" onclick="window._real_switchLbTab('gross',this)">Gross</button>
-        <button class="lb-tab" onclick="window._real_switchLbTab('net',this)">Net</button>
-        <button class="lb-tab" onclick="window._real_switchLbTab('hsi',this)">HSI</button>
-        <button class="lb-tab" onclick="window._real_switchLbTab('system36',this)">System 36</button>
-        <button class="lb-tab" onclick="window._real_switchLbTab('peoria',this)">Blind Peoria</button>
+        <button class="lb-tab active" data-fmt="gross" onclick="window._real_switchLbTab('gross',this)">Gross</button>
+        <button class="lb-tab" data-fmt="net" onclick="window._real_switchLbTab('net',this)">Net</button>
+        <button class="lb-tab" data-fmt="hsi" onclick="window._real_switchLbTab('hsi',this)">HSI</button>
+        <button class="lb-tab" data-fmt="system36" onclick="window._real_switchLbTab('system36',this)">System 36</button>
+        <button class="lb-tab" data-fmt="peoria" onclick="window._real_switchLbTab('peoria',this)">Blind Peoria</button>
       </div>
+      <div class="lb-format-note" id="lb-format-note"></div>
       <div class="pad" style="padding-top:0.8rem;">
         <div id="lb-admin-actions" style="margin-bottom:0.6rem;"></div>
         <div id="lb-content"></div>
@@ -1289,6 +1293,29 @@ function switchLbTab(tab, btn) {
   renderLeaderboardContent();
 }
 
+// format-first-view: on tournament load, default the board to that tournament's own scoring
+// format (stroke maps to gross) AND persistently mark that format tab. The dot stays put if the
+// user browses other tabs (switchLbTab only moves .active, never .lb-tab-inplay); it re-points
+// when a different tournament is loaded. Scoped to #lb-format-tabs so the mode tabs are untouched.
+function setLbFormatTab(fmt){
+  var map={stroke:'gross',gross:'gross',net:'net',hsi:'hsi',system36:'system36',peoria:'peoria'};
+  var f=map[fmt]||'gross';
+  var label={gross:'Gross',net:'Net',hsi:'HSI',system36:'System 36',peoria:'Blind Peoria'}[f]||'Gross';
+  currentLbTab=f;
+  var cont=document.getElementById('lb-format-tabs');
+  if(cont){
+    cont.querySelectorAll('.lb-tab').forEach(function(b){
+      var isMatch=b.getAttribute('data-fmt')===f;
+      b.classList.toggle('active', isMatch);
+      b.classList.toggle('lb-tab-inplay', isMatch);
+      if(isMatch) b.setAttribute('title','This tournament\u2019s scoring format');
+      else b.removeAttribute('title');
+    });
+  }
+  var note=document.getElementById('lb-format-note');
+  if(note) note.textContent='\u25CF '+label+' is this tournament\u2019s scoring format';
+}
+
 // ── STANDINGS (season-ready: pass a date window; null/null = all-time) ──
 // Computed live from dated tournament results so a future Season filter is just a date range.
 function computeStandings(startDate, endDate) {
@@ -1527,6 +1554,7 @@ async function loadLeaderboard() {
   if(laa) laa.innerHTML=(userProfile&&userProfile.role==='admin')?`<button class="btn btn-ghost btn-ghost-gold btn-full" onclick="window._real_showAdminScores()">✏️ Edit / clear scores</button>`:'';
   document.getElementById('lb-title').textContent=t.name;
   document.getElementById('lb-sub').textContent=`${t.course||''} · Par ${t.par||72}`;
+  setLbFormatTab(t.format); // format-first-view: open on this tournament's format + mark it
   document.getElementById('lb-content').innerHTML=`<div class="loading"><div class="spinner"></div><p>Loading...</p></div>`;
   if(lbUnsubscribe) lbUnsubscribe();
   // Real-time listener
@@ -2913,7 +2941,7 @@ function deriveAnalytics(roundObjs){
     parOrBetter: pctOf(buckets.eagles + buckets.birdies + buckets.pars),
     blowUp: pctOf(buckets.doubles + buckets.worse),
     bounceBack: bbOpps ? Math.round((bbHits/bbOpps)*100) : null,
-    holes: totalHoles, bbOpps: bbOpps
+    holes: totalHoles, bbOpps: bbOpps, bbHits: bbHits
   };
   let fSum = 0, bSum = 0, splitRounds = 0;
   roundDiffs.forEach(function(m){
@@ -2927,13 +2955,14 @@ function deriveAnalytics(roundObjs){
     : { front:null, back:null, rounds:0 };
   datedVsPar.sort(function(a,b){ return (a.date||'').localeCompare(b.date||''); });
   const window10 = datedVsPar.slice(-10);
-  let trend = null, trendN = 0;
+  let trend = null, trendN = 0, trendRecent = null, trendEarly = null;
   if(window10.length >= 6){
     const recent3 = window10.slice(-3).reduce(function(a,b){ return a+b.vsPar; }, 0) / 3;
     const early3  = window10.slice(0,3).reduce(function(a,b){ return a+b.vsPar; }, 0) / 3;
     trend = +(recent3 - early3).toFixed(1); trendN = window10.length;
+    trendRecent = +recent3.toFixed(1); trendEarly = +early3.toFixed(1);
   }
-  return { parType:parType, buckets:buckets, totalHoles:totalHoles, rates:rates, splits:splits, trend:trend, trendN:trendN };
+  return { parType:parType, buckets:buckets, totalHoles:totalHoles, rates:rates, splits:splits, trend:trend, trendN:trendN, trendRecent:trendRecent, trendEarly:trendEarly };
 }
 async function refreshMyStats(){
   if(!currentUser) return;
@@ -3431,11 +3460,70 @@ var STAT_INFO = {
   'front-back':       { title:'Front 9 vs Back 9', body:'Your average score vs par on holes 1\u20139 vs 10\u201318, using rounds where you entered all 18 holes. The lower number is the nine you play better.' },
   'trend':            { title:'Recent Trend', body:'Your last 3 rounds vs the 3 before them, measured as strokes vs par so different courses compare fairly. A negative number means you\u2019re scoring better lately.' }
 };
+// show-the-math (Option A): each builder turns the LIVE analytics bundle into a small "your actual
+// numbers" table. Built with string concatenation (no template literals) to keep module backtick
+// parity untouched. Returns '' when there isn't enough data; showStatInfo falls back to a note.
+var STAT_MATH = {
+  'distribution': function(bd){
+    var b=bd.buckets||{}, tot=bd.totalHoles||0; if(!tot) return '';
+    var rows=[['Eagles',b.eagles||0],['Birdies',b.birdies||0],['Pars',b.pars||0],['Bogeys',b.bogeys||0],['Doubles',b.doubles||0],['Worse',b.worse||0]];
+    var body=rows.map(function(r){ var pc=tot?Math.round((r[1]/tot)*100):0; return '<tr><td>'+r[0]+'</td><td class="c">'+r[1]+'</td><td class="c">'+pc+'%</td></tr>'; }).join('');
+    return '<table style="width:100%;font-size:0.82rem;"><thead><tr><th>Result</th><th class="c">Holes</th><th class="c">% of '+tot+'</th></tr></thead><tbody>'+body+'</tbody></table>'
+      + '<div style="font-size:0.72rem;color:var(--text-light);margin-top:0.5rem;">% = holes in that bucket \u00F7 '+tot+' total holes.</div>';
+  },
+  'par-type': function(bd){
+    var pt=bd.parType||{}; if(!bd.totalHoles) return '';
+    var rows=[['Par 3','p3'],['Par 4','p4'],['Par 5','p5']];
+    var body=rows.map(function(r){ var d=pt[r[1]]||{}; var a=d.avg; var disp=(a==null)?'\u2014':(a>0?'+'+a:(a<0?''+a:'E')); return '<tr><td>'+r[0]+'</td><td class="c">'+(d.n||0)+'</td><td class="c bold">'+disp+'</td></tr>'; }).join('');
+    return '<table style="width:100%;font-size:0.82rem;"><thead><tr><th>Par type</th><th class="c">Holes counted</th><th class="c">Avg vs par</th></tr></thead><tbody>'+body+'</tbody></table>'
+      + '<div style="font-size:0.72rem;color:var(--text-light);margin-top:0.5rem;">Avg vs par = your total strokes over/under par on those holes \u00F7 holes counted. Small samples swing more.</div>';
+  },
+  'scoring-quality': function(bd){
+    var b=bd.buckets||{}, tot=bd.totalHoles||0, rt=bd.rates||{}; if(!tot) return '';
+    var pob=(b.eagles||0)+(b.birdies||0)+(b.pars||0), blow=(b.doubles||0)+(b.worse||0);
+    var bbTxt=(rt.bbOpps? ((rt.bbHits!=null?rt.bbHits:'\u2014')+' of '+rt.bbOpps) : 'no chances');
+    var rows=''
+      + '<tr><td>Par or better</td><td class="c">'+pob+' of '+tot+'</td><td class="c bold">'+(rt.parOrBetter!=null?rt.parOrBetter+'%':'\u2014')+'</td></tr>'
+      + '<tr><td>Blow-ups (dbl+)</td><td class="c">'+blow+' of '+tot+'</td><td class="c bold">'+(rt.blowUp!=null?rt.blowUp+'%':'\u2014')+'</td></tr>'
+      + '<tr><td>Bounce-back</td><td class="c">'+bbTxt+'</td><td class="c bold">'+(rt.bounceBack!=null?rt.bounceBack+'%':'\u2014')+'</td></tr>';
+    return '<table style="width:100%;font-size:0.82rem;"><thead><tr><th>Rate</th><th class="c">Count</th><th class="c">%</th></tr></thead><tbody>'+rows+'</tbody></table>'
+      + '<div style="font-size:0.72rem;color:var(--text-light);margin-top:0.5rem;">Each % = count \u00F7 opportunities. Bounce-back chances = holes right after a bogey-or-worse (last hole of a round excluded).</div>';
+  },
+  'front-back': function(bd){
+    var s=bd.splits||{}; if(!s.rounds) return '';
+    var vp=function(v){ return v==null?'\u2014':(v>0?'+'+v:(v<0?''+v:'E')); };
+    var stronger=(s.front!=null&&s.back!=null)?(s.front<s.back?'Front':(s.back<s.front?'Back':'Even')):'\u2014';
+    return '<table style="width:100%;font-size:0.82rem;"><thead><tr><th>Nine</th><th class="c">Avg vs par</th></tr></thead><tbody>'
+      + '<tr><td>Front 9</td><td class="c bold">'+vp(s.front)+'</td></tr>'
+      + '<tr><td>Back 9</td><td class="c bold">'+vp(s.back)+'</td></tr></tbody></table>'
+      + '<div style="font-size:0.72rem;color:var(--text-light);margin-top:0.5rem;">Averaged over '+s.rounds+' full 18-hole round'+(s.rounds===1?'':'s')+'. Stronger side: '+stronger+' (lower is better).</div>';
+  },
+  'trend': function(bd){
+    if(bd.trend==null) return '';
+    var vp=function(v){ return v==null?'\u2014':(v>0?'+'+v:(v<0?''+v:'E')); };
+    var dir=bd.trend<0?'better':(bd.trend>0?'room to grow':'steady');
+    return '<table style="width:100%;font-size:0.82rem;"><tbody>'
+      + '<tr><td>Recent 3 rounds (avg vs par)</td><td class="c bold">'+vp(bd.trendRecent)+'</td></tr>'
+      + '<tr><td>Earlier 3 rounds (avg vs par)</td><td class="c bold">'+vp(bd.trendEarly)+'</td></tr>'
+      + '<tr><td>Difference (recent \u2212 earlier)</td><td class="c bold">'+(bd.trend>0?'+'+bd.trend:''+bd.trend)+'</td></tr></tbody></table>'
+      + '<div style="font-size:0.72rem;color:var(--text-light);margin-top:0.5rem;">Negative = scoring better lately ('+dir+'). Window: last '+(bd.trendN||0)+' dated rounds.</div>';
+  }
+};
 function showStatInfo(key){
   var info = STAT_INFO[key]; if(!info) return;
   var t = document.getElementById('si-title'); var b = document.getElementById('si-body');
   if(t) t.textContent = info.title;
-  if(b) b.textContent = info.body;
+  var bundle = (_hAnalytics && (_hAnalytics[_hSource]||_hAnalytics.casual)) || {};
+  var srcWord = _hSource==='tournament' ? 'tournament' : 'casual';
+  var mathHtml = (STAT_MATH[key]) ? STAT_MATH[key](bundle) : '';
+  if(b){
+    b.innerHTML = '<p style="margin:0 0 0.6rem;">'+esc(info.body)+'</p>'
+      + (mathHtml
+          ? '<div style="border-top:1px solid rgba(0,0,0,0.08);margin:0.9rem 0 0.7rem;"></div>'
+            + '<div style="font-weight:700;color:var(--forest);font-size:0.85rem;margin-bottom:0.5rem;">Your math \u00B7 '+srcWord+' rounds</div>'
+            + mathHtml
+          : '<div style="font-size:0.8rem;color:var(--text-light);margin-top:0.6rem;">Log some '+srcWord+' rounds with hole-by-hole scores and your worked numbers will appear here.</div>');
+  }
   openModal('modal-stat-info');
 }
 window._real_showStatInfo = showStatInfo;
@@ -4186,7 +4274,7 @@ window._real_navCasual = function(btn) {
 };
 
 // Build/version stamp — confirms which version is actually running (catches stale cache)
-var APP_BUILD = '2026.08.13 · clean-redeploy';
+var APP_BUILD = '2026.08.14 · format-first-math';
 console.log('%cMorks Golf Tour build: ' + APP_BUILD, 'color:#c9a227;font-weight:bold;font-size:14px;');
 try {
   var _bt = document.createElement('div');
