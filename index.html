@@ -1413,16 +1413,33 @@ function renderCasualLeaderboard() {
   <div style="text-align:center;font-size:0.72rem;color:rgba(245,240,232,0.45);margin-top:0.8rem;">Casual rounds only · Avg and Best require ${CASUAL_LB_MIN_ROUNDS}+ logged rounds</div>`;
 }
 
-// ── CASUAL NET (uses computed WHS-style Handicap Index when established;
-// falls back to the player's profile/GHIN handicap until 3+ eligible rounds exist) ──
+// ── SHARED HANDICAP RESOLVER (WBF-1 / H1·H3·H4) ──
+// Single source of truth for the handicap used by casual Net, tournament Net, and tournament
+// HSI, so they can never disagree. Prefers the computed WHS-style Handicap Index (casual-only,
+// established at 3+ eligible rounds) and falls back to the player's entered profile/GHIN
+// handicap; returns null only when neither exists.
 async function computeCasualHandicap(p){
   try{
     const rounds = await gatherPlayerRounds(p.id);
     const idx = calcHandicapIndex(rounds);
     if(idx.index != null) return { value: idx.index, source: 'index' };
-  } catch(e){ console.error('casual handicap calc', e); }
+  } catch(e){ console.error('handicap resolve', e); }
   if(p.officialHandicap != null) return { value: Number(p.officialHandicap), source: 'profile' };
   return null;
+}
+// Per-player resolved-handicap cache for the tournament leaderboard: the render path is
+// synchronous but the resolver is async, so we warm this before the first paint and read from
+// it in the Net/HSI tabs. Keyed by playerId -> { value, source } or null. Cleared on each
+// tournament (re)load; kept warm as scores stream in.
+window._resHcpCache = window._resHcpCache || {};
+async function ensureResolvedHandicaps(scores){
+  const need = (scores||[]).filter(function(s){ return !(s.playerId in window._resHcpCache); });
+  await Promise.all(need.map(async function(s){
+    const player = allPlayers.find(function(x){ return x.id===s.playerId; });
+    let hc = null;
+    if(player){ try{ hc = await computeCasualHandicap(player); } catch(e){ hc = null; } }
+    window._resHcpCache[s.playerId] = hc;
+  }));
 }
 
 async function renderCasualNetTab(withData){
@@ -1472,6 +1489,7 @@ async function renderCasualNetTab(withData){
 async function loadLeaderboard() {
   // Ensure tournament-mode chrome is visible (the All-Time toggle may have hidden it)
   lbMode = 'tournament';
+  window._resHcpCache = {}; // WBF-1: fresh handicap resolution per tournament (re)load
   var _mt=document.getElementById('lb-mode-tournament'), _ma=document.getElementById('lb-mode-alltime');
   if(_mt) _mt.classList.add('active'); if(_ma) _ma.classList.remove('active');
   var _ft=document.getElementById('lb-format-tabs'); if(_ft) _ft.style.display='';
@@ -1493,7 +1511,11 @@ async function loadLeaderboard() {
     // burst of hole submissions collapses into one paint instead of one full refetch per write.
     window._lbScores=groupScores(snap.docs.map(d=>d.data())); window._lbTourney=t;
     clearTimeout(window._lbRenderTimer);
-    window._lbRenderTimer=setTimeout(renderLeaderboardContent, 120);
+    window._lbRenderTimer=setTimeout(function(){
+      ensureResolvedHandicaps(window._lbScores||[])
+        .then(renderLeaderboardContent)
+        .catch(function(e){ console.error('resolve hcp', e); renderLeaderboardContent(); });
+    }, 120);
   }, (err)=>{ console.error('leaderboard listener', err); });
 }
 
@@ -1599,10 +1621,10 @@ function renderLeaderboardContent() {
   } else if(currentLbTab==='net'){
     headers=`<th class="c">#</th><th>Player</th><th class="c">Gross</th><th class="c">HCP</th><th class="c">Net</th>`;
     const ranked=[...scores].filter(s=>s.holesPlayed>0)
-      .map(s=>({...s, net:s.gross-Math.round((s.holesPlayed/18)*(s.handicap||0))}))
+      .map(s=>{ const _rh=window._resHcpCache&&window._resHcpCache[s.playerId]; const _hc=_rh?_rh.value:0; return {...s, _hc:_hc, net:s.gross-Math.round((s.holesPlayed/18)*_hc)}; })
       .sort((a,b)=>a.net-b.net);
     rows=ranked.map((s,i)=>({
-      rank:i+1, name:s.name, cols:`<td class="c">${s.gross}</td><td class="c">${s.handicap||0}</td><td class="c bold">${s.net}</td>`, leader:i===0
+      rank:i+1, name:s.name, cols:`<td class="c">${s.gross}</td><td class="c">${s._hc}</td><td class="c bold">${s.net}</td>`, leader:i===0
     }));
   } else if(currentLbTab==='system36'){
     headers=`<th class="c">#</th><th>Player</th><th class="c">Gross</th><th class="c">Pts</th><th class="c">Net</th>`;
@@ -1657,7 +1679,7 @@ function renderLeaderboardContent() {
     }
     headers=`<th class="c">#</th><th>Player</th><th class="c">Gross</th><th class="c">HCP</th><th class="c">Net</th>`;
     const ranked=[...scores].filter(s=>s.holesPlayed===18)
-      .map(s=>{ const r=calcHSI(s.holes, holeHcp, s.handicap||0); return {...s, hsiNet:r?r.net:null, hsiStrokes:r?r.strokes:0}; })
+      .map(s=>{ const _rh=window._resHcpCache&&window._resHcpCache[s.playerId]; const _hc=_rh?_rh.value:0; const r=calcHSI(s.holes, holeHcp, _hc); return {...s, hsiNet:r?r.net:null, hsiStrokes:r?r.strokes:0}; })
       .filter(s=>s.hsiNet!=null)
       .sort((a,b)=>a.hsiNet-b.hsiNet);
     rows=ranked.map((s,i)=>({
@@ -1891,22 +1913,10 @@ function calcHandicapIndex(rounds){
 }
 
 async function gatherPlayerRounds(uid){
+  // WBF-1 / H3: the WHS-style Handicap Index is CASUAL-ONLY by design. Tournament rounds are
+  // deliberately excluded so a tournament's Net/HSI result can never depend on an index that
+  // includes that same tournament (non-circular). Casual rounds are the sole feed.
   const rounds=[];
-  const tSnap=await getDocs(query(collection(db,'holeScores'),where('playerId','==',uid)));
-  const byT={};
-  tSnap.docs.forEach(function(d){ const x=d.data(); (byT[x.tournamentId]=byT[x.tournamentId]||[]).push(x); });
-  Object.keys(byT).forEach(function(tid){
-    const holes=byT[tid];
-    if(holes.length!==18) return;
-    const t=allTournaments.find(function(tt){return tt.id===tid;})||{};
-    const gross=holes.reduce(function(s,h){return s+h.score;},0);
-    const hasRating=t.rating!=null && Number(t.rating)>0;
-    const hasSlope=t.slope!=null && Number(t.slope)>0;
-    const rating=hasRating ? Number(t.rating) : (Number(t.par)||72);
-    const slope=hasSlope ? Number(t.slope) : 113;
-    const estimated=!(hasRating && hasSlope);
-    rounds.push({ _id:'t_'+tid, source:'Tournament', date:t.date||'', course:t.course||t.name||'Tournament', gross:gross, holesPlayed:18, rating:rating, slope:slope, estimated:estimated, diff:roundDifferential(gross,rating,slope) });
-  });
   const cSnap=await getDocs(query(collection(db,'casualRounds'),where('playerId','==',uid)));
   cSnap.docs.forEach(function(d){
     const r=d.data();
@@ -4073,7 +4083,7 @@ window._real_navCasual = function(btn) {
 };
 
 // Build/version stamp — confirms which version is actually running (catches stale cache)
-var APP_BUILD = '2026.08.13 · profile-guardrails';
+var APP_BUILD = '2026.08.13 · wbf1-shared-resolver';
 console.log('%cMorks Golf Tour build: ' + APP_BUILD, 'color:#c9a227;font-weight:bold;font-size:14px;');
 try {
   var _bt = document.createElement('div');
