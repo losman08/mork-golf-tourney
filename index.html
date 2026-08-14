@@ -2331,6 +2331,17 @@ async function recomputePlayerStatsFor(uid){
   await updateDoc(doc(db,'players',uid), { stats: s });
 }
 
+// WBF-2: promise-wrapped course-library load + strict 1–18 stroke-index validator. HSI
+// finalize needs the course stroke index; these mirror the leaderboard HSI tab's checks so
+// the locked result and the live board never disagree.
+function _libraryP(){ return new Promise(function(res){ crLoadLibrary(function(lib){ res(lib||[]); }); }); }
+function _validStrokeIndex(raw){
+  if(!Array.isArray(raw) || raw.length!==18) return null;
+  const seen={};
+  for(const x of raw){ const v=Number(x); if(!Number.isInteger(v)||v<1||v>18||seen[v]) return null; seen[v]=true; }
+  return raw.map(Number);
+}
+
 // Finalize a tournament to `targetStatus` ('locked' or 'completed'):
 // compute results from scores, commit status+results FIRST (this alone feeds All-Time),
 // then recompute each participant's stats as a separate best-effort step.
@@ -2343,12 +2354,77 @@ async function finalizeTournament(t, targetStatus){
     return false;
   }
   const scores = await fetchAllScores(t.id);
-  const ranked = rankGross(scores, t);
-  if(!ranked.length){ toast('No scores entered yet — nothing to finalize.'); return false; }
-  const results = ranked.map((r,i)=>({
-    playerId:r.playerId, name:r.name, rank:i+1, grossScore:r.gross,
-    points:(t.pointsMap||POINTS_MAP)[i+1]||5
-  }));
+  if(!scores.some(function(s){return s.holesPlayed>0;})){ toast('No scores entered yet — nothing to finalize.'); return false; }
+  const fmt = t.format || 'stroke';
+  const par = t.par || 72;
+
+  // WBF-2 / D1–D5: rank by the tournament's ACTUAL format (not always gross), and refuse to
+  // finalize when the format's required inputs are missing — no silent gross fallback (D5).
+  // Each ranked row carries { playerId, name, gross, formatScore }; results[] retains grossScore
+  // (gross-based stats read it) and adds formatScore + format for correct winner display.
+  let ranked = [];
+
+  if(fmt==='stroke' || fmt==='gross'){
+    ranked = rankGross(scores, t).map(function(s){ return { playerId:s.playerId, name:s.name, gross:s.gross, formatScore:s.gross }; });
+
+  } else if(fmt==='net'){
+    const hb = {}; const missing = [];
+    for(const s of scores){ if(s.holesPlayed<=0) continue;
+      const p = allPlayers.find(function(x){return x.id===s.playerId;});
+      const hc = p ? await computeCasualHandicap(p) : null;
+      if(!hc){ missing.push(s.name); } else { hb[s.playerId] = hc.value; }
+    }
+    if(missing.length){ toast('Cannot finalize Net — no handicap on file for: '+missing.join(', ')+'. Add a handicap (or log 3+ casual rounds) first.'); return false; }
+    ranked = scores.filter(function(s){return s.holesPlayed>0;})
+      .map(function(s){ const hc=hb[s.playerId]||0; const net=s.gross-Math.round((s.holesPlayed/18)*hc); return { playerId:s.playerId, name:s.name, gross:s.gross, formatScore:net }; })
+      .sort(function(a,b){return a.formatScore-b.formatScore;});
+
+  } else if(fmt==='system36'){
+    ranked = scores.filter(function(s){return s.holesPlayed===18;})
+      .map(function(s){ const r=calcSystem36(s.holes); return { playerId:s.playerId, name:s.name, gross:s.gross, formatScore:s.gross-r.hcp }; })
+      .sort(function(a,b){return a.formatScore-b.formatScore;});
+    if(!ranked.length){ toast('Cannot finalize System 36 — it needs a full 18 holes for at least one player.'); return false; }
+
+  } else if(fmt==='peoria'){
+    const bp = (Array.isArray(t.peoriaHoles) && t.peoriaHoles.length===6) ? t.peoriaHoles : null;
+    if(!bp){ toast('Cannot finalize Blind Peoria — the 6 secret holes have not been drawn yet.'); return false; }
+    ranked = scores.filter(function(s){return s.holesPlayed===18;})
+      .map(function(s){ const r=calcBlindPeoria(s.holes, bp, par); return { playerId:s.playerId, name:s.name, gross:s.gross, formatScore:r?r.net:s.gross }; })
+      .sort(function(a,b){return a.formatScore-b.formatScore;});
+    if(!ranked.length){ toast('Cannot finalize Blind Peoria — it needs a full 18 holes for at least one player.'); return false; }
+
+  } else if(fmt==='hsi'){
+    const lib = await _libraryP();
+    const norm = function(x){ return (x||'').toString().trim().toLowerCase(); };
+    const course = lib.find(function(c){ return c && norm(c.name)===norm(t.course); });
+    const holeHcp = course ? _validStrokeIndex(course.holeHcp) : null;
+    if(!holeHcp){ toast('Cannot finalize HSI — no valid stroke index on file for '+(t.course||'this course')+'. Add hole handicaps (SI) in the Course Library first.'); return false; }
+    const hb = {}; const missing = [];
+    for(const s of scores){ if(s.holesPlayed!==18) continue;
+      const p = allPlayers.find(function(x){return x.id===s.playerId;});
+      const hc = p ? await computeCasualHandicap(p) : null;
+      if(!hc){ missing.push(s.name); } else { hb[s.playerId] = hc.value; }
+    }
+    if(missing.length){ toast('Cannot finalize HSI — no handicap on file for: '+missing.join(', ')+'.'); return false; }
+    ranked = scores.filter(function(s){return s.holesPlayed===18;})
+      .map(function(s){ const r=calcHSI(s.holes, holeHcp, hb[s.playerId]||0); return r ? { playerId:s.playerId, name:s.name, gross:s.gross, formatScore:r.net } : null; })
+      .filter(Boolean)
+      .sort(function(a,b){return a.formatScore-b.formatScore;});
+    if(!ranked.length){ toast('Cannot finalize HSI — it needs a full 18 holes for at least one player.'); return false; }
+
+  } else {
+    // Unknown/legacy format → fall back to gross rather than error out.
+    ranked = rankGross(scores, t).map(function(s){ return { playerId:s.playerId, name:s.name, gross:s.gross, formatScore:s.gross }; });
+  }
+
+  if(!ranked.length){ toast('No scores to finalize for this format.'); return false; }
+
+  const pointsMap = t.pointsMap || POINTS_MAP;
+  const results = ranked.map(function(r,i){ return {
+    playerId:r.playerId, name:r.name, rank:i+1,
+    grossScore:r.gross, formatScore:r.formatScore, format:fmt,
+    points:pointsMap[i+1]||5
+  }; });
   // Step 1 — commit status + results on their own. All-Time reads results[], so this is the fix.
   await updateDoc(doc(db,'tournaments',t.id), { status: targetStatus, results });
   await loadGlobalData();
@@ -2404,13 +2480,16 @@ async function loadHistory() {
   cont.innerHTML = allTournaments.map(t => {
     const winner = (t.results || [])[0];
     const playerCount = t.playerCount || (t.results || []).length;
+    const wFmt = (winner && winner.format) ? winner.format : (t.format||'stroke');
+    const wLabel = ({stroke:'gross',gross:'gross',net:'net',system36:'S36 net',peoria:'Peoria net',hsi:'HSI net'})[wFmt] || 'gross';
+    const wScore = winner ? (winner.formatScore!=null ? winner.formatScore : (winner.grossScore!=null ? winner.grossScore : '—')) : '—';
     return `<div class="card card-sm gap" onclick="window._real_loadHistoryDetail('${t.id}')" style="cursor:pointer;transition:transform 0.15s;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform=''">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem;">
         <div style="font-family:'Playfair Display',serif;font-size:1.05rem;font-weight:700;color:var(--forest);">${esc(t.name)}</div>
         <span class="chip chip-${chipStatus(t.status)}">${t.status}</span>
       </div>
       <div style="font-size:0.8rem;color:var(--text-light);">📍 ${t.course||'TBD'} &nbsp;·&nbsp; 📅 ${t.date||'—'} &nbsp;·&nbsp; Par ${t.par||72} &nbsp;·&nbsp; ${(t.format||'stroke').toUpperCase()}</div>
-      ${winner ? `<div style="margin-top:0.6rem;display:flex;align-items:center;gap:8px;"><span style="font-size:1.2rem;">🏆</span><span style="font-size:0.88rem;font-weight:600;color:var(--forest);">${esc(winner.name)}</span><span style="font-size:0.8rem;color:var(--text-light);">· ${winner.grossScore||'—'} gross · ${winner.points||0} pts</span></div>` : ''}
+      ${winner ? `<div style="margin-top:0.6rem;display:flex;align-items:center;gap:8px;"><span style="font-size:1.2rem;">🏆</span><span style="font-size:0.88rem;font-weight:600;color:var(--forest);">${esc(winner.name)}</span><span style="font-size:0.8rem;color:var(--text-light);">· ${wScore} ${wLabel} · ${winner.points||0} pts</span></div>` : ''}
     </div>`;
   }).join('');
   } catch(e){ console.error(e); cont.innerHTML = `<div class="empty"><div class="ei">⚠️</div><p>Couldn't load history (${e.code||e.message||'error'}).</p></div>`; }
@@ -4083,7 +4162,7 @@ window._real_navCasual = function(btn) {
 };
 
 // Build/version stamp — confirms which version is actually running (catches stale cache)
-var APP_BUILD = '2026.08.13 · wbf1-shared-resolver';
+var APP_BUILD = '2026.08.13 · wbf2-format-finalize';
 console.log('%cMorks Golf Tour build: ' + APP_BUILD, 'color:#c9a227;font-weight:bold;font-size:14px;');
 try {
   var _bt = document.createElement('div');
