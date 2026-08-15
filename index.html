@@ -191,7 +191,7 @@ td.pname{font-weight:600;font-family:'Playfair Display',serif;font-size:0.95rem;
 .score-bogey{background:#fff3e0;color:#e65100;border-color:#ff9800!important;border-width:2px!important;}
 .score-double{background:#fce4ec;color:#b71c1c;border-color:#f44336!important;border-width:2px!important;}
 .score-triple{background:#f3e5f5;color:#4a148c;border-color:#ab47bc!important;border-width:2px!important;}
-.score-snowman{background:#212121;color:white;border-color:#424242!important;border-width:2px!important;}
+.score-snowman{background:#d6d6d6;color:#1a1a1a;border-color:#9e9e9e!important;border-width:2px!important;}
 
 .scorecard-summary{background:var(--cream);border-radius:var(--radius);padding:1rem 1.2rem;display:flex;justify-content:space-around;box-shadow:var(--shadow);margin-bottom:1rem;}
 .sc-stat{text-align:center;}
@@ -1653,7 +1653,7 @@ function calcHSI(playerHoles, holeHcp, hc) {
   const base  = Math.floor(hcNum/18);
   const extra = ((hcNum % 18) + 18) % 18;   // negative-safe (plus handicaps)
   let gross=0, strokes=0, holesPlayed=0;
-  const netByHole={};
+  const netByHole={}, strokesByHole={};
   for(let h=1;h<=18;h++){
     const hole=playerHoles[h];
     if(!hole || typeof hole.score!=='number') continue;
@@ -1663,9 +1663,18 @@ function calcHSI(playerHoles, holeHcp, hc) {
     strokes+=recv;
     holesPlayed++;
     netByHole[h]=hole.score-recv;
+    strokesByHole[h]=recv;
   }
   if(!holesPlayed) return null;
-  return { gross, strokes, net:gross-strokes, netByHole, holesPlayed };
+  return { gross, strokes, net:gross-strokes, netByHole, strokesByHole, holesPlayed };
+}
+
+// Accept only a well-formed 1–18 stroke index (one distinct rank per hole) → numeric array, else null.
+function _validSI(raw){
+  if(!(Array.isArray(raw) && raw.length===18)) return null;
+  const seen={};
+  for(const x of raw){ const v=Number(x); if(!Number.isInteger(v)||v<1||v>18||seen[v]) return null; seen[v]=true; }
+  return raw.map(Number);
 }
 
 function renderLeaderboardContent() {
@@ -1722,15 +1731,7 @@ function renderLeaderboardContent() {
       crLoadLibrary(function(lib){
         const norm = x => (x||'').toString().trim().toLowerCase();
         const course = (lib||[]).find(c=>c && norm(c.name)===norm(courseName));
-        const raw = course && course.holeHcp;
-        // Accept only a well-formed 1–18 stroke index; anything else → "no SI on file".
-        let valid = null;
-        if(Array.isArray(raw) && raw.length===18){
-          const seen={}; let ok=true;
-          for(const x of raw){ const v=Number(x); if(!Number.isInteger(v)||v<1||v>18||seen[v]){ ok=false; break; } seen[v]=true; }
-          if(ok) valid = raw.map(Number);
-        }
-        siCache[courseName] = valid;
+        siCache[courseName] = _validSI(course && course.holeHcp);
         if(currentLbTab==='hsi') renderLeaderboardContent();
       });
       return;
@@ -1763,7 +1764,7 @@ function renderLeaderboardContent() {
   }
   // Shared hole-by-hole scorecard below the standings (raw gross scores; format-agnostic —
   // format-aware stroke/points indicators come with the drill-down build).
-  el.insertAdjacentHTML('beforeend', renderHoleByHole(t, rankGross(scores, t)));
+  el.insertAdjacentHTML('beforeend', renderHoleByHole(t, rankGross(scores, t), currentLbTab));
 }
 
 // ── SCORECARD ──
@@ -2567,18 +2568,40 @@ window._real_loadHistory = loadHistory;
 // screen. Gridlines via .sc-grid; BP-inverse: BP header cells are gold with forest number/"BP"
 // text (the score cells below keep their score-vs-par color + gold side-borders bracketing the
 // column). Takes the tournament + a gross-ranked list ([{name, holes, gross}]).
-function renderHoleByHole(t, ranked){
+function renderHoleByHole(t, ranked, fmt){
   if(!ranked || !ranked.length) return '';
   const pars = t.holePars || DEFAULT_PARS;
-  const bpHoles = (Array.isArray(t.peoriaHoles)&&t.peoriaHoles.length===6) ? t.peoriaHoles.slice() : [];
+  // Format drives the per-hole overlay. 'stroke' is the stored Gross value. On the
+  // leaderboard the caller passes the active tab (so cycling formats re-skins the card);
+  // on history it passes the tournament's stored format.
+  const F = (fmt==='stroke') ? 'gross' : (fmt||'gross');
+  // BP marks are gated to the Blind Peoria format — a leftover Peoria draw on a
+  // non-Peoria event must NOT paint BP columns.
+  const bpHoles = (Array.isArray(t.peoriaHoles)&&t.peoriaHoles.length===6 && F==='peoria') ? t.peoriaHoles.slice() : [];
   const isBP = hn => bpHoles.indexOf(hn)>=0;
   const bpSide = 'border-left:2px solid var(--gold);border-right:2px solid var(--gold);';
   const bpHdr = 'background:var(--gold);color:var(--forest);'+bpSide;
-  const bpLegend = bpHoles.length ? `<div class="section-sub" style="margin:-0.2rem 0 0.6rem;">Blind Peoria counting holes (marked <span style="color:var(--gold);font-weight:700;">BP</span>): ${bpHoles.slice().sort((a,b)=>a-b).join(', ')}</div>` : '';
-  let holeHtml = `<div class="card" style="margin-top:1rem;overflow-x:auto;"><h3>Hole-by-Hole Breakdown</h3>${bpLegend}<table class="sc-grid" style="min-width:600px;">
-    <thead><tr><th>Player</th>${pars.map((_,i)=>`<th class="c" style="font-size:0.68rem;${isBP(i+1)?bpHdr:''}">${i+1}${isBP(i+1)?'<br><span style="font-size:0.55rem;color:var(--forest);font-weight:700;letter-spacing:0.04em;">BP</span>':''}</th>`).join('')}<th class="c">Total</th></tr></thead>
+  const bpLegend = bpHoles.length ? `<div class="section-sub" style="display:inline-block;margin:-0.2rem 0 0.7rem;padding:5px 12px;border-radius:6px;background:rgba(245,208,96,0.45);border:1px solid #e6c24d;color:var(--forest);font-weight:600;">Blind Peoria counting holes (marked <span style="font-weight:800;">BP</span>): ${bpHoles.slice().sort((a,b)=>a-b).join(', ')}</div>` : '';
+  const fmtNote = (F==='net') ? `<div class="section-sub" style="margin:-0.2rem 0 0.7rem;color:var(--text-mid);font-size:0.78rem;">Net = gross − a flat handicap applied to the round (not allocated per hole).</div>` : '';
+  // HSI overlay needs the course stroke index (cached per course by the HSI leaderboard tab
+  // and pre-warmed by loadHistoryDetail) plus each player's resolved handicap.
+  const si = (F==='hsi') ? (window._lbHoleHcpByCourse||{})[t.course] : null;
+  const siOK = Array.isArray(si) && si.length===18;
+  const chip = txt => `<span style="position:absolute;top:1px;right:1px;background:#fff;color:var(--forest);border:1px solid var(--forest);border-radius:3px;font-size:0.5rem;font-weight:700;line-height:1;padding:1px 2px;">${txt}</span>`;
+  const hsiByPlayer = {};
+  if(F==='hsi' && siOK){
+    ranked.forEach(r=>{
+      const _rh = window._resHcpCache && window._resHcpCache[r.playerId];
+      const res = calcHSI(r.holes, si, _rh?_rh.value:0);
+      hsiByPlayer[r.playerId] = res ? res.strokesByHole : null;
+    });
+  }
+  const siHdr = i => (F==='hsi'&&siOK) ? `<br><span style="font-size:0.52rem;color:#b5502a;font-weight:700;">SI ${si[i]}</span>` : '';
+  let holeHtml = `<div class="card" style="margin-top:1rem;overflow-x:auto;"><h3>Hole-by-Hole Breakdown</h3>${bpLegend}${fmtNote}<table class="sc-grid" style="min-width:600px;">
+    <thead><tr><th>Player</th>${pars.map((_,i)=>`<th class="c" style="font-size:0.68rem;${isBP(i+1)?bpHdr:''}">${i+1}${isBP(i+1)?'<br><span style="font-size:0.55rem;color:var(--forest);font-weight:700;letter-spacing:0.04em;">BP</span>':''}${siHdr(i)}</th>`).join('')}<th class="c">Total</th></tr></thead>
     <tbody>`;
   ranked.forEach(r => {
+    const strokesByHole = hsiByPlayer[r.playerId];
     holeHtml += `<tr><td class="pname" style="font-size:0.82rem;">${esc(r.name)}</td>`;
     pars.forEach((_,i) => {
       const h = i+1;
@@ -2593,7 +2616,12 @@ function renderHoleByHole(t, ranked){
         else if (d === 1) bg = 'background:#f8d7da;color:#721c24;';
         else if (d >= 2) bg = 'background:#f5c6cb;color:#491217;';
       }
-      holeHtml += `<td class="c" style="font-size:0.78rem;font-weight:600;padding:6px 4px;${bg}${isBP(h)?bpSide:''}">${score||'—'}</td>`;
+      let overlay = '';
+      if (score) {
+        if (F==='hsi' && strokesByHole && strokesByHole[h] > 0) overlay = chip('+'+strokesByHole[h]);
+        else if (F==='system36') { const over=score-par; overlay = chip(String(over<=0?2:(over===1?1:0))); }
+      }
+      holeHtml += `<td class="c" style="position:relative;font-size:0.78rem;font-weight:600;padding:6px 4px;${bg}${isBP(h)?bpSide:''}">${score||'—'}${overlay}</td>`;
     });
     holeHtml += `<td class="c bold">${r.gross||'—'}</td></tr>`;
   });
@@ -2619,8 +2647,22 @@ async function loadHistoryDetail(tid) {
   document.getElementById('hd-table').innerHTML = `<div class="lb-table-wrap"><table>
     <thead><tr>${rHdrs}</tr></thead><tbody>${rows||'<tr><td colspan="4" style="text-align:center;padding:1.5rem;color:var(--text-light)">No scores recorded</td></tr>'}</tbody>
   </table></div>`;
-  // Hole-by-hole breakdown (shared render — also used on the leaderboard screen)
-  document.getElementById('hd-holes').innerHTML = ranked.length ? renderHoleByHole(t, ranked) : '';
+  // Hole-by-hole breakdown (shared render — also used on the leaderboard screen).
+  // HSI events need the course stroke index + resolved handicaps warmed before the
+  // synchronous render can draw per-hole stroke chips.
+  const F = (t.format==='stroke') ? 'gross' : (t.format||'gross');
+  if(F==='hsi' && ranked.length){
+    await ensureResolvedHandicaps(scores);
+    const cn = t.course||'';
+    const cache = (window._lbHoleHcpByCourse = window._lbHoleHcpByCourse || {});
+    if(!(cn in cache)){
+      const lib = await _libraryP();
+      const norm = x => (x||'').toString().trim().toLowerCase();
+      const course = (lib||[]).find(c=>c && norm(c.name)===norm(cn));
+      cache[cn] = _validSI(course && course.holeHcp);
+    }
+  }
+  document.getElementById('hd-holes').innerHTML = ranked.length ? renderHoleByHole(t, ranked, t.format) : '';
 }
 window._real_loadHistoryDetail = loadHistoryDetail;
 
@@ -4307,7 +4349,7 @@ window._real_navCasual = function(btn) {
 };
 
 // Build/version stamp — confirms which version is actually running (catches stale cache)
-var APP_BUILD = '2026.08.14 · scorecard-grid';
+var APP_BUILD = '2026.08.14 · format-drilldown';
 console.log('%cMorks Golf Tour build: ' + APP_BUILD, 'color:#c9a227;font-weight:bold;font-size:14px;');
 try {
   var _bt = document.createElement('div');
