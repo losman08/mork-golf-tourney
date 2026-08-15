@@ -2592,16 +2592,25 @@ function renderHoleByHole(t, ranked, fmt){
   if(F==='hsi' && siOK){
     ranked.forEach(r=>{
       const _rh = window._resHcpCache && window._resHcpCache[r.playerId];
-      const res = calcHSI(r.holes, si, _rh?_rh.value:0);
-      hsiByPlayer[r.playerId] = res ? res.strokesByHole : null;
+      hsiByPlayer[r.playerId] = calcHSI(r.holes, si, _rh?_rh.value:0);   // full result: strokesByHole + net
     });
   }
-  const siHdr = i => (F==='hsi'&&siOK) ? `<br><span style="font-size:0.52rem;color:#b5502a;font-weight:700;">SI ${si[i]}</span>` : '';
+  const siHdr = i => (F==='hsi'&&siOK) ? `<br><span style="font-size:0.52rem;color:#fff;font-weight:700;">SI ${si[i]}</span>` : '';
+  // Format-total column: Gross is always shown; plus Net (Net/HSI/Blind Peoria) or Pts (System 36).
+  const coursePar = t.par || pars.reduce((a,b)=>a+((typeof b==='number')?b:0),0);
+  const extraLabel = (F==='system36') ? 'Pts' : ((F==='net'||F==='hsi'||F==='peoria') ? 'Net' : null);
+  const fmtTotalVal = r => {
+    if(F==='net'){ const _rh=window._resHcpCache&&window._resHcpCache[r.playerId]; const hc=_rh?_rh.value:0; return r.gross - Math.round(((r.holesPlayed||18)/18)*hc); }
+    if(F==='hsi'){ const res=hsiByPlayer[r.playerId]; return res?res.net:'—'; }
+    if(F==='system36'){ const res=calcSystem36(r.holes); return res?res.pts:'—'; }
+    if(F==='peoria'){ const res=calcBlindPeoria(r.holes, bpHoles, coursePar); return res?res.net:'—'; }
+    return '';
+  };
   let holeHtml = `<div class="card" style="margin-top:1rem;overflow-x:auto;"><h3>Hole-by-Hole Breakdown</h3>${bpLegend}${fmtNote}<table class="sc-grid" style="min-width:600px;">
-    <thead><tr><th>Player</th>${pars.map((_,i)=>`<th class="c" style="font-size:0.68rem;${isBP(i+1)?bpHdr:''}">${i+1}${isBP(i+1)?'<br><span style="font-size:0.55rem;color:var(--forest);font-weight:700;letter-spacing:0.04em;">BP</span>':''}${siHdr(i)}</th>`).join('')}<th class="c">Total</th></tr></thead>
+    <thead><tr><th>Player</th>${pars.map((_,i)=>`<th class="c" style="font-size:0.68rem;${isBP(i+1)?bpHdr:''}">${i+1}${isBP(i+1)?'<br><span style="font-size:0.55rem;color:var(--forest);font-weight:700;letter-spacing:0.04em;">BP</span>':''}${siHdr(i)}</th>`).join('')}${extraLabel ? `<th class="c">Gross</th><th class="c" style="background:#f5d060;color:#1a3a2a;">${extraLabel}</th>` : `<th class="c">Total</th>`}</tr></thead>
     <tbody>`;
   ranked.forEach(r => {
-    const strokesByHole = hsiByPlayer[r.playerId];
+    const strokesByHole = hsiByPlayer[r.playerId] && hsiByPlayer[r.playerId].strokesByHole;
     holeHtml += `<tr><td class="pname" style="font-size:0.82rem;">${esc(r.name)}</td>`;
     pars.forEach((_,i) => {
       const h = i+1;
@@ -2623,7 +2632,7 @@ function renderHoleByHole(t, ranked, fmt){
       }
       holeHtml += `<td class="c" style="position:relative;font-size:0.78rem;font-weight:600;padding:6px 4px;${bg}${isBP(h)?bpSide:''}">${score||'—'}${overlay}</td>`;
     });
-    holeHtml += `<td class="c bold">${r.gross||'—'}</td></tr>`;
+    holeHtml += `${extraLabel ? `<td class="c bold">${r.gross||'—'}</td><td class="c bold" style="background:#fdf3d3;">${fmtTotalVal(r)}</td>` : `<td class="c bold">${r.gross||'—'}</td>`}</tr>`;
   });
   holeHtml += `</tbody></table></div>`;
   return holeHtml;
@@ -2651,8 +2660,10 @@ async function loadHistoryDetail(tid) {
   // HSI events need the course stroke index + resolved handicaps warmed before the
   // synchronous render can draw per-hole stroke chips.
   const F = (t.format==='stroke') ? 'gross' : (t.format||'gross');
-  if(F==='hsi' && ranked.length){
-    await ensureResolvedHandicaps(scores);
+  if(ranked.length && (F==='hsi' || F==='net')){
+    await ensureResolvedHandicaps(scores);   // HSI chips/net + flat-Net total both need resolved handicaps
+  }
+  if(ranked.length && F==='hsi'){
     const cn = t.course||'';
     const cache = (window._lbHoleHcpByCourse = window._lbHoleHcpByCourse || {});
     if(!(cn in cache)){
@@ -4349,7 +4360,7 @@ window._real_navCasual = function(btn) {
 };
 
 // Build/version stamp — confirms which version is actually running (catches stale cache)
-var APP_BUILD = '2026.08.14 · format-drilldown';
+var APP_BUILD = '2026.08.14 · format-totals';
 console.log('%cMorks Golf Tour build: ' + APP_BUILD, 'color:#c9a227;font-weight:bold;font-size:14px;');
 try {
   var _bt = document.createElement('div');
