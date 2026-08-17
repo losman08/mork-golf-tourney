@@ -469,17 +469,6 @@ hr.div{border:none;border-top:1px solid var(--cream-dark);margin:1rem 0;}
       </div>
     </div>
 
-    <!-- == FOURSOMES == -->
-    <div id="screen-foursomes" class="screen">
-      <div class="topbar">
-        <div><div class="topbar-title">Foursomes</div><div class="topbar-sub" id="fs-tourney-name"></div></div>
-        <div class="topbar-right">
-          <button class="icon-btn" onclick="window._real_navTo('home',null)">✕</button>
-        </div>
-      </div>
-      <div class="pad" id="foursomes-body"></div>
-    </div>
-
     <!-- ══ PROFILE ══ -->
     <div id="screen-profile" class="screen">
       <div class="topbar">
@@ -821,7 +810,6 @@ function navTo(name, btn) {
   if(name==='casual-history') loadCasualHistory();
   if(name==='casual-leaderboard' && typeof loadCasualLeaderboard === 'function') loadCasualLeaderboard();
   if(name==='players') loadPlayers();
-  if(name==='foursomes') loadFoursomes();
 }
 function switchAuthTab(tab) {
   document.querySelectorAll('.auth-tab').forEach((t,i)=>{
@@ -1251,18 +1239,13 @@ function renderHomeEvent() {
   const el=document.getElementById('home-current-event');
   if(!activeTournament){ el.innerHTML=`<div class="home-hero"><div class="hero-label">No Active Event</div><div class="hero-title">Next tournament coming soon</div></div>`; return; }
   const t=activeTournament;
-  const _live=t.playState==='live';
   el.innerHTML=`<div class="home-hero">
-    <div class="hero-label" style="display:flex;align-items:center;gap:8px;">Current Event ${fsStatusPill(t)}</div>
+    <div class="hero-label">Current Event</div>
     <div class="hero-title">${esc(t.name)}</div>
     <div class="hero-meta">📍 ${t.course||'TBD'} &nbsp;·&nbsp; 📅 ${t.date||''} &nbsp;·&nbsp; Par ${t.par||72}</div>
     <div class="hero-badge">${({stroke:'Gross',gross:'Gross',net:'Net',hsi:'HSI',system36:'System 36',peoria:'Blind Peoria',stableford:'Stableford'})[t.format]||'Gross'}</div>
-    ${fsParticipantListing(t)}
     <div class="mini-lb" id="home-mini-lb"><div class="loading"><div class="spinner"></div></div></div>
-    <div style="display:flex;gap:8px;margin-top:1rem;">
-      <button class="btn btn-gold" style="flex:1;${_live?'':'opacity:0.6;'}" onclick="window._real_navTo('scorecard',null)">⛳ Enter My Scores</button>
-      <button class="btn" style="flex:1;background:#2e9e3f;color:#fff;" onclick="window._real_navTo('foursomes',null)">👥 Foursomes</button>
-    </div>
+    <button class="btn btn-gold" style="margin-top:1rem;width:100%;" onclick="window._real_navTo('scorecard',null)">⛳ Enter My Scores</button>
   </div>`;
   loadMiniLb();
 }
@@ -1308,197 +1291,6 @@ function renderHomeRecent() {
       <div class="hr-right"><div class="score">${(t.results||[])[0]?.name||'—'}</div><div class="pos">Winner</div></div>
     </div>`).join('');
 }
-
-// == TOURNAMENT ROSTER / FOURSOMES ==============================================
-// playState ('setup'|'live') is ORTHOGONAL to the doc's finalization status
-// (upcoming/locked/completed). Score entry opens only when live. Roster
-// (participants[]) + foursomes[] ({name,players[]}) live on the tournament doc.
-
-// Per-player avatar colors (locked palette). Keyed by full name + first-name/nickname
-// aliases; unmapped players fall back to the hash color.
-const FS_AVATAR_COLORS = {
-  'shane':'#2d5a3d','shane fredeito':'#2d5a3d',
-  'los':'#b8860b','carlos':'#b8860b','carlos alves':'#b8860b',
-  'johnny':'#2e7d8a','johnny mcgrew':'#2e7d8a',
-  'joey':'#b5502a','joey oliveira':'#b5502a',
-  'brian':'#6b4a8a','brian emery':'#6b4a8a',
-  'chris':'#5f7a2e','chris worthy':'#5f7a2e',
-  'pat':'#3f6193','patrick':'#3f6193','patrick crowley':'#3f6193',
-  'heath':'#8a3a4a','heath myers':'#8a3a4a'
-};
-function fsColor(name){
-  var n=String(name||'').trim().toLowerCase();
-  if(FS_AVATAR_COLORS[n]) return FS_AVATAR_COLORS[n];
-  var first=n.split(/\s+/)[0];
-  if(FS_AVATAR_COLORS[first]) return FS_AVATAR_COLORS[first];
-  return plAvatarColor(name);
-}
-// Colored initials chip (locked palette). Separate from avatarHtml so it can't shift
-// avatar colors on other screens; always the colored initials (no photo).
-function fsChip(pl,size){
-  size=size||30; var name=pl?(pl.name||''):'';
-  return '<span title="'+esc(name)+'" style="display:inline-flex;align-items:center;justify-content:center;'
-    +'width:'+size+'px;height:'+size+'px;border-radius:50%;background:'+fsColor(name)+';color:#fff;'
-    +'font-weight:700;font-size:'+Math.round(size*0.4)+'px;font-family:Inter,sans-serif;flex:0 0 auto;">'
-    +esc(plInitials(name))+'</span>';
-}
-// Status pill for the Current Event tile eyebrow.
-function fsStatusPill(t){
-  if(t && t.playState==='live') return '<span style="display:inline-flex;align-items:center;gap:4px;background:rgba(46,158,63,0.92);color:#fff;font-size:0.6rem;font-weight:800;letter-spacing:0.06em;padding:2px 8px;border-radius:10px;text-transform:uppercase;">&#9679; Live</span>';
-  return '<span style="display:inline-flex;align-items:center;background:rgba(245,240,232,0.18);color:rgba(245,240,232,0.85);font-size:0.6rem;font-weight:800;letter-spacing:0.06em;padding:2px 8px;border-radius:10px;text-transform:uppercase;">Setup</span>';
-}
-// Participant avatar listing for the Current Event tile (Avatars style, locked).
-function fsParticipantListing(t){
-  var ids=(t && Array.isArray(t.participants))?t.participants:[];
-  if(!ids.length) return '<div style="color:rgba(245,240,232,0.45);font-size:0.8rem;margin-top:0.6rem;">No players added yet</div>';
-  var shown=ids.slice(0,8), extra=ids.length-shown.length;
-  var chips=shown.map(function(id){ var p=_plLookup(id);
-    return '<span onclick="event.stopPropagation();window._real_fsNameToast(\''+escJs(id)+'\')" style="cursor:pointer;margin-left:-6px;box-shadow:0 0 0 2px var(--forest);border-radius:50%;">'+fsChip(p,28)+'</span>';
-  }).join('');
-  if(extra>0) chips+='<span style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:rgba(245,240,232,0.2);color:#fff;font-weight:700;font-size:0.7rem;margin-left:-6px;box-shadow:0 0 0 2px var(--forest);">+'+extra+'</span>';
-  return '<div style="display:flex;align-items:center;flex-wrap:wrap;margin-top:0.7rem;padding-left:6px;">'+chips
-    +'<span style="margin-left:10px;color:rgba(245,240,232,0.75);font-size:0.78rem;">'+ids.length+' player'+(ids.length===1?'':'s')+'</span></div>';
-}
-window._real_fsNameToast=function(id){ var p=_plLookup(id); if(p) toast('\uD83D\uDC64 '+(p.name||'Player')); };
-
-var FS_FMT={stroke:'Gross',gross:'Gross',net:'Net',hsi:'HSI',system36:'System 36',peoria:'Blind Peoria',stableford:'Stableford'};
-var fsSelectedBench=null;
-
-async function loadFoursomes(){
-  var el=document.getElementById('foursomes-body'); if(!el) return;
-  var t=activeTournament;
-  var nm=document.getElementById('fs-tourney-name'); if(nm) nm.textContent=t?t.name:'';
-  if(!t){ el.innerHTML='<div class="empty"><div class="ei">\u26F3</div><p>No active tournament</p></div>'; return; }
-  var isAdmin=!!(userProfile && userProfile.role==='admin');
-  var live=(t.playState==='live');
-  var participants=Array.isArray(t.participants)?t.participants.slice():[];
-  var foursomes=Array.isArray(t.foursomes)?t.foursomes:[];
-  var nCards=Math.max(1,Math.ceil(participants.length/4));
-  var assigned={};
-  for(var ai=0;ai<nCards;ai++){ var gg=foursomes[ai]; if(gg&&gg.players){ gg.players.forEach(function(pid){ if(pid) assigned[pid]=true; }); } }
-  var bench=participants.filter(function(pid){ return !assigned[pid]; });
-  var html='';
-  // status + lifecycle
-  html+='<div class="card" style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">';
-  html+='<div><div style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-mid);">Tournament status</div>';
-  html+='<div style="margin-top:4px;font-weight:700;color:'+(live?'#2e9e3f':'var(--text-mid)')+';">'+(live?'\u25CF Live \u2014 scoring open':'Setup \u2014 scoring closed')+'</div></div>';
-  if(isAdmin){
-    if(!live) html+='<button class="btn" style="background:#2e9e3f;color:#fff;" onclick="window._real_fsBegin()">\u25B6 Begin Tournament</button>';
-    else html+='<button class="btn btn-ghost btn-sm" onclick="window._real_fsRevert()">\u21A9 Revert to Setup</button>';
-  }
-  html+='</div>';
-  // roster editor (admin)
-  if(isAdmin){
-    html+='<div class="card"><h3 style="margin-top:0;">Who\'s playing</h3><div style="display:flex;flex-wrap:wrap;gap:8px;">';
-    (allPlayers||[]).forEach(function(p){
-      var on=participants.indexOf(p.id)>=0;
-      html+='<button onclick="window._real_fsToggleRoster(\''+escJs(p.id)+'\')" style="display:inline-flex;align-items:center;gap:6px;border:none;cursor:pointer;padding:5px 11px 5px 5px;border-radius:16px;font-family:Inter,sans-serif;font-size:0.8rem;font-weight:600;'
-        +(on?'background:var(--forest-mid);color:#fff;':'background:var(--cream-dark,#e8e0d4);color:var(--text-mid);opacity:0.75;')+'">'
-        +fsChip(p,22)+esc(p.name||'')+(on?' \u2713':'')+'</button>';
-    });
-    html+='</div></div>';
-  }
-  // foursome cards
-  for(var gi=0;gi<nCards;gi++){
-    var g=foursomes[gi]||{name:'Foursome '+(gi+1),players:[]};
-    var gname=g.name||('Foursome '+(gi+1));
-    var seats=(g.players||[]).slice(0,4); while(seats.length<4) seats.push(null);
-    html+='<div class="card">';
-    html+='<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">';
-    html+='<div style="min-width:0;"><div id="fs-name-'+gi+'" style="font-family:\'Playfair Display\',serif;font-size:1.1rem;font-weight:700;">'+esc(gname)
-      +(isAdmin?' <span onclick="window._real_fsRename('+gi+')" style="cursor:pointer;font-size:0.8rem;opacity:0.6;">\u270E</span>':'')+'</div>';
-    html+='<div style="font-size:0.78rem;color:var(--text-mid);margin-top:2px;">Par '+(t.par||72)+' \u00B7 <span style="color:var(--gold);font-weight:700;">'+(FS_FMT[t.format]||'Gross')+'</span></div></div>';
-    html+='<span title="Group photo (coming soon)" style="font-size:1.1rem;opacity:0.4;">\uD83D\uDCF7</span>';
-    html+='</div>';
-    html+='<div style="margin-top:10px;display:flex;flex-direction:column;gap:7px;">';
-    for(var si=0;si<4;si++){
-      var pid=seats[si];
-      if(pid){
-        var p=_plLookup(pid);
-        html+='<div style="display:flex;align-items:center;gap:9px;padding:6px 8px;border-radius:9px;background:var(--cream,#f5f0e8);">'
-          +fsChip(p,30)+'<span style="font-weight:600;flex:1;min-width:0;">'+esc(p?(p.name||''):'')+'</span>'
-          +(isAdmin?'<span onclick="window._real_fsUnseat('+gi+','+si+')" style="cursor:pointer;color:#b31818;font-weight:700;padding:0 4px;">\u2715</span>':'')+'</div>';
-      } else {
-        var pickable=isAdmin&&fsSelectedBench;
-        html+='<div '+(pickable?'onclick="window._real_fsSeat('+gi+','+si+')" ':'')
-          +'style="display:flex;align-items:center;gap:9px;padding:6px 8px;border-radius:9px;border:1.5px dashed var(--cream-dark,#d8cfc0);color:var(--text-mid);font-size:0.85rem;'
-          +(pickable?'cursor:pointer;background:rgba(46,158,63,0.06);':'')+'">'+(pickable?'\u2795 Tap to place here':'Empty seat')+'</div>';
-      }
-    }
-    html+='</div>';
-    if(live) html+='<button class="btn btn-ghost btn-sm btn-full" style="margin-top:10px;" onclick="window._real_fsGroupCard('+gi+')">\uD83D\uDCCB Group scorecard</button>';
-    html+='</div>';
-  }
-  // bench (admin)
-  if(isAdmin && bench.length){
-    html+='<div class="card"><h3 style="margin-top:0;">Bench <span style="font-weight:400;font-size:0.8rem;color:var(--text-mid);">\u2014 tap a player, then an empty seat</span></h3><div style="display:flex;flex-wrap:wrap;gap:8px;">';
-    bench.forEach(function(pid){ var p=_plLookup(pid); var sel=(fsSelectedBench===pid);
-      html+='<button onclick="window._real_fsPickBench(\''+escJs(pid)+'\')" style="display:inline-flex;align-items:center;gap:6px;border:'+(sel?'2px solid #2e9e3f':'none')+';cursor:pointer;padding:5px 11px 5px 5px;border-radius:16px;font-family:Inter,sans-serif;font-size:0.8rem;font-weight:600;background:'+(sel?'rgba(46,158,63,0.14)':'var(--cream,#f5f0e8)')+';color:var(--forest);">'
-        +fsChip(p,22)+esc(p?(p.name||''):'')+'</button>';
-    });
-    html+='</div></div>';
-  }
-  el.innerHTML=html;
-}
-
-async function _fsSave(patch){
-  var t=activeTournament; if(!t) return false;
-  try { await updateDoc(doc(db,'tournaments',t.id),patch); Object.assign(t,patch); return true; }
-  catch(e){ console.error('foursome save failed',e); toast('Save failed \u2014 check connection.'); return false; }
-}
-window._real_fsToggleRoster=async function(pid){
-  var t=activeTournament; if(!t) return;
-  var arr=Array.isArray(t.participants)?t.participants.slice():[];
-  var i=arr.indexOf(pid);
-  if(i>=0){ arr.splice(i,1);
-    var fs=(t.foursomes||[]).map(function(g){ return {name:g.name,players:(g.players||[]).map(function(x){return x===pid?null:x;})}; });
-    await _fsSave({participants:arr,foursomes:fs});
-  } else { arr.push(pid); await _fsSave({participants:arr}); }
-  loadFoursomes();
-};
-window._real_fsPickBench=function(pid){ fsSelectedBench=(fsSelectedBench===pid)?null:pid; loadFoursomes(); };
-window._real_fsSeat=async function(gi,si){
-  var t=activeTournament; if(!t||!fsSelectedBench) return;
-  var nCards=Math.max(1,Math.ceil((t.participants||[]).length/4));
-  var fs=[];
-  for(var i=0;i<nCards;i++){ var g=(t.foursomes||[])[i]||{name:'Foursome '+(i+1),players:[]}; fs.push({name:g.name||('Foursome '+(i+1)),players:(g.players||[]).slice(0,4)}); }
-  while(fs[gi].players.length<4) fs[gi].players.push(null);
-  fs[gi].players[si]=fsSelectedBench; fsSelectedBench=null;
-  await _fsSave({foursomes:fs}); loadFoursomes();
-};
-window._real_fsUnseat=async function(gi,si){
-  var t=activeTournament; if(!t) return;
-  var fs=(t.foursomes||[]).map(function(g){ return {name:g.name,players:(g.players||[]).slice(0,4)}; });
-  if(fs[gi]&&fs[gi].players) fs[gi].players[si]=null;
-  await _fsSave({foursomes:fs}); loadFoursomes();
-};
-window._real_fsRename=function(gi){
-  var t=activeTournament; if(!t) return;
-  var host=document.getElementById('fs-name-'+gi); if(!host) return;
-  var g=(t.foursomes||[])[gi]; var cur=(g&&g.name)||('Foursome '+(gi+1));
-  host.innerHTML='<input id="fs-name-input-'+gi+'" value="'+esc(cur).replace(/"/g,'&quot;')+'" style="font-family:Inter,sans-serif;font-size:0.95rem;padding:3px 6px;border:2px solid var(--gold);border-radius:6px;width:70%;" onkeydown="window._real_fsRenameKey(event,'+gi+')">';
-  var inp=document.getElementById('fs-name-input-'+gi); if(inp){ inp.focus(); inp.select(); }
-};
-window._real_fsRenameKey=async function(ev,gi){
-  if(ev.key==='Enter'){
-    var inp=document.getElementById('fs-name-input-'+gi); var val=inp?inp.value.trim():'';
-    if(!val) val='Foursome '+(gi+1);
-    var t=activeTournament;
-    var nCards=Math.max(1,Math.ceil((t.participants||[]).length/4));
-    var fs=[]; for(var i=0;i<nCards;i++){ var g=(t.foursomes||[])[i]||{name:'Foursome '+(i+1),players:[]}; fs.push({name:(i===gi?val:(g.name||('Foursome '+(i+1)))),players:(g.players||[]).slice(0,4)}); }
-    await _fsSave({foursomes:fs}); loadFoursomes();
-  } else if(ev.key==='Escape'){ loadFoursomes(); }
-};
-window._real_fsBegin=async function(){
-  var t=activeTournament; if(!t) return;
-  await _fsSave({playState:'live'}); toast('\u25B6 Tournament is live \u2014 scoring is open.'); loadFoursomes();
-};
-window._real_fsRevert=async function(){
-  var t=activeTournament; if(!t) return;
-  if(!confirm('Revert to Setup? This closes scoring until you begin again.')) return;
-  await _fsSave({playState:'setup'}); toast('\u21A9 Reverted to Setup \u2014 scoring closed.'); loadFoursomes();
-};
-window._real_fsGroupCard=function(gi){ /* plumbing lands with the save-submit build */ };
 
 // ── LEADERBOARD ──
 function populateLbSelect() {
@@ -1978,16 +1770,9 @@ function renderLeaderboardContent() {
 
 // ── SCORECARD ──
 async function loadScorecard() {
-  if(!activeTournament){ document.getElementById('holes-front').innerHTML=`<div class="empty"><div class="ei">⛳</div><p>No active tournament</p></div>`; document.getElementById('holes-back').innerHTML=''; return; }
+  if(!activeTournament){ document.getElementById('holes-front').innerHTML=`<div class="empty"><div class="ei">⛳</div><p>No active tournament</p></div>`; return; }
   const t=activeTournament;
   document.getElementById('sc-tourney-name').textContent=t.name;
-  if(t.playState!=='live'){
-    scorecardData={};
-    document.getElementById('holes-front').innerHTML=`<div class="empty"><div class="ei">🔒</div><p>Scoring opens when the tournament goes live.</p><p style="font-size:0.85rem;color:var(--text-mid);margin-top:6px;">The organizer will start it${t.date?` around ${t.date}`:''}.</p></div>`;
-    document.getElementById('holes-back').innerHTML='';
-    updateScorecardSummary();
-    return;
-  }
   scorecardData={};
   // Load existing scores
   const snap=await getDocs(query(collection(db,'holeScores'),where('tournamentId','==',t.id),where('playerId','==',currentUser.uid)));
@@ -2099,7 +1884,6 @@ function promptBlankHoles(blanks){
 async function submitScorecard() {
   if(!activeTournament||!currentUser) return;
   const t=activeTournament;
-  if(t.playState!=='live'){ toast('Scoring opens when the tournament goes live.'); return; }
   const pars=t.holePars||DEFAULT_PARS;
   let entries=Object.entries(scorecardData);
   if(entries.length < 9){ toast('Enter at least 9 hole scores.'); return; }
@@ -2304,7 +2088,7 @@ async function createTournament() {
   window._ctHolePars = null;
   await addDoc(collection(db,'tournaments'),{
     name, date, course, format, par, slope, rating, holePars:holePars,
-    status:'upcoming', playState:'setup', participants:[], foursomes:[], pointsMap: ctPointsMap,
+    status:'upcoming', pointsMap: ctPointsMap,
     createdBy:currentUser.uid, createdAt:serverTimestamp(), results:[], peoriaHoles:[]
   });
   closeModal('modal-create-tourney');
@@ -2408,7 +2192,6 @@ async function saveEditedScores() {
   const pid=sel.value; const tid=document.getElementById('es-tourney-sel')?.value||sel.dataset.tid||editingTourneyId||allTournaments[0]?.id;
   const t=allTournaments.find(x=>x.id===tid)||allTournaments[0];
   if(!t||!pid) return;
-  if(t.playState!=='live' && t.status!=='locked' && t.status!=='completed'){ toast('Begin the tournament (Foursomes screen) before entering scores.'); return; }
   const pars=t.holePars||DEFAULT_PARS;
   const batch=writeBatch(db);
   const existing=await getDocs(query(collection(db,'holeScores'),where('tournamentId','==',tid),where('playerId','==',pid)));
@@ -4581,7 +4364,7 @@ window._real_navCasual = function(btn) {
 };
 
 // Build/version stamp — confirms which version is actually running (catches stale cache)
-var APP_BUILD = '2026.08.16 · foursomes';
+var APP_BUILD = '2026.08.16 · players-icon';
 console.log('%cMorks Golf Tour build: ' + APP_BUILD, 'color:#c9a227;font-weight:bold;font-size:14px;');
 try {
   var _bt = document.createElement('div');
