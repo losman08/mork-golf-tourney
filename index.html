@@ -93,6 +93,7 @@ html,body{height:100%;font-family:'Inter',sans-serif;background:var(--forest);co
 .topbar-sub{font-size:0.7rem;color:var(--gold);letter-spacing:0.1em;text-transform:uppercase;}
 .topbar-right{display:flex;gap:8px;align-items:center;}
 .icon-btn{background:transparent;border:none;color:var(--cream);font-size:1.2rem;cursor:pointer;padding:6px;border-radius:6px;transition:color 0.2s;}
+.ic-players{width:1em;height:1em;display:inline-block;vertical-align:-0.14em;fill:#00b4f0;}
 .icon-btn:hover{color:var(--gold);}
 
 /* ── CARDS ── */
@@ -388,7 +389,7 @@ hr.div{border:none;border-top:1px solid var(--cream-dark);margin:1rem 0;}
           <div class="t-sub">Manage tournaments, scores & players</div>
         </div>
         <div class="home-tile gold home-tile-wide" id="home-players-tile" style="margin-top:12px;" onclick="window._real_navTo('players',null)">
-          <span class="t-icon">👥</span>
+          <span class="t-icon"><svg class="ic-players" viewBox="0 0 24 24" aria-hidden="true"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg></span>
           <div class="t-label">Players</div>
           <div class="t-sub">Browse stats & compare up to 4</div>
         </div>
@@ -414,7 +415,7 @@ hr.div{border:none;border-top:1px solid var(--cream-dark);margin:1rem 0;}
       <div class="topbar topbar-lb">
         <div><div class="topbar-title" id="lb-title">Leaderboard</div><div class="topbar-sub" id="lb-sub"></div></div>
         <div class="topbar-right" id="lb-sel-wrap">
-          <button class="icon-btn" title="Players & compare" onclick="window._real_navTo('players',null)" style="margin-right:6px;">👥</button>
+          <button class="icon-btn" title="Players & compare" onclick="window._real_navTo('players',null)" style="margin-right:6px;"><svg class="ic-players" viewBox="0 0 24 24" aria-hidden="true"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg></button>
           <select id="lb-tourney-sel" onchange="window._real_loadLeaderboard()" style="background:rgba(0,0,0,0.2);border:1px solid var(--gold);color:var(--cream);padding:6px 8px;border-radius:6px;font-size:0.82rem;font-family:'Inter',sans-serif;cursor:pointer;"></select>
         </div>
       </div>
@@ -480,7 +481,7 @@ hr.div{border:none;border-top:1px solid var(--cream-dark);margin:1rem 0;}
         <div class="profile-header" id="profile-header"></div>
         <div class="stats-grid" id="profile-stats"></div>
         <button class="btn btn-ghost btn-ghost-light btn-full" style="margin-bottom:1rem;" onclick="window._real_navTo('casual-history',null)">📋 View / Edit My Rounds</button>
-        <button class="btn btn-ghost btn-ghost-light btn-full" style="margin-bottom:1rem;" onclick="window._real_navTo('players',null)">👥 View All Players &amp; Compare</button>
+        <button class="btn btn-ghost btn-ghost-light btn-full" style="margin-bottom:1rem;" onclick="window._real_navTo('players',null)"><svg class="ic-players" viewBox="0 0 24 24" aria-hidden="true"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg> View All Players &amp; Compare</button>
         <div class="card" id="profile-handicap-card">
           <div id="profile-handicap"></div>
         </div>
@@ -504,7 +505,7 @@ hr.div{border:none;border-top:1px solid var(--cream-dark);margin:1rem 0;}
             <div class="t-sub">Create event</div>
           </div>
           <div class="admin-tile" onclick="window._real_showAdminPlayers()">
-            <div class="t-icon">👥</div>
+            <div class="t-icon"><svg class="ic-players" viewBox="0 0 24 24" aria-hidden="true"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg></div>
             <div class="t-label">Manage Players</div>
             <div class="t-sub">Roster & roles</div>
           </div>
@@ -2098,8 +2099,8 @@ async function createTournament() {
 
 async function showAdminPlayers() {
   const cont=document.getElementById('admin-content');
-  cont.innerHTML=`<div class="card"><h3>👥 All Players</h3><div class="loading"><div class="spinner"></div></div></div>`;
-  cont.innerHTML=`<div class="card"><h3>👥 All Players</h3>${allPlayers.map(p=>`
+  cont.innerHTML=`<div class="card"><h3><svg class="ic-players" viewBox="0 0 24 24" aria-hidden="true"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg> All Players</h3><div class="loading"><div class="spinner"></div></div></div>`;
+  cont.innerHTML=`<div class="card"><h3><svg class="ic-players" viewBox="0 0 24 24" aria-hidden="true"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg> All Players</h3>${allPlayers.map(p=>`
     <div class="player-row">
       <div><div class="pr-name">${esc(p.name)}</div><div class="pr-email">${p.email||''} · <span class="chip chip-${p.role==='admin'?'red':'blue'}">${p.role}</span>${p.officialHandicap!=null?` · HCP ${p.officialHandicap}`:''}</div></div>
       <div class="pr-actions">
@@ -4363,7 +4364,7 @@ window._real_navCasual = function(btn) {
 };
 
 // Build/version stamp — confirms which version is actually running (catches stale cache)
-var APP_BUILD = '2026.08.14 · unified-scale';
+var APP_BUILD = '2026.08.16 · players-icon';
 console.log('%cMorks Golf Tour build: ' + APP_BUILD, 'color:#c9a227;font-weight:bold;font-size:14px;');
 try {
   var _bt = document.createElement('div');
