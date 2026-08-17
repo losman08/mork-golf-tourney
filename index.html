@@ -264,6 +264,10 @@ td.pname{font-weight:600;font-family:'Playfair Display',serif;font-size:0.95rem;
 .empty{text-align:center;padding:3rem 1rem;color:var(--text-light);}
 .empty .ei{font-size:2.5rem;margin-bottom:0.8rem;}
 .loading{text-align:center;padding:2rem;color:var(--text-light);}
+/* On-green empty/loading states render near-black by default — lift to cream on the green
+   surface, but keep the base dark color inside cream cards/modals (e.g. profile history). */
+.empty,.loading{color:var(--cream);}
+.card .empty,.card .loading,.modal .empty,.modal .loading{color:var(--text-dark);}
 .spinner{display:inline-block;width:28px;height:28px;border:3px solid var(--cream-dark);border-top-color:var(--gold);border-radius:50%;animation:spin 0.8s linear infinite;margin-bottom:8px;}
 @keyframes spin{to{transform:rotate(360deg);}}
 @keyframes lb-pulse{0%,100%{box-shadow:0 4px 20px rgba(201,162,39,0.2);}50%{box-shadow:0 4px 40px rgba(201,162,39,0.55);}}
@@ -319,10 +323,11 @@ hr.div{border:none;border-top:1px solid var(--cream-dark);margin:1rem 0;}
 #screen-groupscorecard .gc-toggle.on.gc-admin .gc-sw{background:#c0392b;}
 #screen-groupscorecard .gc-toggle.on .gc-sw::after{left:18px;}
 #screen-groupscorecard .gc-fieldbtn{margin-left:auto;background:var(--forest-mid);color:#fff;border:none;border-radius:9px;padding:7px 12px;font-weight:700;font-size:0.76rem;cursor:pointer;}
-#screen-groupscorecard .gc-legend{font-size:0.66rem;color:var(--text-mid);margin:0 0 8px;display:flex;gap:12px;flex-wrap:wrap;}
+#screen-groupscorecard .gc-legend{font-size:0.66rem;color:rgba(245,240,232,0.85);margin:0 0 8px;display:flex;gap:12px;flex-wrap:wrap;}
 #screen-groupscorecard .gc-swatch{display:inline-block;width:10px;height:10px;border-radius:3px;vertical-align:middle;margin-right:4px;}
-#screen-groupscorecard .gc-sec{font-size:0.64rem;text-transform:uppercase;letter-spacing:.05em;color:var(--text-mid);margin:14px 0 6px;font-weight:800;}
-#screen-groupscorecard .gc-note{font-size:0.72rem;color:var(--text-mid);margin-top:8px;display:flex;gap:6px;align-items:flex-start;}
+#screen-groupscorecard .gc-sec{font-size:0.64rem;text-transform:uppercase;letter-spacing:.05em;color:var(--cream);margin:14px 0 6px;font-weight:800;}
+#screen-groupscorecard .gc-note{font-size:0.72rem;color:rgba(245,240,232,0.85);margin-top:8px;display:flex;gap:6px;align-items:flex-start;}
+#screen-groupscorecard .gc-note b{color:var(--cream);}
 #screen-groupscorecard .gc-who{display:flex;align-items:center;gap:10px;}
 #screen-groupscorecard .gc-thumb-img{width:52px;height:52px;border-radius:9px;object-fit:cover;flex:0 0 auto;cursor:pointer;border:2px solid #00b4f0;}
 #screen-groupscorecard table.gc-table{border-collapse:collapse;width:100%;font-size:0.8rem;}
@@ -2326,7 +2331,7 @@ async function loadScorecard() {
   document.getElementById('sc-tourney-name').textContent=t.name;
   if(t.playState!=='live'){
     scorecardData={};
-    document.getElementById('holes-front').innerHTML=`<div class="empty"><div class="ei">🔒</div><p>Scoring opens when the tournament goes live.</p><p style="font-size:0.85rem;color:var(--text-mid);margin-top:6px;">The organizer will start it${t.date?` around ${t.date}`:''}.</p></div>`;
+    document.getElementById('holes-front').innerHTML=`<div class="empty"><div class="ei">🔒</div><p>Scoring opens when the tournament goes live.</p><p style="font-size:0.85rem;color:rgba(245,240,232,0.7);margin-top:6px;">The organizer will start it${t.date?` around ${t.date}`:''}.</p></div>`;
     document.getElementById('holes-back').innerHTML='';
     updateScorecardSummary();
     return;
@@ -4924,7 +4929,7 @@ window._real_navCasual = function(btn) {
 };
 
 // Build/version stamp — confirms which version is actually running (catches stale cache)
-var APP_BUILD = '2026.08.17 · group-scorecard-p1';
+var APP_BUILD = '2026.08.17 · on-green-contrast';
 console.log('%cMorks Golf Tour build: ' + APP_BUILD, 'color:#c9a227;font-weight:bold;font-size:14px;');
 try {
   var _bt = document.createElement('div');
