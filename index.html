@@ -309,6 +309,70 @@ hr.div{border:none;border-top:1px solid var(--cream-dark);margin:1rem 0;}
 .welcome-left .wname{font-family:'Playfair Display',serif;font-size:1.3rem;font-weight:700;color:var(--cream);}
 .welcome-left .wrole{font-size:0.75rem;color:rgba(245,240,232,0.5);margin-top:3px;}
 .welcome-avatar{width:48px;height:48px;border-radius:50%;background:var(--gold);display:flex;align-items:center;justify-content:center;font-size:1.4rem;font-weight:700;color:var(--forest);font-family:'Playfair Display',serif;border:2px solid rgba(255,255,255,0.2);flex-shrink:0;}
+/* ══ Group Scorecard (Phase 1) ══ */
+#screen-groupscorecard .gc-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px;}
+#screen-groupscorecard .gc-toggle{display:inline-flex;align-items:center;gap:7px;font-size:0.76rem;font-weight:700;color:var(--forest);cursor:pointer;user-select:none;}
+#screen-groupscorecard .gc-toggle.gc-admin{color:#c0392b;}
+#screen-groupscorecard .gc-sw{width:38px;height:22px;border-radius:12px;background:#c9bfae;position:relative;transition:background .15s;flex:0 0 auto;}
+#screen-groupscorecard .gc-sw::after{content:'';position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#fff;transition:left .15s;box-shadow:0 1px 2px rgba(0,0,0,.3);}
+#screen-groupscorecard .gc-toggle.on .gc-sw{background:#2e9e3f;}
+#screen-groupscorecard .gc-toggle.on.gc-admin .gc-sw{background:#c0392b;}
+#screen-groupscorecard .gc-toggle.on .gc-sw::after{left:18px;}
+#screen-groupscorecard .gc-fieldbtn{margin-left:auto;background:var(--forest-mid);color:#fff;border:none;border-radius:9px;padding:7px 12px;font-weight:700;font-size:0.76rem;cursor:pointer;}
+#screen-groupscorecard .gc-legend{font-size:0.66rem;color:var(--text-mid);margin:0 0 8px;display:flex;gap:12px;flex-wrap:wrap;}
+#screen-groupscorecard .gc-swatch{display:inline-block;width:10px;height:10px;border-radius:3px;vertical-align:middle;margin-right:4px;}
+#screen-groupscorecard .gc-sec{font-size:0.64rem;text-transform:uppercase;letter-spacing:.05em;color:var(--text-mid);margin:14px 0 6px;font-weight:800;}
+#screen-groupscorecard .gc-note{font-size:0.72rem;color:var(--text-mid);margin-top:8px;display:flex;gap:6px;align-items:flex-start;}
+#screen-groupscorecard .gc-who{display:flex;align-items:center;gap:10px;}
+#screen-groupscorecard .gc-thumb-img{width:52px;height:52px;border-radius:9px;object-fit:cover;flex:0 0 auto;cursor:pointer;border:2px solid #00b4f0;}
+#screen-groupscorecard table.gc-table{border-collapse:collapse;width:100%;font-size:0.8rem;}
+#screen-groupscorecard .gc-table th,#screen-groupscorecard .gc-table td{text-align:center;border:1px solid #cfc7b6;}
+#screen-groupscorecard .gc-table thead th{background:var(--forest-mid);color:#fff;font-weight:700;font-size:0.7rem;padding:7px 2px;}
+#screen-groupscorecard .gc-table th.gc-hcol{width:24px;}
+#screen-groupscorecard .gc-table th.gc-pcol{width:28px;}
+#screen-groupscorecard .gc-pchip{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;color:#fff;font-weight:800;font-size:0.66rem;margin:0 auto;border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.18);}
+#screen-groupscorecard .gc-table tbody td{height:34px;}
+#screen-groupscorecard .gc-hnum{background:var(--cream-dark);font-weight:800;color:#1a1a1a;font-size:0.72rem;}
+#screen-groupscorecard .gc-par{background:#4d7d5e;color:#fff;font-weight:800;font-size:0.74rem;}
+#screen-groupscorecard .gc-cell{font-weight:700;font-size:0.88rem;color:#333;background:#fff;}
+#screen-groupscorecard .gc-cell.gc-mine{background:rgba(0,180,240,0.1);cursor:pointer;}
+#screen-groupscorecard .gc-cell.gc-adm{background:rgba(192,57,43,0.08);cursor:pointer;}
+#screen-groupscorecard .gc-cell.gc-mine:active,#screen-groupscorecard .gc-cell.gc-adm:active{filter:brightness(0.94);}
+#screen-groupscorecard .gc-tap-hint{font-size:0.66rem;color:#00b4f0;font-weight:800;}
+#screen-groupscorecard .gc-ro{color:#bbb;}
+#screen-groupscorecard .gc-table tfoot td{font-weight:800;font-size:0.76rem;background:var(--forest);color:var(--gold);height:26px;}
+#screen-groupscorecard .gc-table tfoot td.gc-lbl{background:var(--forest);color:#fff;font-size:0.58rem;text-transform:uppercase;letter-spacing:.04em;text-align:right;padding-right:5px;}
+.gc-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.4);opacity:0;pointer-events:none;transition:opacity .18s;z-index:204;}
+.gc-backdrop.show{opacity:1;pointer-events:auto;}
+.gc-pop{position:fixed;left:0;right:0;bottom:0;background:#fff;border-radius:16px 16px 0 0;box-shadow:0 -4px 20px rgba(0,0,0,.25);padding:16px;transform:translateY(110%);transition:transform .2s;max-width:600px;margin:0 auto;z-index:205;}
+.gc-pop.show{transform:translateY(0);}
+.gc-pop h3{margin:0 0 4px;font-family:'Playfair Display',serif;color:var(--forest);}
+.gc-pop .gc-x{position:absolute;top:12px;right:14px;font-size:1.1rem;color:var(--text-mid);cursor:pointer;}
+.gc-steprow{display:flex;align-items:center;justify-content:center;gap:18px;margin-top:14px;}
+.gc-steprow button{width:54px;height:54px;border-radius:12px;border:none;background:var(--cream-dark);font-size:1.6rem;font-weight:800;cursor:pointer;}
+.gc-steprow .gc-v{font-size:2.5rem;font-weight:800;min-width:70px;text-align:center;}
+.gc-popsave{margin-top:16px;width:100%;padding:13px;border:none;border-radius:10px;background:#2e9e3f;color:#fff;font-weight:800;font-size:1rem;cursor:pointer;}
+.gc-seg{display:flex;background:var(--cream-dark);border-radius:9px;padding:3px;margin-bottom:10px;}
+.gc-seg button{flex:1;border:none;background:transparent;padding:8px;border-radius:7px;font-weight:800;font-size:0.82rem;color:var(--text-mid);cursor:pointer;}
+.gc-seg button.on{background:#fff;color:var(--forest);box-shadow:0 1px 3px rgba(0,0,0,.15);}
+.gc-frow{display:flex;align-items:center;gap:10px;padding:9px 4px;border-bottom:1px solid #eee;}
+.gc-frow.gc-lead{background:rgba(245,208,96,.14);border-radius:8px;}
+.gc-frank{width:20px;font-weight:800;color:var(--text-mid);text-align:center;}
+.gc-fchip{width:30px;height:30px;border-radius:50%;color:#fff;font-weight:800;font-size:0.72rem;display:flex;align-items:center;justify-content:center;border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.15);flex:0 0 auto;}
+.gc-fname{font-weight:700;}
+.gc-fname .gc-hcp{font-weight:600;color:var(--text-mid);font-size:0.76rem;}
+.gc-fthru{font-size:0.66rem;color:var(--text-mid);}
+.gc-fscore{text-align:right;margin-left:auto;}
+.gc-fscore .gc-big{font-weight:800;font-size:1.05rem;}
+.gc-fscore .gc-small{font-size:0.62rem;color:var(--text-mid);}
+.gc-cap{font-size:0.68rem;color:var(--text-mid);margin-top:10px;line-height:1.45;}
+.gc-dlg{position:fixed;left:50%;top:44%;transform:translate(-50%,-50%) scale(0.9);background:#fff;border-radius:14px;padding:20px;width:300px;box-shadow:0 8px 30px rgba(0,0,0,.35);z-index:206;opacity:0;pointer-events:none;transition:.15s;text-align:center;max-width:calc(100vw - 32px);}
+.gc-dlg.show{opacity:1;pointer-events:auto;transform:translate(-50%,-50%) scale(1);}
+.gc-dlg p{margin:0 0 16px;font-weight:600;color:var(--forest);}
+.gc-dlgbtns{display:flex;gap:10px;}
+.gc-dlgbtns button{flex:1;padding:11px;border-radius:9px;border:none;font-weight:800;font-size:0.9rem;cursor:pointer;}
+.gc-dlgbtns .gc-ghost{background:var(--cream-dark);color:var(--forest);}
+.gc-dlgbtns .gc-danger{background:#c0392b;color:#fff;}
 </style>
 </head>
 <body>
@@ -478,6 +542,55 @@ hr.div{border:none;border-top:1px solid var(--cream-dark);margin:1rem 0;}
         </div>
       </div>
       <div class="pad" id="foursomes-body"></div>
+    </div>
+
+    <!-- ══ GROUP SCORECARD ══ -->
+    <div id="screen-groupscorecard" class="screen">
+      <div class="topbar">
+        <div><div class="topbar-title" id="gc-title">Group Scorecard</div><div class="topbar-sub" id="gc-sub"></div></div>
+        <div class="topbar-right">
+          <button class="icon-btn" onclick="window._real_navTo('foursomes',null)">✕</button>
+        </div>
+      </div>
+      <div class="pad">
+        <div class="card" id="gc-whocard" style="display:none;"></div>
+        <div class="gc-controls" id="gc-controls"></div>
+        <div class="gc-legend" id="gc-legend"></div>
+        <div class="gc-sec">Front 9</div>
+        <div class="card" style="padding:6px;"><table class="gc-table" id="gc-f9"></table></div>
+        <div class="gc-sec">Back 9</div>
+        <div class="card" style="padding:6px;"><table class="gc-table" id="gc-b9"></table></div>
+        <div class="gc-note">💾 <span>Saved holes are <b>live to everyone playing</b> — the group behind you sees your result the moment you save.</span></div>
+        <div class="gc-note" style="margin-top:6px;">↔ <span>Same data as “Enter My Scores.” Use either, save as you go.</span></div>
+      </div>
+    </div>
+
+    <!-- Group Scorecard overlays (fixed-position, live outside the screen stack) -->
+    <div class="gc-backdrop" id="gc-backdrop" onclick="window._real_gcTryClose()"></div>
+    <div class="gc-pop" id="gc-pop">
+      <span class="gc-x" onclick="window._real_gcTryClose()">✕</span>
+      <h3 id="gc-poptitle">Hole</h3>
+      <div id="gc-popsub" style="font-size:0.72rem;color:var(--text-mid);"></div>
+      <div class="gc-steprow"><button onclick="window._real_gcBump(-1)">−</button><div class="gc-v" id="gc-popval">4</div><button onclick="window._real_gcBump(1)">＋</button></div>
+      <button class="gc-popsave" onclick="window._real_gcSavePop()">Save Score</button>
+    </div>
+    <div class="gc-pop" id="gc-fieldpop" style="max-height:82vh;overflow-y:auto;">
+      <span class="gc-x" onclick="window._real_gcTryClose()">✕</span>
+      <h3>📊 How’s the field?</h3>
+      <div id="gc-fieldlist"></div>
+      <div class="gc-cap" id="gc-fieldcap"></div>
+    </div>
+    <div class="gc-dlg" id="gc-warn">
+      <p>You haven’t saved this hole.</p>
+      <div class="gc-dlgbtns"><button class="gc-ghost" onclick="window._real_gcWarnGoBack()">Go Back</button><button class="gc-danger" onclick="window._real_gcWarnDiscard()">Discard</button></div>
+    </div>
+    <input type="file" id="gc-photo-input" accept="image/*" style="display:none;" onchange="window._real_gcOnPhotoSelected(this)">
+    <div class="modal-bg" id="modal-gc-photo">
+      <div class="modal">
+        <div class="modal-header"><h3>📷 Group Scorecard Photo</h3><button class="modal-close-btn" onclick="closeModal('modal-gc-photo')">✕</button></div>
+        <img id="gc-photo-view" style="width:100%;border-radius:10px;display:block;" alt="Group scorecard photo">
+        <div class="modal-footer" id="gc-photo-actions"></div>
+      </div>
     </div>
 
     <!-- ══ PROFILE ══ -->
@@ -787,6 +900,12 @@ let scorecardData = {}; // holeNum -> score
 let currentLbTab = 'gross';
 let lbMode = 'tournament';
 let lbUnsubscribe = null;
+let gcUnsubscribe = null;
+let gcActiveFoursome = null;
+let gcAdminOverride = false;
+let gcScores = {};
+let gcEditKey = null, gcEditHole = null, gcEditVal = null, gcEditTouched = false;
+let gcPhotoTargetGi = null;
 let editingTourneyId = null;
 let currentCasualLbTab = 'rounds';
 
@@ -803,6 +922,7 @@ function showScreen(name) {
   // Tear down the leaderboard's realtime listener whenever we leave it, so it can't linger in the
   // background. loadLeaderboard re-attaches a fresh one on return.
   if(name!=='leaderboard' && lbUnsubscribe){ lbUnsubscribe(); lbUnsubscribe=null; }
+  if(name!=='groupscorecard' && gcUnsubscribe){ gcUnsubscribe(); gcUnsubscribe=null; }
   document.querySelectorAll('.screen').forEach(s=>{ s.classList.remove('active'); s.style.display=''; });
   const s = document.getElementById('screen-'+name);
   if(s){ s.classList.add('active'); s.style.display='block'; }
@@ -1417,7 +1537,13 @@ async function loadFoursomes(){
     html+='<div style="min-width:0;"><div id="fs-name-'+gi+'" style="font-family:\'Playfair Display\',serif;font-size:1.1rem;font-weight:700;">'+esc(gname)
       +(isAdmin?' <span onclick="window._real_fsRename('+gi+')" style="cursor:pointer;font-size:0.8rem;opacity:0.6;">\u270E</span>':'')+'</div>';
     html+='<div style="font-size:0.78rem;color:var(--text-mid);margin-top:2px;">Par '+(t.par||72)+' \u00B7 <span style="color:var(--gold);font-weight:700;">'+(FS_FMT[t.format]||'Gross')+'</span></div></div>';
-    html+='<span title="Group photo (coming soon)" style="font-size:1.1rem;opacity:0.4;">\uD83D\uDCF7</span>';
+    if(g.photo){
+      html+='<span onclick="window._real_gcPhotoTap('+gi+')" style="cursor:pointer;flex:0 0 auto;" title="View group photo"><img src="'+g.photo+'" style="width:32px;height:32px;border-radius:7px;object-fit:cover;border:2px solid #00b4f0;vertical-align:middle;"></span>';
+    } else if(isAdmin){
+      html+='<span onclick="window._real_gcPhotoTap('+gi+')" style="cursor:pointer;font-size:1.1rem;" title="Add group photo">\uD83D\uDCF7</span>';
+    } else {
+      html+='<span title="No group photo yet" style="font-size:1.1rem;opacity:0.4;">\uD83D\uDCF7</span>';
+    }
     html+='</div>';
     html+='<div style="margin-top:10px;display:flex;flex-direction:column;gap:7px;">';
     for(var si=0;si<4;si++){
@@ -1498,7 +1624,224 @@ window._real_fsRevert=async function(){
   if(!confirm('Revert to Setup? This closes scoring until you begin again.')) return;
   await _fsSave({playState:'setup'}); toast('\u21A9 Reverted to Setup \u2014 scoring closed.'); loadFoursomes();
 };
-window._real_fsGroupCard=function(gi){ /* plumbing lands with the save-submit build */ };
+// ═══════════════ GROUP SCORECARD (Phase 1: input/save + gross field board + photo) ═══════════════
+function _gcIsAdmin(){ return !!(userProfile && userProfile.role==='admin'); }
+
+window._real_fsGroupCard=function(gi){
+  var t=activeTournament;
+  if(!t){ toast('No active tournament'); return; }
+  if(t.playState!=='live'){ toast('Group scorecard opens when the tournament is live.'); return; }
+  gcActiveFoursome=gi;
+  gcAdminOverride=false;
+  showScreen('groupscorecard');
+  loadGroupScorecard(gi);
+};
+
+function loadGroupScorecard(gi){
+  var t=activeTournament; if(!t) return;
+  var g=(t.foursomes||[])[gi]||{name:'Foursome '+(gi+1),players:[]};
+  var nm=document.getElementById('gc-title'); if(nm) nm.textContent=g.name||('Foursome '+(gi+1));
+  var sub=document.getElementById('gc-sub');
+  if(sub) sub.innerHTML=esc(t.course||'')+' \u00B7 Par '+(t.par||72)+' \u00B7 <span style="color:var(--gold);">'+(FS_FMT[t.format]||'Gross')+'</span>';
+  // group photo (view-only here; upload lives on the foursome card)
+  var who=document.getElementById('gc-whocard');
+  if(who){
+    if(g.photo){ who.style.display=''; who.innerHTML='<div class="gc-who"><img class="gc-thumb-img" src="'+g.photo+'" onclick="window._real_gcPhotoTap('+gi+')" alt="Group photo"><div style="font-size:0.75rem;color:var(--text-mid);">Tap the photo to view the group scorecard.</div></div>'; }
+    else { who.style.display='none'; who.innerHTML=''; }
+  }
+  // realtime listener — mirror the leaderboard pattern; one listener over the whole tournament so the
+  // field board sees every player, not just this foursome.
+  if(gcUnsubscribe){ gcUnsubscribe(); gcUnsubscribe=null; }
+  gcUnsubscribe=onSnapshot(query(collection(db,'holeScores'),where('tournamentId','==',t.id)), function(snap){
+    gcScores={};
+    snap.docs.forEach(function(d){ var x=d.data(); if(!gcScores[x.playerId]) gcScores[x.playerId]={}; gcScores[x.playerId][x.holeNumber]=x; });
+    renderGroupScorecard();
+  }, function(err){ console.error('group card listener', err); });
+}
+
+function _gcFoursomePlayers(){
+  var t=activeTournament; if(!t) return [];
+  var g=(t.foursomes||[])[gcActiveFoursome]||{players:[]};
+  return (g.players||[]).filter(Boolean).map(function(pid){ var p=_plLookup(pid); return { key:pid, name:(p&&p.name)||'Player', color:fsColor((p&&p.name)||'') }; });
+}
+function _gcCanEdit(pid){
+  if(_gcIsAdmin() && gcAdminOverride) return true;
+  return !!(currentUser && pid===currentUser.uid);
+}
+function _gcIsOverride(pid){
+  return _gcIsAdmin() && gcAdminOverride && !(currentUser && pid===currentUser.uid);
+}
+function _gcScoredSum(pid){ var h=gcScores[pid]||{}, s=0; for(var k in h){ if(h[k]&&typeof h[k].score==='number') s+=h[k].score; } return s; }
+function _gcThru(pid){ var h=gcScores[pid]||{}, n=0; for(var k in h){ if(h[k]&&typeof h[k].score==='number') n++; } return n; }
+function _gcToPar(pid){
+  var h=gcScores[pid]||{}, pars=(activeTournament&&activeTournament.holePars)||DEFAULT_PARS, d=0;
+  for(var k in h){ if(h[k]&&typeof h[k].score==='number'){ var i=Number(k)-1; d+=h[k].score-(pars[i]||4); } }
+  return d;
+}
+function _gcFmtPar(v){ return v===0?'E':(v>0?('+'+v):String(v)); }
+
+function renderGroupScorecard(){
+  var t=activeTournament; if(!t) return;
+  var players=_gcFoursomePlayers();
+  var pars=t.holePars||DEFAULT_PARS;
+  var isAdmin=_gcIsAdmin();
+  var ctrl=document.getElementById('gc-controls');
+  if(ctrl){
+    var admHtml=isAdmin
+      ? '<div class="gc-toggle gc-admin'+(gcAdminOverride?' on':'')+'" onclick="window._real_gcToggleAdmin()"><div class="gc-sw"></div><span>\uD83D\uDD13 Edit anyone</span></div>'
+      : '';
+    ctrl.innerHTML=admHtml+'<button class="gc-fieldbtn" onclick="window._real_gcOpenField()">\uD83D\uDCCA How\'s the field?</button>';
+  }
+  var leg=document.getElementById('gc-legend');
+  if(leg){
+    leg.innerHTML=(isAdmin && gcAdminOverride)
+      ? '<span><span class="gc-swatch" style="background:rgba(192,57,43,0.3);"></span>Admin override \u2014 you can edit any cell</span>'
+      : '<span><span class="gc-swatch" style="background:rgba(0,180,240,0.35);"></span>Your column \u2014 tap to enter</span><span><span class="gc-swatch" style="background:#fff;border:1px solid #ccc;"></span>Others \u2014 read-only, live</span>';
+  }
+  _gcBuildTable(document.getElementById('gc-f9'),[1,2,3,4,5,6,7,8,9],players,pars);
+  _gcBuildTable(document.getElementById('gc-b9'),[10,11,12,13,14,15,16,17,18],players,pars);
+}
+
+function _gcBuildTable(el,holes,players,pars){
+  if(!el) return;
+  var h='<thead><tr><th class="gc-hcol">#</th><th class="gc-pcol">Par</th>';
+  players.forEach(function(p){ h+='<th class="gc-pcol"><span class="gc-pchip" style="background:'+p.color+'">'+esc(plInitials(p.name))+'</span></th>'; });
+  h+='</tr></thead><tbody>';
+  holes.forEach(function(n){
+    h+='<tr><td class="gc-hnum">'+n+'</td><td class="gc-par">'+(pars[n-1]||4)+'</td>';
+    players.forEach(function(p){
+      var rec=(gcScores[p.key]||{})[n];
+      var s=(rec&&typeof rec.score==='number')?rec.score:null;
+      var edit=_gcCanEdit(p.key), ov=_gcIsOverride(p.key);
+      var cls='gc-cell'+(edit?(ov?' gc-adm':' gc-mine'):'');
+      var val=(s!=null)?s:(edit?'<span class="gc-tap-hint">\uFF0B</span>':'<span class="gc-ro">\u00B7</span>');
+      h+='<td class="'+cls+'"'+(edit?' onclick="window._real_gcOpenPop(\''+escJs(p.key)+'\','+n+')"':'')+'>'+val+'</td>';
+    });
+    h+='</tr>';
+  });
+  h+='</tbody><tfoot><tr><td class="gc-lbl" colspan="2">Total</td>';
+  players.forEach(function(p){ h+='<td>'+(_gcScoredSum(p.key)||'\u2014')+'</td>'; });
+  h+='</tr></tfoot>';
+  el.innerHTML=h;
+}
+
+window._real_gcToggleAdmin=function(){ gcAdminOverride=!gcAdminOverride; renderGroupScorecard(); };
+
+// ── entry sheet (stepper → hard save) ──
+window._real_gcOpenPop=function(pk,n){
+  if(!_gcCanEdit(pk)) return;
+  var pars=(activeTournament&&activeTournament.holePars)||DEFAULT_PARS;
+  var rec=(gcScores[pk]||{})[n];
+  gcEditKey=pk; gcEditHole=n; gcEditVal=(rec&&typeof rec.score==='number')?rec.score:(pars[n-1]||4); gcEditTouched=false;
+  var p=_plLookup(pk); var nm=(p&&p.name)||'Player';
+  document.getElementById('gc-poptitle').textContent='Hole '+n+' \u00B7 Par '+(pars[n-1]||4);
+  document.getElementById('gc-popsub').textContent=_gcIsOverride(pk)?(nm+' \u2014 admin override'):nm;
+  document.getElementById('gc-popval').textContent=gcEditVal;
+  document.getElementById('gc-pop').classList.add('show');
+  document.getElementById('gc-backdrop').classList.add('show');
+};
+window._real_gcBump=function(d){
+  gcEditVal=Math.max(1,Math.min(15,gcEditVal+d));
+  gcEditTouched=true;
+  document.getElementById('gc-popval').textContent=gcEditVal;
+};
+window._real_gcSavePop=async function(){
+  var t=activeTournament; if(!t||gcEditKey==null||gcEditHole==null) return;
+  var pk=gcEditKey, hole=gcEditHole, val=gcEditVal;
+  var pars=t.holePars||DEFAULT_PARS;
+  // Reconstruct this player's full carded set from the realtime cache, override the one edited hole,
+  // then delete-all-then-rewrite exactly like submitScorecard/saveEditedScores so the two entry
+  // paths share one mechanism and can't diverge. Last-write-wins (existing behavior).
+  var existing=gcScores[pk]||{};
+  var merged={};
+  for(var k in existing){ if(existing[k]&&typeof existing[k].score==='number') merged[Number(k)]=existing[k].score; }
+  merged[hole]=val;
+  try{
+    var batch=writeBatch(db);
+    var snap=await getDocs(query(collection(db,'holeScores'),where('tournamentId','==',t.id),where('playerId','==',pk)));
+    snap.docs.forEach(function(d){ batch.delete(d.ref); });
+    Object.keys(merged).forEach(function(hn){
+      var ref=doc(collection(db,'holeScores'));
+      batch.set(ref,{ tournamentId:t.id, playerId:pk, holeNumber:Number(hn), par:pars[hn-1]||4, score:Number(merged[hn]), submittedAt:serverTimestamp(), editedBy:currentUser?currentUser.uid:null });
+    });
+    await batch.commit();
+    gcEditTouched=false;
+    _gcCloseSheets();
+    toast('\u2713 Score saved');
+    // the realtime listener repaints the grid; no manual render needed
+  }catch(e){ console.error('group card save', e); toast('Save failed \u2014 check connection.'); }
+};
+window._real_gcTryClose=function(){
+  var pop=document.getElementById('gc-pop');
+  if(pop && pop.classList.contains('show') && gcEditTouched){ document.getElementById('gc-warn').classList.add('show'); return; }
+  _gcCloseSheets();
+};
+window._real_gcWarnGoBack=function(){ document.getElementById('gc-warn').classList.remove('show'); };
+window._real_gcWarnDiscard=function(){ gcEditTouched=false; document.getElementById('gc-warn').classList.remove('show'); _gcCloseSheets(); };
+function _gcCloseSheets(){
+  var pops=document.querySelectorAll('.gc-pop'); for(var i=0;i<pops.length;i++){ pops[i].classList.remove('show'); }
+  var bd=document.getElementById('gc-backdrop'); if(bd) bd.classList.remove('show');
+}
+
+// ── field board (Phase 1: gross to-par, whole tournament) ──
+window._real_gcOpenField=function(){
+  _gcRenderField();
+  document.getElementById('gc-fieldpop').classList.add('show');
+  document.getElementById('gc-backdrop').classList.add('show');
+};
+function _gcRenderField(){
+  var t=activeTournament; if(!t) return;
+  var rows=[];
+  Object.keys(gcScores).forEach(function(pid){
+    if(_gcThru(pid)>0){ var p=_plLookup(pid); rows.push({ key:pid, name:(p&&p.name)||'Player', color:fsColor((p&&p.name)||'') }); }
+  });
+  rows.sort(function(a,b){ return _gcToPar(a.key)-_gcToPar(b.key) || _gcThru(b.key)-_gcThru(a.key); });
+  var h='';
+  rows.forEach(function(p,i){
+    var thru=_gcThru(p.key), big=_gcFmtPar(_gcToPar(p.key));
+    h+='<div class="gc-frow'+(i===0?' gc-lead':'')+'"><div class="gc-frank">'+(i+1)+'</div>'
+      +'<div class="gc-fchip" style="background:'+p.color+'">'+esc(plInitials(p.name))+'</div>'
+      +'<div><div class="gc-fname">'+esc(p.name)+'</div><div class="gc-fthru">thru '+thru+'</div></div>'
+      +'<div class="gc-fscore"><div class="gc-big">'+big+'</div><div class="gc-small">to par</div></div></div>';
+  });
+  if(!rows.length) h='<div style="text-align:center;color:var(--text-mid);padding:20px 0;font-size:0.85rem;">No scores yet \u2014 the board fills in as holes are saved.</div>';
+  document.getElementById('gc-fieldlist').innerHTML=h;
+  document.getElementById('gc-fieldcap').innerHTML='Ranked by <b>gross to-par</b> \u2014 scored against the par of holes actually played, PGA-style. <b>Ties break toward more holes completed.</b> A live snapshot; it firms up as scores come in.';
+}
+
+// ── per-foursome group photo (admin upload; anyone can view) ──
+window._real_gcPhotoTap=function(gi){
+  var t=activeTournament; if(!t) return;
+  var g=(t.foursomes||[])[gi]||{};
+  if(g.photo){
+    var v=document.getElementById('gc-photo-view'); if(v) v.src=g.photo;
+    var act=document.getElementById('gc-photo-actions');
+    if(act) act.innerHTML=_gcIsAdmin()?'<button class="btn btn-ghost btn-sm" onclick="window._real_gcRemovePhoto('+gi+')">Remove Photo</button>':'';
+    openModal('modal-gc-photo');
+    return;
+  }
+  if(_gcIsAdmin()){
+    gcPhotoTargetGi=gi;
+    var inp=document.getElementById('gc-photo-input'); if(inp){ inp.value=''; inp.click(); }
+  }
+};
+window._real_gcOnPhotoSelected=async function(input){
+  var file=input.files&&input.files[0]; if(!file) return;
+  var t=activeTournament; if(!t||gcPhotoTargetGi==null) return;
+  try{
+    var uri=await compressImageFile(file, 1000, 0.6);
+    var fs=(t.foursomes||[]).map(function(g,idx){ return idx===gcPhotoTargetGi ? Object.assign({},g,{photo:uri}) : g; });
+    var ok=await _fsSave({foursomes:fs});
+    if(ok){ toast('\uD83D\uDCF7 Group photo saved'); loadFoursomes(); }
+  }catch(e){ console.error('group photo', e); toast('Could not save photo.'); }
+};
+window._real_gcRemovePhoto=async function(gi){
+  var t=activeTournament; if(!t) return;
+  if(!confirm('Remove this foursome\'s group photo?')) return;
+  var fs=(t.foursomes||[]).map(function(g,idx){ if(idx!==gi) return g; var c=Object.assign({},g); delete c.photo; return c; });
+  var ok=await _fsSave({foursomes:fs});
+  if(ok){ toast('Photo removed'); closeModal('modal-gc-photo'); loadFoursomes(); }
+};
 
 // ── LEADERBOARD ──
 function populateLbSelect() {
@@ -4581,7 +4924,7 @@ window._real_navCasual = function(btn) {
 };
 
 // Build/version stamp — confirms which version is actually running (catches stale cache)
-var APP_BUILD = '2026.08.16 · fs-polish';
+var APP_BUILD = '2026.08.17 · group-scorecard-p1';
 console.log('%cMorks Golf Tour build: ' + APP_BUILD, 'color:#c9a227;font-weight:bold;font-size:14px;');
 try {
   var _bt = document.createElement('div');
