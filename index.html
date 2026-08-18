@@ -394,6 +394,9 @@ hr.div{border:none;border-top:1px solid var(--cream-dark);margin:1rem 0;}
 .gc-dbot{display:flex;justify-content:flex-end;padding:1px 4px;border-top:1px solid rgba(0,0,0,0.08);background:#ececec;}
 .gc-dpar{font-size:0.56rem;color:var(--forest-mid);font-weight:800;}
 .gc-drill-ft{font-size:0.62rem;color:var(--text-mid);margin-top:6px;text-align:center;}
+.gc-drill-btm{display:flex;align-items:center;gap:12px;margin-top:8px;flex-wrap:wrap;}
+.gc-drill-btm .gc-drill-ft{margin-top:0;flex:1;min-width:120px;text-align:left;}
+.gc-drill-btm .gc-dlegend{margin-top:0;flex:0 0 auto;}
 #screen-groupscorecard .gc-clearrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;}
 #screen-groupscorecard .gc-clearbtn{background:transparent;border:1.5px solid rgba(245,240,232,0.35);color:rgba(245,240,232,0.85);border-radius:8px;padding:7px 12px;font-size:0.74rem;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;}
 #screen-groupscorecard .gc-clearbtn:active{background:rgba(245,240,232,0.08);}
@@ -1981,7 +1984,7 @@ function _gcDrillStrip(pid, si){
     }
   }
   var legend='<div class="gc-dlegend"><div class="gc-dsample gc-dcell"><div class="gc-dtop"><span class="gc-dh">hole</span></div><div class="gc-dmid">score</div><div class="gc-dbot"><span class="gc-dpar">par</span></div></div><span><span class="gc-ddot">\u25CF</span> = stroke hole</span></div>';
-  return '<div class="gc-drill"><div class="gc-dgrid">'+cells+'</div><div class="gc-drill-ft">Net so far <b>'+_gcFmtPar(run)+'</b> \u00B7 '+res.strokes+' strokes received</div>'+legend+'</div>';
+  return '<div class="gc-drill"><div class="gc-dgrid">'+cells+'</div><div class="gc-drill-btm"><div class="gc-drill-ft">Net so far <b>'+_gcFmtPar(run)+'</b> \u00B7 '+res.strokes+' strokes received</div>'+legend+'</div></div>';
 }
 window._real_gcSetFieldMode=function(m){ gcFieldMode=m; gcExpandedRow=null; _gcRenderField(); };
 window._real_gcToggleDrill=function(pid){ gcExpandedRow=(gcExpandedRow===pid)?null:pid; _gcRenderField(); };
@@ -5132,7 +5135,7 @@ window._real_navCasual = function(btn) {
 };
 
 // Build/version stamp — confirms which version is actually running (catches stale cache)
-var APP_BUILD = '2026.08.18 · legend-below';
+var APP_BUILD = '2026.08.18 · legend-beside';
 console.log('%cMorks Golf Tour build: ' + APP_BUILD, 'color:#c9a227;font-weight:bold;font-size:14px;');
 try {
   var _bt = document.createElement('div');
