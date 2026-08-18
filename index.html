@@ -377,7 +377,7 @@ hr.div{border:none;border-top:1px solid var(--cream-dark);margin:1rem 0;}
 .gc-frow-x{cursor:pointer;}
 .gc-frow-x:active{background:rgba(0,0,0,0.04);}
 .gc-drill{background:var(--cream-dark);border-radius:8px;padding:8px;margin:0 4px 8px;}
-.gc-dlegend{display:flex;gap:12px;align-items:center;justify-content:center;font-size:0.62rem;color:var(--text-mid);margin-bottom:8px;}
+.gc-dlegend{display:flex;gap:12px;align-items:center;justify-content:center;font-size:0.62rem;color:var(--text-mid);margin-top:10px;margin-bottom:8px;}
 .gc-dsample{width:56px;flex:0 0 auto;}
 .gc-dsample .gc-dh{font-size:0.5rem;}
 .gc-dsample .gc-dmid{font-size:0.6rem;padding:2px 0;}
@@ -1155,7 +1155,6 @@ _refreshFab.title = 'Refresh';
 _refreshFab.setAttribute('aria-label','Refresh app');
 _refreshFab.innerHTML = '<span class="icon" id="refresh-fab-icon">🔄</span>Refresh';
 _refreshFab.className = 'bnav-btn';
-_refreshFab.style.cssText = 'margin-left:auto;';
 _refreshFab.addEventListener('click', function(){
   var _ic=document.getElementById('refresh-fab-icon');
   if(_ic){ _ic.style.display='inline-block'; _ic.style.transition='transform 0.5s ease'; _ic.style.transform='rotate(360deg)'; }
@@ -5133,7 +5132,7 @@ window._real_navCasual = function(btn) {
 };
 
 // Build/version stamp — confirms which version is actually running (catches stale cache)
-var APP_BUILD = '2026.08.17 · gc-tweaks2';
+var APP_BUILD = '2026.08.18 · legend-nudge';
 console.log('%cMorks Golf Tour build: ' + APP_BUILD, 'color:#c9a227;font-weight:bold;font-size:14px;');
 try {
   var _bt = document.createElement('div');
