@@ -3874,6 +3874,15 @@ function _plWinsByFormat(pid){
   return b;
 }
 
+function _plTourneyRounds(pid){
+  var n=0;
+  (allTournaments||[]).forEach(function(t){
+    if(t.status!=='completed' && t.status!=='locked') return;
+    (t.results||[]).forEach(function(r){ if(r && r.playerId===pid) n++; });
+  });
+  return n;
+}
+
 function plStat(p){
   // Normalize a player's PUBLIC stats for display. stats/casualStats are written by refreshMyStats
   // on each player's own save, so some players may not have them yet — those show as "—".
@@ -4010,13 +4019,14 @@ function plCompareView(){
     ['Bounce-back %','bounceBack',true,plPctFmt,'Casual'],
     ['Front 9 vs par','front',false,plParFmt,'Casual'],
     ['Back 9 vs par','back',false,plParFmt,'Casual'],
+    ['Tournaments','tourneyRounds',true,null,'Tournament'],
     ['Wins','wins',true,null,'Tournament'],
     ['Top 3','top3',true,null,'Tournament'],
     ['Tourney Pts','seasonPoints',true,null,'Tournament'],
     ['Avg vs Par','vsPar',false,plParFmt,'Tournament']
   ];
   var stats = players.map(function(p){
-    var st = plStat(p); st.vsPar = plVsPar(p.id);
+    var st = plStat(p); st.vsPar = plVsPar(p.id); st.tourneyRounds = _plTourneyRounds(p.id);
     var cs = p.casualStats || {};
     var cnum = function(v){ return (typeof v==='number' && !isNaN(v)) ? v : null; };
     st.avgGross = cnum(cs.avgGross); st.bestRound = cnum(cs.bestRound); st.worstRound = cnum(cs.worstRound);
@@ -4040,7 +4050,7 @@ function plCompareView(){
       return '<td class="c' + (isBest?' bold':'') + '"' + (isBest?' style="color:var(--forest);background:rgba(201,162,39,0.16);"':'') + '>' + disp + '</td>';
     }).join('');
     if(key==='wins'){
-      var caret = '<span style="font-size:0.7rem;color:var(--text-light);margin-left:4px;">'+(_plWinsExpanded?'\u25be':'\u25b8')+'</span>';
+      var caret = '<span style="display:inline-block;background:rgba(0,180,240,0.18);color:#0092c8;font-weight:800;border-radius:5px;padding:0 6px;margin-left:6px;font-size:0.72rem;">'+(_plWinsExpanded?'\u25be':'\u25b8')+'</span>';
       var winsRow = header + '<tr onclick="window._real_plToggleWins()" style="cursor:pointer;"><td>' + m[0] + caret + '</td>' + cells + '</tr>';
       if(_plWinsExpanded){
         var FORDER=[['gross','Gross'],['net','Net'],['hsi','HSI'],['system36','System 36'],['peoria','Blind Peoria']];
@@ -5201,7 +5211,7 @@ window._real_navCasual = function(btn) {
 };
 
 // Build/version stamp — confirms which version is actually running (catches stale cache)
-var APP_BUILD = '2026.08.18 · compare-mobile-wins';
+var APP_BUILD = '2026.08.18 · compare-tourney-rounds';
 console.log('%cMorks Golf Tour build: ' + APP_BUILD, 'color:#c9a227;font-weight:bold;font-size:14px;');
 try {
   var _bt = document.createElement('div');
