@@ -377,7 +377,7 @@ hr.div{border:none;border-top:1px solid var(--cream-dark);margin:1rem 0;}
 .gc-frow-x{cursor:pointer;}
 .gc-frow-x:active{background:rgba(0,0,0,0.04);}
 .gc-drill{background:var(--cream-dark);border-radius:8px;padding:8px;margin:0 4px 8px;}
-.gc-dlegend{display:flex;gap:12px;align-items:center;justify-content:center;font-size:0.62rem;color:var(--text-mid);margin-top:10px;margin-bottom:8px;}
+.gc-dlegend{display:flex;gap:12px;align-items:center;justify-content:center;font-size:0.62rem;color:var(--text-mid);margin-top:10px;margin-bottom:0;}
 .gc-dsample{width:56px;flex:0 0 auto;}
 .gc-dsample .gc-dh{font-size:0.5rem;}
 .gc-dsample .gc-dmid{font-size:0.6rem;padding:2px 0;}
@@ -1981,7 +1981,7 @@ function _gcDrillStrip(pid, si){
     }
   }
   var legend='<div class="gc-dlegend"><div class="gc-dsample gc-dcell"><div class="gc-dtop"><span class="gc-dh">hole</span></div><div class="gc-dmid">score</div><div class="gc-dbot"><span class="gc-dpar">par</span></div></div><span><span class="gc-ddot">\u25CF</span> = stroke hole</span></div>';
-  return '<div class="gc-drill">'+legend+'<div class="gc-dgrid">'+cells+'</div><div class="gc-drill-ft">Net so far <b>'+_gcFmtPar(run)+'</b> \u00B7 '+res.strokes+' strokes received</div></div>';
+  return '<div class="gc-drill"><div class="gc-dgrid">'+cells+'</div><div class="gc-drill-ft">Net so far <b>'+_gcFmtPar(run)+'</b> \u00B7 '+res.strokes+' strokes received</div>'+legend+'</div>';
 }
 window._real_gcSetFieldMode=function(m){ gcFieldMode=m; gcExpandedRow=null; _gcRenderField(); };
 window._real_gcToggleDrill=function(pid){ gcExpandedRow=(gcExpandedRow===pid)?null:pid; _gcRenderField(); };
@@ -5132,7 +5132,7 @@ window._real_navCasual = function(btn) {
 };
 
 // Build/version stamp — confirms which version is actually running (catches stale cache)
-var APP_BUILD = '2026.08.18 · legend-nudge';
+var APP_BUILD = '2026.08.18 · legend-below';
 console.log('%cMorks Golf Tour build: ' + APP_BUILD, 'color:#c9a227;font-weight:bold;font-size:14px;');
 try {
   var _bt = document.createElement('div');
