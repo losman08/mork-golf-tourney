@@ -2875,6 +2875,7 @@ async function showAdminPlayers() {
       <div><div class="pr-name">${esc(p.name)}</div><div class="pr-email">${p.email||''} · <span class="chip chip-${p.role==='admin'?'red':'blue'}">${p.role}</span>${p.officialHandicap!=null?` · HCP ${p.officialHandicap}`:''}</div></div>
       <div class="pr-actions">
         <button class="btn btn-ghost btn-sm" onclick="window._real_adminEditPlayer('${p.id}')">✏️ Edit</button>
+        <button class="btn btn-ghost btn-sm" style="color:#c0392b;" title="Delete player" onclick="window._real_adminDeletePlayer('${p.id}')">🗑</button>
       </div>
     </div>`).join('')}
   </div>`;
@@ -2883,6 +2884,33 @@ window._real_toggleAdminRole=async function(pid,curRole){
   const newRole=curRole==='admin'?'player':'admin';
   await updateDoc(doc(db,'players',pid),{role:newRole});
   await loadGlobalData(); showAdminPlayers(); toast('Role updated.');
+};
+// ── Delete player (admin) — removes profile + casual data only; tournament history is preserved ──
+window._real_adminDeletePlayer=async function(pid){
+  var p=(allPlayers||[]).find(function(x){ return x.id===pid; });
+  if(!p){ toast('Player not found.'); return; }
+  if(currentUser && pid===currentUser.uid){ toast('You can\u2019t delete your own account here.'); return; }
+  toast('Checking player data\u2026');
+  try{
+    var crSnap=await getDocs(query(collection(db,'casualRounds'),where('playerId','==',pid)));
+    var crN=crSnap.size;
+    var tourneyN=(allTournaments||[]).filter(function(t){
+      return (t.results||[]).some(function(r){ return r.playerId===pid; })
+        || (Array.isArray(t.participants)&&t.participants.indexOf(pid)>=0)
+        || (t.foursomes||[]).some(function(g){ return (g.players||[]).indexOf(pid)>=0; });
+    }).length;
+    var msg='Delete player \u201C'+(p.name||'')+'\u201D?\n\nThis removes their profile'+(crN?(' and '+crN+' casual round'+(crN>1?'s':'')):'')+'.';
+    if(tourneyN) msg+='\n\nTheir results in '+tourneyN+' tournament'+(tourneyN>1?'s':'')+' are KEPT \u2014 completed tournament history stays locked and unchanged.';
+    msg+='\n\nThis cannot be undone.';
+    if(!confirm(msg)) return;
+    toast('Deleting player\u2026');
+    // Casual rounds only (their casual data). Needs the admin-delete rule for casualRounds.
+    var crDocs=crSnap.docs, i=0;
+    while(i<crDocs.length){ var b=writeBatch(db); crDocs.slice(i,i+450).forEach(function(d){ b.delete(d.ref); }); await b.commit(); i+=450; }
+    // Player profile (carries casualStats). Tournament docs + holeScores are left untouched.
+    await deleteDoc(doc(db,'players',pid));
+    await loadGlobalData(); showAdminPlayers(); toast('Player deleted \u2014 tournament history preserved.');
+  }catch(e){ console.error('delete player', e); toast('Delete failed \u2014 check connection or Firestore rules.'); }
 };
 window._real_adminEditPlayer = function(pid){
   const p = allPlayers.find(function(x){ return x.id === pid; });
@@ -5135,7 +5163,7 @@ window._real_navCasual = function(btn) {
 };
 
 // Build/version stamp — confirms which version is actually running (catches stale cache)
-var APP_BUILD = '2026.08.18 · legend-beside';
+var APP_BUILD = '2026.08.18 · delete-player-v2';
 console.log('%cMorks Golf Tour build: ' + APP_BUILD, 'color:#c9a227;font-weight:bold;font-size:14px;');
 try {
   var _bt = document.createElement('div');
