@@ -152,7 +152,10 @@ html,body{height:100%;font-family:'Inter',sans-serif;background:var(--forest);co
 .sc-grid{border-collapse:collapse;}
 .sc-grid th,.sc-grid td{border:1px solid var(--cream-dark);}
 
-.lb-table-wrap{background:var(--cream);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);}
+.lb-table-wrap{background:var(--cream);border-radius:var(--radius);overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;box-shadow:var(--shadow);}
+.pl-tight th,.pl-tight td{padding:6px 6px;font-size:0.8rem;}
+.pl-tight th{font-size:0.72rem;}
+.pl-tight .wins-sub td{padding:4px 6px;}
 table{width:100%;border-collapse:collapse;}
 thead tr{background:var(--forest);color:var(--gold);}
 th{padding:10px 12px;text-align:left;font-size:0.7rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;}
@@ -3855,6 +3858,21 @@ async function refreshMyStats(){
 
 // ===== Players directory (read-only) + compare (up to 4) =====
 var _plCompare = [];   // selected player ids for comparison (max 4)
+var _plWinsExpanded = false;   // compare view: Wins row expanded to per-format breakdown
+// Tally a player's tournament wins (rank 1) bucketed by that tournament's format.
+// stroke -> gross; legacy/no-format -> gross. Sum equals the player's total Wins.
+function _plWinsByFormat(pid){
+  var b={gross:0,net:0,hsi:0,system36:0,peoria:0};
+  (allTournaments||[]).forEach(function(t){
+    (t.results||[]).forEach(function(r){
+      if(r && r.playerId===pid && r.rank===1){
+        var f=(r.format||t.format||'stroke'); if(f==='stroke') f='gross';
+        if(b[f]==null) b[f]=0; b[f]++;
+      }
+    });
+  });
+  return b;
+}
 
 function plStat(p){
   // Normalize a player's PUBLIC stats for display. stats/casualStats are written by refreshMyStats
@@ -3918,6 +3936,7 @@ function loadPlayers(){ renderPlayersList(); }
 
 function renderPlayersList(){
   var cont = document.getElementById('players-content'); if(!cont) return;
+  _plWinsExpanded = false;
   document.getElementById('players-sub').textContent = 'Directory & compare';
   var players = (allPlayers||[]).slice().sort(function(a,b){ return (a.name||'').localeCompare(b.name||''); });
   var meId = currentUser ? currentUser.uid : null;
@@ -3926,7 +3945,7 @@ function renderPlayersList(){
     var click = 'onclick="window._real_plDetail(\'' + escJs(p.id) + '\')" style="cursor:pointer;"';
     return '<tr>'
       + '<td style="width:34px;text-align:center;"><input type="checkbox" ' + (sel?'checked':'') + ' onclick="event.stopPropagation();window._real_plToggle(\'' + escJs(p.id) + '\')"></td>'
-      + '<td ' + click + '><div style="display:flex;align-items:center;">' + avatarHtml(p,36) + '<div>'
+      + '<td ' + click + '><div style="display:flex;align-items:center;">' + avatarHtml(p,28) + '<div>'
       + '<div class="pr-name">' + esc(plName(p)) + (isMe?' <span class="chip chip-gold" style="font-size:0.6rem;">YOU</span>':'') + '</div>'
       + '<div class="pr-email">' + (p.role==='admin'?'<span class="chip chip-red" style="font-size:0.6rem;">admin</span> ':'') + 'HCP ' + plVal(st.hcp) + '</div></div></div></td>'
       + '<td class="c" ' + click + '>' + plVal(st.rounds) + '</td>'
@@ -3939,7 +3958,7 @@ function renderPlayersList(){
       + '<div style="font-size:0.82rem;color:var(--text-light);">Select up to 4 to compare \u00b7 <b style="color:var(--forest);">' + _plCompare.length + '/4</b></div>'
       + '<button class="btn btn-gold btn-sm"' + (canCompare?'':' disabled style="opacity:0.45;"') + ' onclick="window._real_plCompareView()">\u2696\ufe0f Compare</button>'
     + '</div>'
-    + '<div class="lb-table-wrap"><table><thead><tr><th></th><th>Player</th><th class="c">Rounds</th><th class="c">Avg</th><th class="c">Wins</th></tr></thead><tbody>'
+    + '<div class="lb-table-wrap pl-tight"><table><thead><tr><th></th><th>Player</th><th class="c">Rounds</th><th class="c">Avg</th><th class="c">Wins</th></tr></thead><tbody>'
       + (rows || '<tr><td colspan="5" style="text-align:center;padding:1rem;color:var(--text-light);">No players yet.</td></tr>')
     + '</tbody></table></div>'
     + '<div class="section-sub" style="margin-top:0.6rem;">Tap a player for full stats. Averages come from each player\u2019s recorded rounds.</div>';
@@ -4003,7 +4022,7 @@ function plCompareView(){
     st.avgGross = cnum(cs.avgGross); st.bestRound = cnum(cs.bestRound); st.worstRound = cnum(cs.worstRound);
     return st;
   });
-  var head = '<th>Stat</th>' + players.map(function(p){ return '<th class="c">' + avatarHtml(p,26) + '<br>' + esc(p.nickname||p.name||'?') + '</th>'; }).join('');
+  var head = '<th>Stat</th>' + players.map(function(p){ return '<th class="c">' + avatarHtml(p,22) + '<br>' + esc(p.nickname||p.name||'?') + '</th>'; }).join('');
   var curGroup = null;
   var body = metrics.map(function(m){
     var key = m[1], higher = m[2], fmt = m[3], group = m[4];
@@ -4020,11 +4039,29 @@ function plCompareView(){
       var disp = fmt ? plVal(fmt(v)) : plVal(v);
       return '<td class="c' + (isBest?' bold':'') + '"' + (isBest?' style="color:var(--forest);background:rgba(201,162,39,0.16);"':'') + '>' + disp + '</td>';
     }).join('');
+    if(key==='wins'){
+      var caret = '<span style="font-size:0.7rem;color:var(--text-light);margin-left:4px;">'+(_plWinsExpanded?'\u25be':'\u25b8')+'</span>';
+      var winsRow = header + '<tr onclick="window._real_plToggleWins()" style="cursor:pointer;"><td>' + m[0] + caret + '</td>' + cells + '</tr>';
+      if(_plWinsExpanded){
+        var FORDER=[['gross','Gross'],['net','Net'],['hsi','HSI'],['system36','System 36'],['peoria','Blind Peoria']];
+        var wbf = players.map(function(p){ return _plWinsByFormat(p.id); });
+        var subs='';
+        FORDER.forEach(function(fo){
+          var fk=fo[0], sum=wbf.reduce(function(a,w){ return a+(w[fk]||0); },0);
+          if(sum<=0) return;
+          var sc=wbf.map(function(w){ return '<td class="c" style="font-size:0.78rem;color:var(--text-light);">'+(w[fk]||0)+'</td>'; }).join('');
+          subs += '<tr class="wins-sub"><td style="padding-left:1.3rem;font-size:0.78rem;color:var(--text-light);">'+fo[1]+'</td>'+sc+'</tr>';
+        });
+        if(!subs) subs='<tr class="wins-sub"><td colspan="'+(players.length+1)+'" style="padding-left:1.3rem;font-size:0.75rem;color:var(--text-light);">No wins yet to break down.</td></tr>';
+        winsRow += subs;
+      }
+      return winsRow;
+    }
     return header + '<tr><td>' + m[0] + '</td>' + cells + '</tr>';
   }).join('');
   // Head-to-head matrix — tournaments both players finished
   var anyH2H = false;
-  var hHead = '<th style="font-size:0.7rem;">H2H</th>' + players.map(function(p){ return '<th class="c" style="font-size:0.72rem;">' + avatarHtml(p,22) + '<br>' + esc(p.nickname||p.name||'?') + '</th>'; }).join('');
+  var hHead = '<th style="font-size:0.7rem;">H2H</th>' + players.map(function(p){ return '<th class="c" style="font-size:0.72rem;">' + avatarHtml(p,20) + '<br>' + esc(p.nickname||p.name||'?') + '</th>'; }).join('');
   var hBody = players.map(function(pa,i){
     var cells = players.map(function(pb,j){
       if(i===j) return '<td class="c" style="background:rgba(0,0,0,0.05);">\u2014</td>';
@@ -4038,11 +4075,11 @@ function plCompareView(){
   var h2h = anyH2H
     ? '<div class="section-title" style="font-size:0.95rem;margin-top:1.2rem;">Head-to-Head</div>'
       + '<div class="section-sub">Tournaments both finished \u00b7 row player\u2019s wins\u2013losses vs each column</div>'
-      + '<div class="lb-table-wrap"><table><thead><tr>' + hHead + '</tr></thead><tbody>' + hBody + '</tbody></table></div>'
+      + '<div class="lb-table-wrap pl-tight"><table><thead><tr>' + hHead + '</tr></thead><tbody>' + hBody + '</tbody></table></div>'
     : '<div class="section-sub" style="margin-top:1rem;">No shared completed tournaments yet for head-to-head.</div>';
   cont.innerHTML =
     '<button class="btn btn-ghost btn-ghost-light btn-sm" style="margin-bottom:0.8rem;" onclick="window._real_plList()">\u2190 All players</button>'
-    + '<div class="lb-table-wrap"><table><thead><tr>' + head + '</tr></thead><tbody>' + body + '</tbody></table></div>'
+    + '<div class="lb-table-wrap pl-tight"><table><thead><tr>' + head + '</tr></thead><tbody>' + body + '</tbody></table></div>'
     + '<div class="section-sub" style="margin-top:0.6rem;">Gold marks the leader per stat \u00b7 lower is better for gross, handicap &amp; vs-par; higher for the rest. Casual stats use casual rounds only; Wins, Top 3 &amp; Tourney Pts are tournament-only.</div>'
     + h2h;
 }
@@ -4052,6 +4089,7 @@ window._real_plList = renderPlayersList;
 window._real_plToggle = plToggle;
 window._real_plDetail = plDetail;
 window._real_plCompareView = plCompareView;
+window._real_plToggleWins = function(){ _plWinsExpanded = !_plWinsExpanded; plCompareView(); };
 
 async function saveCasualRound() {
   let entries = Object.entries(casualHoles);
@@ -5163,7 +5201,7 @@ window._real_navCasual = function(btn) {
 };
 
 // Build/version stamp — confirms which version is actually running (catches stale cache)
-var APP_BUILD = '2026.08.18 · delete-player-v2';
+var APP_BUILD = '2026.08.18 · compare-mobile-wins';
 console.log('%cMorks Golf Tour build: ' + APP_BUILD, 'color:#c9a227;font-weight:bold;font-size:14px;');
 try {
   var _bt = document.createElement('div');
