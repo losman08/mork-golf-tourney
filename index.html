@@ -371,6 +371,22 @@ hr.div{border:none;border-top:1px solid var(--cream-dark);margin:1rem 0;}
 .gc-fscore .gc-big{font-weight:800;font-size:1.05rem;}
 .gc-fscore .gc-small{font-size:0.62rem;color:var(--text-mid);}
 .gc-cap{font-size:0.68rem;color:var(--text-mid);margin-top:10px;line-height:1.45;}
+#screen-groupscorecard .gc-table tfoot tr.gc-trk td{background:#24503a;color:#eafff0;font-size:0.68rem;height:24px;font-weight:700;}
+#screen-groupscorecard .gc-table tfoot tr.gc-trk td.gc-lbl{background:#24503a;color:#9fe4b8;}
+.gc-fmeta{min-width:0;flex:1;}
+.gc-frow-x{cursor:pointer;}
+.gc-frow-x:active{background:rgba(0,0,0,0.04);}
+.gc-drill{background:var(--cream-dark);border-radius:8px;padding:8px;margin:0 4px 8px;}
+.gc-drill-hd{font-size:0.58rem;color:var(--text-mid);text-transform:uppercase;letter-spacing:.04em;margin-bottom:5px;text-align:center;}
+.gc-dgrid{display:grid;grid-template-columns:repeat(9,1fr);gap:3px;}
+.gc-dcell{background:#fff;border-radius:4px;padding:3px 1px;text-align:center;}
+.gc-dcell.gc-dstroke{background:rgba(245,208,96,0.28);}
+.gc-dcell.gc-dempty{opacity:0.5;}
+.gc-dh{font-size:0.54rem;color:var(--text-mid);font-weight:700;}
+.gc-dsc{font-weight:800;font-size:0.72rem;color:#222;}
+.gc-ddot{color:#b8860b;font-size:0.5rem;vertical-align:super;margin-left:1px;}
+.gc-dnet{font-size:0.58rem;color:var(--forest-mid);font-weight:700;}
+.gc-drill-ft{font-size:0.62rem;color:var(--text-mid);margin-top:6px;text-align:center;}
 .gc-dlg{position:fixed;left:50%;top:44%;transform:translate(-50%,-50%) scale(0.9);background:#fff;border-radius:14px;padding:20px;width:300px;box-shadow:0 8px 30px rgba(0,0,0,.35);z-index:206;opacity:0;pointer-events:none;transition:.15s;text-align:center;max-width:calc(100vw - 32px);}
 .gc-dlg.show{opacity:1;pointer-events:auto;transform:translate(-50%,-50%) scale(1);}
 .gc-dlg p{margin:0 0 16px;font-weight:600;color:var(--forest);}
@@ -582,6 +598,7 @@ hr.div{border:none;border-top:1px solid var(--cream-dark);margin:1rem 0;}
     <div class="gc-pop" id="gc-fieldpop" style="max-height:82vh;overflow-y:auto;">
       <span class="gc-x" onclick="window._real_gcTryClose()">✕</span>
       <h3>📊 How’s the field?</h3>
+      <div class="gc-seg" id="gc-fieldseg" style="display:none;"></div>
       <div id="gc-fieldlist"></div>
       <div class="gc-cap" id="gc-fieldcap"></div>
     </div>
@@ -908,6 +925,9 @@ let lbUnsubscribe = null;
 let gcUnsubscribe = null;
 let gcActiveFoursome = null;
 let gcAdminOverride = false;
+let gcTracking = false;
+let gcFieldMode = 'gross';
+let gcExpandedRow = null;
 let gcScores = {};
 let gcEditKey = null, gcEditHole = null, gcEditVal = null, gcEditTouched = false;
 let gcPhotoTargetGi = null;
@@ -1662,6 +1682,8 @@ function loadGroupScorecard(gi){
     snap.docs.forEach(function(d){ var x=d.data(); if(!gcScores[x.playerId]) gcScores[x.playerId]={}; gcScores[x.playerId][x.holeNumber]=x; });
     renderGroupScorecard();
   }, function(err){ console.error('group card listener', err); });
+  gcFieldMode='gross'; gcExpandedRow=null;
+  _gcWarmResolvers();
 }
 
 function _gcFoursomePlayers(){
@@ -1684,6 +1706,47 @@ function _gcToPar(pid){
   return d;
 }
 function _gcFmtPar(v){ return v===0?'E':(v>0?('+'+v):String(v)); }
+// ── Phase 2 helpers: format resolution, handicap/SI accessors, projection, resolver warming ──
+function _gcFmtKey(){ var f=(activeTournament&&activeTournament.format)||'gross'; return (f==='stroke')?'gross':f; }
+function _gcFmtLabel(){ return FS_FMT[_gcFmtKey()]||'Gross'; }
+function _gcHc(pid){ var rh=window._resHcpCache&&window._resHcpCache[pid]; return rh?(Number(rh.value)||0):0; }
+function _gcSI(){ var t=activeTournament; if(!t) return null; return (window._lbHoleHcpByCourse||{})[t.course||'']||null; }
+function _gcProjGross(pid,pars){
+  var h=gcScores[pid]||{}, g=0;
+  for(var i=1;i<=18;i++){ var rec=h[i]; g += (rec&&typeof rec.score==='number')?rec.score:(pars[i-1]||4); }
+  return g;
+}
+function _gcProjSet(pid,pars){
+  var h=gcScores[pid]||{}, set={};
+  for(var i=1;i<=18;i++){ var rec=h[i]; var sc=(rec&&typeof rec.score==='number')?rec.score:(pars[i-1]||4); set[i]={score:sc,par:(pars[i-1]||4)}; }
+  return set;
+}
+function _gcProj(pid,pars){
+  var fmtk=_gcFmtKey(), projGross=_gcProjGross(pid,pars), hc=_gcHc(pid);
+  if(fmtk==='gross'||fmtk==='peoria') return projGross;
+  if(fmtk==='net') return projGross-Math.round(hc);
+  if(fmtk==='system36'){ var r=calcSystem36(_gcProjSet(pid,pars)); return projGross-r.hcp; }
+  if(fmtk==='hsi'){ var si=_gcSI(); if(si){ var rh=calcHSI(_gcProjSet(pid,pars),si,hc); return rh?rh.net:null; } return projGross-Math.round(hc); }
+  return projGross;
+}
+// Warm the resolved-handicap cache (all participants) and the course stroke index in the background,
+// then repaint once they land — reuses the exact leaderboard resolvers so live and final never diverge.
+function _gcWarmResolvers(){
+  var t=activeTournament; if(!t) return;
+  var ids=(t.participants||[]).map(function(pid){ return {playerId:pid}; });
+  if(ids.length){ ensureResolvedHandicaps(ids).then(function(){ if(gcActiveFoursome!=null) renderGroupScorecard(); var fp=document.getElementById('gc-fieldpop'); if(fp&&fp.classList.contains('show')) _gcRenderField(); }).catch(function(){}); }
+  var cn=t.course||'';
+  var siCache=(window._lbHoleHcpByCourse=window._lbHoleHcpByCourse||{});
+  if(!(cn in siCache)){
+    crLoadLibrary(function(lib){
+      var norm=function(x){ return (x||'').toString().trim().toLowerCase(); };
+      var course=(lib||[]).find(function(c){ return c && norm(c.name)===norm(cn); });
+      siCache[cn]=_validSI(course && course.holeHcp);
+      if(gcActiveFoursome!=null) renderGroupScorecard();
+      var fp=document.getElementById('gc-fieldpop'); if(fp&&fp.classList.contains('show')) _gcRenderField();
+    });
+  }
+}
 
 function renderGroupScorecard(){
   var t=activeTournament; if(!t) return;
@@ -1695,7 +1758,7 @@ function renderGroupScorecard(){
     var admHtml=isAdmin
       ? '<div class="gc-toggle gc-admin'+(gcAdminOverride?' on':'')+'" onclick="window._real_gcToggleAdmin()"><div class="gc-sw"></div><span>\uD83D\uDD13 Edit anyone</span></div>'
       : '';
-    ctrl.innerHTML=admHtml+'<button class="gc-fieldbtn" onclick="window._real_gcOpenField()">\uD83D\uDCCA How\'s the field?</button>';
+    ctrl.innerHTML=admHtml+'<div class="gc-toggle'+(gcTracking?' on':'')+'" onclick="window._real_gcToggleTracking()"><div class="gc-sw"></div><span>Tracking</span></div>'+'<button class="gc-fieldbtn" onclick="window._real_gcOpenField()">\uD83D\uDCCA How\'s the field?</button>';
   }
   var leg=document.getElementById('gc-legend');
   if(leg){
@@ -1726,7 +1789,24 @@ function _gcBuildTable(el,holes,players,pars){
   });
   h+='</tbody><tfoot><tr><td class="gc-lbl" colspan="2">Total</td>';
   players.forEach(function(p){ h+='<td>'+(_gcScoredSum(p.key)||'\u2014')+'</td>'; });
-  h+='</tr></tfoot>';
+  h+='</tr>';
+  if(gcTracking){
+    h+='<tr class="gc-trk"><td class="gc-lbl" colspan="2">Thru \u00B7 \u00B1Par</td>';
+    players.forEach(function(p){ var thru=_gcThru(p.key); h+='<td>'+(thru?(thru+' \u00B7 '+_gcFmtPar(_gcToPar(p.key))):'\u2014')+'</td>'; });
+    h+='</tr>';
+    var fmtk=_gcFmtKey();
+    if(fmtk==='peoria'){
+      h+='<tr class="gc-trk"><td class="gc-lbl" colspan="2">Proj gross (pace)</td>';
+      players.forEach(function(p){ h+='<td>'+(_gcThru(p.key)?_gcProjGross(p.key,pars):'\u2014')+'</td>'; });
+      h+='</tr>';
+    } else {
+      var plabel=(fmtk==='hsi')?'Proj HSI':((fmtk==='net')?'Proj Net':((fmtk==='system36')?'Proj S36':'Proj gross'));
+      h+='<tr class="gc-trk"><td class="gc-lbl" colspan="2">'+plabel+'</td>';
+      players.forEach(function(p){ var pr=_gcThru(p.key)?_gcProj(p.key,pars):null; h+='<td>'+((pr==null)?'\u2014':pr)+'</td>'; });
+      h+='</tr>';
+    }
+  }
+  h+='</tfoot>';
   el.innerHTML=h;
 }
 
@@ -1796,23 +1876,96 @@ window._real_gcOpenField=function(){
 };
 function _gcRenderField(){
   var t=activeTournament; if(!t) return;
+  var pars=t.holePars||DEFAULT_PARS;
+  var fmtk=_gcFmtKey();
+  var fmtLabel=_gcFmtLabel();
+  // seg toggle: only when the tournament has a format distinct from Gross
+  var seg=document.getElementById('gc-fieldseg');
+  if(seg){
+    if(fmtk==='gross'){ seg.style.display='none'; gcFieldMode='gross'; }
+    else{
+      seg.style.display='';
+      seg.innerHTML='<button class="'+(gcFieldMode==='gross'?'on':'')+'" onclick="window._real_gcSetFieldMode(\'gross\')">Gross</button>'
+        +'<button class="'+(gcFieldMode==='fmt'?'on':'')+'" onclick="window._real_gcSetFieldMode(\'fmt\')">'+esc(fmtLabel)+'</button>';
+    }
+  }
+  // effective format for this render: gross, or the tournament format (Peoria mirrors gross live)
+  var effFmt=(fmtk!=='gross' && gcFieldMode==='fmt') ? fmtk : 'gross';
+  var mirrored=(effFmt==='peoria'); if(mirrored) effFmt='gross';
+  var si=_gcSI(); var estimated=false;
   var rows=[];
   Object.keys(gcScores).forEach(function(pid){
     if(_gcThru(pid)>0){ var p=_plLookup(pid); rows.push({ key:pid, name:(p&&p.name)||'Player', color:fsColor((p&&p.name)||'') }); }
   });
-  rows.sort(function(a,b){ return _gcToPar(a.key)-_gcToPar(b.key) || _gcThru(b.key)-_gcThru(a.key); });
+  rows.forEach(function(r){
+    var gtp=_gcToPar(r.key); r.grossToPar=gtp;
+    if(effFmt==='gross'){ r.toPar=gtp; r.hcpLabel=null; r.canDrill=false; }
+    else if(effFmt==='hsi'){
+      var hc=_gcHc(r.key);
+      if(si){ var res=calcHSI(gcScores[r.key],si,hc); r.toPar=res?(gtp-res.strokes):gtp; r.canDrill=!!res; }
+      else { r.toPar=gtp-Math.round((_gcThru(r.key)/18)*hc); r.canDrill=false; estimated=true; }
+      r.hcpLabel=Math.round(hc);
+    }
+    else if(effFmt==='net'){
+      var hcn=_gcHc(r.key); r.toPar=gtp-Math.round((_gcThru(r.key)/18)*hcn); r.hcpLabel=Math.round(hcn); r.canDrill=false;
+    }
+    else if(effFmt==='system36'){
+      var s36=calcSystem36(gcScores[r.key]); r.toPar=gtp-s36.hcp; r.hcpLabel=s36.hcp; r.canDrill=false;
+    }
+    else { r.toPar=gtp; r.hcpLabel=null; r.canDrill=false; }
+  });
+  rows.sort(function(a,b){ return a.toPar-b.toPar || _gcThru(b.key)-_gcThru(a.key); });
+  var smallLbl=(effFmt==='gross')?(mirrored?'Blind Peoria':'to par'):(fmtLabel+' to par');
   var h='';
   rows.forEach(function(p,i){
-    var thru=_gcThru(p.key), big=_gcFmtPar(_gcToPar(p.key));
-    h+='<div class="gc-frow'+(i===0?' gc-lead':'')+'"><div class="gc-frank">'+(i+1)+'</div>'
+    var big=_gcFmtPar(p.toPar);
+    var sub=(effFmt==='gross')?('thru '+_gcThru(p.key)):('thru '+_gcThru(p.key)+' \u00B7 gross '+_gcFmtPar(p.grossToPar));
+    var hcpTag=(p.hcpLabel!=null)?(' <span class="gc-hcp">['+p.hcpLabel+']</span>'):'';
+    h+='<div class="gc-frow'+(i===0?' gc-lead':'')+(p.canDrill?' gc-frow-x':'')+'"'+(p.canDrill?' onclick="window._real_gcToggleDrill(\''+escJs(p.key)+'\')"':'')+'>'
+      +'<div class="gc-frank">'+(i+1)+'</div>'
       +'<div class="gc-fchip" style="background:'+p.color+'">'+esc(plInitials(p.name))+'</div>'
-      +'<div><div class="gc-fname">'+esc(p.name)+'</div><div class="gc-fthru">thru '+thru+'</div></div>'
-      +'<div class="gc-fscore"><div class="gc-big">'+big+'</div><div class="gc-small">to par</div></div></div>';
+      +'<div class="gc-fmeta"><div class="gc-fname">'+esc(p.name)+hcpTag+'</div><div class="gc-fthru">'+sub+'</div></div>'
+      +'<div class="gc-fscore"><div class="gc-big">'+big+'</div><div class="gc-small">'+smallLbl+'</div></div></div>';
+    if(p.canDrill && gcExpandedRow===p.key) h+=_gcDrillStrip(p.key, si);
   });
   if(!rows.length) h='<div style="text-align:center;color:var(--text-mid);padding:20px 0;font-size:0.85rem;">No scores yet \u2014 the board fills in as holes are saved.</div>';
   document.getElementById('gc-fieldlist').innerHTML=h;
-  document.getElementById('gc-fieldcap').innerHTML='Ranked by <b>gross to-par</b> \u2014 scored against the par of holes actually played, PGA-style. <b>Ties break toward more holes completed.</b> A live snapshot; it firms up as scores come in.';
+  var cap;
+  if(effFmt==='gross'){
+    cap = mirrored
+      ? 'Ranked by <b>gross to-par</b>. <b>Blind Peoria mirrors gross live</b> \u2014 counting holes are drawn after the round, so there is no separate live standing.'
+      : 'Ranked by <b>gross to-par</b> \u2014 scored against the par of holes actually played, PGA-style. <b>Ties break toward more holes completed.</b> A live snapshot; it firms up as scores come in.';
+  } else if(effFmt==='hsi'){
+    cap = 'Ranked by <b>HSI net to-par</b>: each player\u2019s <b>[HCP]</b> strokes are applied by stroke index across the holes played \u2014 so [4] and [18] compare fairly. Same tie rule.'
+      + (estimated ? ' <b>No stroke index on file for this course</b> \u2014 strokes estimated by even allocation.' : ' Tap a row to see per-hole strokes.');
+  } else if(effFmt==='net'){
+    cap = 'Ranked by <b>Net to-par</b>: <b>[HCP]</b> strokes prorated to holes played (even allocation, matching this tournament\u2019s finals). Same tie rule.';
+  } else if(effFmt==='system36'){
+    cap = 'Ranked by <b>System 36 net to-par</b> (hcp = 36 \u2212 points, on played holes). <b>System 36 is a full-round format</b> \u2014 mid-round figures are approximate and firm up at 18 holes.';
+  } else { cap=''; }
+  document.getElementById('gc-fieldcap').innerHTML=cap;
 }
+function _gcDrillStrip(pid, si){
+  if(!si) return '';
+  var res=calcHSI(gcScores[pid], si, _gcHc(pid)); if(!res) return '';
+  var pars=(activeTournament&&activeTournament.holePars)||DEFAULT_PARS;
+  var cells='', run=0;
+  for(var hn=1;hn<=18;hn++){
+    var rec=(gcScores[pid]||{})[hn];
+    if(rec&&typeof rec.score==='number'){
+      var recv=res.strokesByHole[hn]||0, nb=res.netByHole[hn];
+      run += (nb-(pars[hn-1]||4));
+      var dots=recv>0?(recv>1?('\u25CF'+recv):'\u25CF'):'';
+      cells+='<div class="gc-dcell'+(recv>0?' gc-dstroke':'')+'"><div class="gc-dh">'+hn+'</div><div class="gc-dsc">'+rec.score+(dots?'<span class="gc-ddot">'+dots+'</span>':'')+'</div><div class="gc-dnet">'+nb+'</div></div>';
+    } else {
+      cells+='<div class="gc-dcell gc-dempty"><div class="gc-dh">'+hn+'</div><div class="gc-dsc">\u00B7</div><div class="gc-dnet"></div></div>';
+    }
+  }
+  return '<div class="gc-drill"><div class="gc-drill-hd">Per-hole \u00B7 \u25CF = stroke hole \u00B7 net under each</div><div class="gc-dgrid">'+cells+'</div><div class="gc-drill-ft">Net so far <b>'+_gcFmtPar(run)+'</b> \u00B7 '+res.strokes+' strokes received</div></div>';
+}
+window._real_gcSetFieldMode=function(m){ gcFieldMode=m; gcExpandedRow=null; _gcRenderField(); };
+window._real_gcToggleDrill=function(pid){ gcExpandedRow=(gcExpandedRow===pid)?null:pid; _gcRenderField(); };
+window._real_gcToggleTracking=function(){ gcTracking=!gcTracking; renderGroupScorecard(); };
 
 // ── per-foursome group photo (admin upload; anyone can view) ──
 window._real_gcPhotoTap=function(gi){
@@ -4929,7 +5082,7 @@ window._real_navCasual = function(btn) {
 };
 
 // Build/version stamp — confirms which version is actually running (catches stale cache)
-var APP_BUILD = '2026.08.17 · on-green-contrast';
+var APP_BUILD = '2026.08.17 · group-scorecard-p2';
 console.log('%cMorks Golf Tour build: ' + APP_BUILD, 'color:#c9a227;font-weight:bold;font-size:14px;');
 try {
   var _bt = document.createElement('div');
