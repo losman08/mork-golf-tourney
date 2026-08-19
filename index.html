@@ -582,6 +582,7 @@ hr.div{border:none;border-top:1px solid var(--cream-dark);margin:1rem 0;}
         <div class="hole-grid" id="holes-front"></div>
         <div class="section-title" style="font-size:1rem;margin:1rem 0 0.8rem;">Back 9</div>
         <div class="hole-grid" id="holes-back"></div>
+        <button class="btn btn-gold" style="width:100%;margin-top:1.4rem;margin-bottom:0.5rem;padding:15px;font-size:1.02rem;font-weight:800;" onclick="window._real_submitScorecard()">💾 Save Scorecard</button>
       </div>
     </div>
 
@@ -5294,7 +5295,7 @@ window._real_navCasual = function(btn) {
 };
 
 // Build/version stamp — confirms which version is actually running (catches stale cache)
-var APP_BUILD = '2026.08.18 · home-lb-btn';
+var APP_BUILD = '2026.08.18 · scorecard-save';
 console.log('%cMorks Golf Tour build: ' + APP_BUILD, 'color:#c9a227;font-weight:bold;font-size:14px;');
 try {
   var _bt = document.createElement('div');
