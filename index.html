@@ -2740,25 +2740,26 @@ async function submitScorecard() {
   const t=activeTournament;
   if(t.playState!=='live'){ toast('Scoring opens when the tournament goes live.'); return; }
   const pars=t.holePars||DEFAULT_PARS;
-  let entries=Object.entries(scorecardData);
-  if(entries.length < 9){ toast('Enter at least 9 hole scores.'); return; }
-  if(entries.length < 18){
-    const blanks=[]; for(let h=1;h<=18;h++){ if(scorecardData[h]==null||scorecardData[h]===''){ blanks.push(h); } }
-    const choice=await promptBlankHoles(blanks);
-    if(choice==='cancel') return;
-    if(choice==='par'){ blanks.forEach(h=>{ scorecardData[h]=pars[h-1]||4; }); }
-    entries=Object.entries(scorecardData);
+  // Tournament entry mirrors the group scorecard: save exactly the holes entered (partial is fine —
+  // update during or after the round, come back to finish). No par-fill fabrication and no handicap
+  // language — tournament rounds never feed the handicap index. A full 18 marks the round complete.
+  const entries=Object.entries(scorecardData).filter(function(e){ return e[1]!=null && e[1]!==''; });
+  if(entries.length===0){ toast('Enter at least one hole score.'); return; }
+  const isFull=entries.length===18;
+  if(!isFull){
+    if(!confirm('Save '+entries.length+' of 18 holes?\n\nYou can come back and finish the rest anytime \u2014 your round is complete once all 18 are entered.')) return;
   }
   const batch=writeBatch(db);
-  // Delete existing then re-write
+  // Delete-all-then-rewrite (identical mechanism to the group scorecard save)
   const existing=await getDocs(query(collection(db,'holeScores'),where('tournamentId','==',t.id),where('playerId','==',currentUser.uid)));
   existing.docs.forEach(d=>batch.delete(d.ref));
-  entries.forEach(([hole,score])=>{
+  entries.forEach(function(e){
+    const hole=e[0], score=e[1];
     const ref=doc(collection(db,'holeScores'));
     batch.set(ref,{ tournamentId:t.id, playerId:currentUser.uid, holeNumber:Number(hole), par:pars[hole-1]||4, score:Number(score), submittedAt:serverTimestamp() });
   });
   await batch.commit();
-  toast(`✅ ${entries.length} holes saved!`);
+  toast(isFull ? '\u2705 Full scorecard saved!' : ('\uD83D\uDCBE Saved '+entries.length+' of 18 holes'));
 }
 
 // ── PROFILE ──
@@ -5295,7 +5296,7 @@ window._real_navCasual = function(btn) {
 };
 
 // Build/version stamp — confirms which version is actually running (catches stale cache)
-var APP_BUILD = '2026.08.18 · scorecard-save';
+var APP_BUILD = '2026.08.18 · scorecard-partial';
 console.log('%cMorks Golf Tour build: ' + APP_BUILD, 'color:#c9a227;font-weight:bold;font-size:14px;');
 try {
   var _bt = document.createElement('div');
