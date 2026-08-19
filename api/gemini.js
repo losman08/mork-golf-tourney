@@ -6,7 +6,7 @@
 // Zero-config Vercel serverless function. No dependencies, no package.json needed:
 // Vercel runs any file under /api as a function, and Node 18+ has global fetch built in.
 
-const MODEL = 'gemini-2.5-flash'; // one-line swap if the model id ever changes
+const MODEL = 'gemini-3.6-flash'; // one-line swap if the model id ever changes
 const ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
 
 export default async function handler(req, res) {
