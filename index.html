@@ -411,7 +411,8 @@ hr.div{border:none;border-top:1px solid var(--cream-dark);margin:1rem 0;}
 .gc-dlgbtns button{flex:1;padding:11px;border-radius:9px;border:none;font-weight:800;font-size:0.9rem;cursor:pointer;}
 .gc-dlgbtns .gc-ghost{background:var(--cream-dark);color:var(--forest);}
 .gc-dlgbtns .gc-danger{background:#c0392b;color:#fff;}
-.lbd-caret{display:inline-block;background:#00a6e0;color:#fff;font-weight:800;border-radius:6px;padding:1px 7px;margin-left:8px;font-size:0.82rem;line-height:1.3;vertical-align:middle;box-shadow:0 1px 2px rgba(0,0,0,0.25);}
+.lbd-caret{display:inline-flex;align-items:center;gap:4px;background:#0a84c4;color:#fff;font-weight:800;border-radius:7px;padding:2px 9px;margin-left:8px;font-size:0.9rem;line-height:1.2;vertical-align:middle;box-shadow:0 1px 3px rgba(0,0,0,0.3);}
+.lbd-tapt{font-size:0.6rem;letter-spacing:.05em;text-transform:uppercase;}
 .lbd-tap{cursor:pointer;}
 .lbd-tap:active{filter:brightness(0.97);}
 .lbd-detail td{padding:0 6px 8px;background:var(--cream);}
@@ -1440,6 +1441,7 @@ function renderHomeEvent() {
       <button class="btn btn-gold" style="flex:1;${_live?'':'opacity:0.6;'}" onclick="window._real_navTo('scorecard',null)">⛳ Enter My Scores</button>
       <button class="btn" style="flex:1;background:#2e9e3f;color:#fff;" onclick="window._real_navTo('foursomes',null)"><svg class="ic-players" viewBox="0 0 24 24" aria-hidden="true"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg> Foursomes</button>
     </div>
+    ${_live?`<button class="btn" style="width:100%;margin-top:8px;background:#0a84c4;color:#fff;" onclick="window._real_navTo('leaderboard',null)">📊 View Live Leaderboard</button>`:''}
   </div>`;
   loadMiniLb();
 }
@@ -2459,7 +2461,7 @@ function _validSI(raw){
 
 // ===== Proof-of-math drill-downs (tournament leaderboard, tap a row) =====
 // Reuse the group-scorecard drill cell styling (.gc-*) so the look is consistent app-wide.
-function _caretChip(expanded){ return '<span class="lbd-caret'+(expanded?' open':'')+'">'+(expanded?'\u25be':'\u25b8')+'</span>'; }
+function _caretChip(expanded){ return '<span class="lbd-caret'+(expanded?' open':'')+'">'+(expanded?'':'<span class="lbd-tapt">tap</span>')+(expanded?'\u25be':'\u25b8')+'</span>'; }
 function _lbPars(){ return (window._lbTourney && window._lbTourney.holePars) || DEFAULT_PARS; }
 
 function _lbDrillNet(s, hc, par){
@@ -5292,7 +5294,7 @@ window._real_navCasual = function(btn) {
 };
 
 // Build/version stamp — confirms which version is actually running (catches stale cache)
-var APP_BUILD = '2026.08.18 · proof-drilldowns';
+var APP_BUILD = '2026.08.18 · home-lb-btn';
 console.log('%cMorks Golf Tour build: ' + APP_BUILD, 'color:#c9a227;font-weight:bold;font-size:14px;');
 try {
   var _bt = document.createElement('div');
