@@ -4660,11 +4660,111 @@ function renderStatsToggle(){
     + '<div style="display:inline-flex;background:rgba(0,0,0,0.18);border-radius:19px;padding:3px;">'+btn('casual','Casual')+btn('tournament','Tournament')+'</div>'
     + '<span style="font-size:0.72rem;color:rgba(245,240,232,0.6);">'+caption+'</span></div>';
 }
+// ── AI COACH (Phase A) — deterministic focus + persona tip + YouTube ────────
+// Code picks the weakest area (narrate-not-compute); Gemini coaches on it in a
+// chosen persona's voice. Session-cached per source+area+persona. Phase B adds
+// profile-doc continuity ("last 3" + caret) and distinct per-persona models.
+let _coachPersona = 'pro';
+let _coachOverride = null; // null = deterministic pick; else a chosen area key
+window._coachCache = window._coachCache || {};
+const _COACH_PERSONAS = {
+  pro: { label:'Pro', model:'gemini-3.6-flash', role:"a tour professional giving a first-person take — your own mindset and shot strategy, how YOU would attack this. Speak as the player's peer sharing how you'd play it. Strategy and mindset, not swing mechanics." },
+  caddie: { label:'Caddie', model:'gemini-3.6-flash', role:"the player's caddie speaking directly TO the player. Course management, club and target selection, staying composed, avoiding big numbers. Decisions and strategy, never swing mechanics. Never speak as if you are the player." },
+  instructor: { label:'Instructor', model:'gemini-3.6-flash', role:"a teaching professional. Diagnose the pattern, prescribe one concrete drill or fundamental, and frame it as a habit to build. Instructional and encouraging." }
+};
+function _coachAreas(){
+  return {
+    blowup:   { label:'Blow-ups (double bogey or worse)', yt:'golf avoid big numbers scrambling out of trouble' },
+    par3:     { label:'Par-3 scoring', yt:'golf par 3 tee shot strategy iron accuracy' },
+    par4:     { label:'Par-4 scoring', yt:'golf par 4 course management strategy' },
+    par5:     { label:'Par-5 scoring', yt:'golf par 5 strategy layup wedge play' },
+    bounce:   { label:'Bouncing back after a bad hole', yt:'golf mental game bounce back after bad hole' },
+    backnine: { label:'Finishing strong on the back nine', yt:'golf focus finishing strong back nine' },
+    trend:    { label:'Getting back on track', yt:'golf get out of a slump fundamentals' }
+  };
+}
+// Deterministic weakness pick from the analytics bundle -> {key, reason}
+function _coachFocus(bundle){
+  bundle = bundle || {};
+  const rates = bundle.rates||{}, parType = bundle.parType||{}, splits = bundle.splits||{}, trend = bundle.trend;
+  const cands = [];
+  if(rates.blowUp!=null) cands.push({ key:'blowup', sev:(rates.blowUp-10), reason:rates.blowUp+"% of holes are double bogey or worse" });
+  [['par3','p3','Par 3'],['par4','p4','Par 4'],['par5','p5','Par 5']].forEach(function(r){
+    const d=parType[r[1]]||{}; if(d.avg!=null && (d.n||0)>=3) cands.push({ key:r[0], sev:(d.avg-0.6)*8, reason:r[2]+"s average "+(d.avg>0?'+'+d.avg:d.avg)+" vs par" });
+  });
+  if(rates.bounceBack!=null) cands.push({ key:'bounce', sev:(25-rates.bounceBack)*0.5, reason:"bounce-back rate is "+rates.bounceBack+"%" });
+  if(splits.front!=null && splits.back!=null && splits.back>splits.front) cands.push({ key:'backnine', sev:(splits.back-splits.front)*3, reason:"back nine averages "+(splits.back-splits.front).toFixed(1)+" strokes worse than the front" });
+  if(trend!=null && trend>0) cands.push({ key:'trend', sev:trend*3, reason:"recent rounds are trending "+trend+" vs par worse than earlier" });
+  cands.sort(function(a,b){ return b.sev-a.sev; });
+  return cands.length ? cands[0] : { key:'blowup', sev:0, reason:"not much data yet — start with avoiding the big numbers" };
+}
+function _coachYtLink(areaKey){
+  const a = _coachAreas()[areaKey] || _coachAreas().blowup;
+  return 'https://www.youtube.com/results?search_query='+encodeURIComponent(a.yt);
+}
+function _coachCard(bundle, source){
+  const auto = _coachFocus(bundle);
+  const areas = _coachAreas();
+  const activeKey = (_coachOverride && areas[_coachOverride]) ? _coachOverride : auto.key;
+  const activeArea = areas[activeKey] || areas.blowup;
+  const cached = window._coachCache[source+'|'+activeKey+'|'+_coachPersona];
+  const pBtns = Object.keys(_COACH_PERSONAS).map(function(k){
+    const on = _coachPersona===k;
+    return '<button onclick="window._real_coachSetPersona(\''+k+'\')" style="border:none;cursor:pointer;font-family:inherit;font-size:0.72rem;font-weight:700;padding:5px 11px;border-radius:13px;'+(on?'background:var(--forest-mid);color:#fff;':'background:rgba(0,0,0,0.06);color:#5b6b5e;')+'">'+_COACH_PERSONAS[k].label+'</button>';
+  }).join('');
+  const opts = Object.keys(areas).map(function(k){
+    return '<option value="'+k+'"'+((k===activeKey)?' selected':'')+'>'+areas[k].label+((k===auto.key)?' \u2605':'')+'</option>';
+  }).join('');
+  const tipInner = cached
+    ? '<div style="font-size:0.92rem;line-height:1.5;">'+esc(cached).replace(/\n\n+/g,'<br><br>').replace(/\n/g,'<br>')+'</div><a href="'+_coachYtLink(activeKey)+'" target="_blank" rel="noopener" style="display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:10px;margin-top:12px;border:1.5px solid var(--forest-mid);border-radius:11px;background:#fff;color:var(--forest-mid);font-size:0.86rem;font-weight:700;text-decoration:none;">\u25b6 Watch real tips on this</a><div style="font-size:0.68rem;color:var(--text-light);text-align:center;margin-top:8px;">AI coach in the '+esc(_COACH_PERSONAS[_coachPersona].label.toLowerCase())+"'s voice \u00b7 video is real instruction from YouTube</div>"
+    : '<button class="btn btn-gold btn-full" onclick="window._real_coachTip()">\ud83d\udca1 Get a Coach\u2019s Tip</button>';
+  return '<div class="card" style="border:1.5px solid var(--gold);margin-bottom:1.5rem;">'
+    + '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;flex-wrap:wrap;"><span style="font-weight:800;color:var(--forest-mid);font-size:1.02rem;">\ud83c\udf99\ufe0f Your Coach</span><span style="display:inline-flex;background:rgba(0,0,0,0.06);border-radius:16px;padding:3px;gap:2px;">'+pBtns+'</span></div>'
+    + '<div style="background:rgba(224,30,30,0.08);border-left:3px solid #e01e1e;border-radius:6px;padding:8px 10px;font-size:0.82rem;margin-bottom:10px;"><b style="color:#c0392b;">Focus:</b> '+esc(activeArea.label)+' \u2014 '+esc(auto.reason)+'</div>'
+    + '<div class="fg" style="margin-bottom:12px;"><label style="font-size:0.72rem;color:var(--text-light);">Work on (\u2605 = suggested)</label><select onchange="window._real_coachSetArea(this.value)">'+opts+'</select></div>'
+    + '<div id="coach-tip-slot">'+tipInner+'</div></div>';
+}
+function _coachRerender(){ renderStatsPanels(); }
+window._real_coachSetPersona = function(k){ if(_COACH_PERSONAS[k]){ _coachPersona=k; _coachRerender(); } };
+window._real_coachSetArea = function(k){ _coachOverride = k; _coachRerender(); };
+window._real_coachTip = async function(){
+  const slot = document.getElementById('coach-tip-slot'); if(!slot) return;
+  const bundle = (_hAnalytics && (_hAnalytics[_hSource]||_hAnalytics.casual)) || {};
+  const auto = _coachFocus(bundle);
+  const areas = _coachAreas();
+  const activeKey = (_coachOverride && areas[_coachOverride]) ? _coachOverride : auto.key;
+  const activeArea = areas[activeKey] || areas.blowup;
+  const persona = _COACH_PERSONAS[_coachPersona] || _COACH_PERSONAS.pro;
+  slot.innerHTML = '<div class="loading"><div class="spinner"></div><p>Getting your tip\u2026</p></div>';
+  const rates = bundle.rates||{}, parType = bundle.parType||{}, splits = bundle.splits||{};
+  const facts = [];
+  if(rates.parOrBetter!=null) facts.push('par-or-better '+rates.parOrBetter+'%');
+  if(rates.blowUp!=null) facts.push('blow-ups '+rates.blowUp+'%');
+  if(rates.bounceBack!=null) facts.push('bounce-back '+rates.bounceBack+'%');
+  [['p3','par 3'],['p4','par 4'],['p5','par 5']].forEach(function(r){ const d=parType[r[0]]||{}; if(d.avg!=null) facts.push(r[1]+' avg '+(d.avg>0?'+'+d.avg:d.avg)+' vs par'); });
+  if(splits.front!=null && splits.back!=null) facts.push('front nine '+splits.front+' / back nine '+splits.back+' vs par');
+  const prompt = "You are "+persona.role+"\n\nGive ONE short coaching tip to a recreational golfer, in a confident, vivid broadcast-quality voice — never generic, never cheesy.\n\nFocus area: "+activeArea.label+".\nWhy it's the focus: "+auto.reason+".\nThe player's numbers: "+(facts.join('; ')||'limited data')+".\n\nWrite 2-3 tight sentences of specific, genuinely useful advice for THIS focus area, staying in your persona's lane. Do not invent stats beyond those given. Do not quote or impersonate any real, named person. No hashtags, no sign-off.";
+  const fail = function(msg){ const s=document.getElementById('coach-tip-slot'); if(s) s.innerHTML='<p style="font-size:0.85rem;color:rgba(0,0,0,0.6);margin:0 0 12px;">'+msg+'</p><button class="btn btn-gold btn-full" onclick="window._real_coachTip()">\ud83d\udca1 Try Again</button>'; };
+  try{
+    const r = await fetch('/api/gemini', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ prompt: prompt }) });
+    const data = await r.json().catch(function(){ return {}; });
+    if(!r.ok || data.error){
+      const busy = r.status===429 || /RESOURCE_EXHAUSTED|quota|rate/i.test(JSON.stringify(data||{}));
+      fail(busy ? "The coach is busy — wait a minute and try again." : "Couldn't get a tip just now. Tap to try again.");
+      return;
+    }
+    const text = (data.text||'').trim();
+    if(!text){ fail("Couldn't get a tip just now. Tap to try again."); return; }
+    window._coachCache[_hSource+'|'+activeKey+'|'+_coachPersona] = text;
+    _coachRerender();
+  }catch(e){ fail("Couldn't get a tip just now. Tap to try again."); }
+};
+
 function renderStatsPanels(){
   const analyt = document.getElementById('stats-analytics');
   if(!analyt || !_hAnalytics) return;
   const bundle = _hAnalytics[_hSource] || _hAnalytics.casual || {};
-  analyt.innerHTML = skillPanelsHTML(bundle, _hSource);
+  analyt.innerHTML = (bundle.totalHoles ? _coachCard(bundle, _hSource) : '') + skillPanelsHTML(bundle, _hSource);
 }
 function setStatsSource(src){ if(src!=='casual' && src!=='tournament') return; _hSource = src; renderStatsToggle(); renderStatsPanels(); }
 window._real_setStatsSource = setStatsSource;
@@ -5345,7 +5445,7 @@ window._real_navCasual = function(btn) {
 };
 
 // Build/version stamp — confirms which version is actually running (catches stale cache)
-var APP_BUILD = '2026.08.19 · recap-voice';
+var APP_BUILD = '2026.08.19 · coach-a';
 console.log('%cMorks Golf Tour build: ' + APP_BUILD, 'color:#c9a227;font-weight:bold;font-size:14px;');
 try {
   var _bt = document.createElement('div');
