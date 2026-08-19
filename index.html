@@ -1126,7 +1126,7 @@ window._real_lbGenRecap = async function(){
   const ranked = rankGross(scores, t);
   const lines = ranked.map((s,i)=>`${i+1}. ${s.name} ${s.gross} (${s.holesPlayed} holes)`).join('\n');
   const par = (t && t.par) || 72;
-  const prompt = `You're writing a short, fun recap for a recreational golf group's tournament.\nTournament: ${t&&t.name?t.name:'the tournament'} at ${t&&t.course?t.course:'the course'}, Par ${par}.\nFinal gross results, low to high:\n${lines}\nWrite 2-3 short, warm, playful paragraphs — who came out on top, how it shaped up, and a light sign-off. Base everything only on the results above; do not invent specific holes, shots, or stats that aren't listed.`;
+  const prompt = `You're the voice of a recreational golf group's tournament recap — write like a marquee sports broadcast. Fuse two traditions: the gravitas, warmth, and sense of occasion of a legendary lead golf announcer (the measured, elegant Jim Nantz register), and the swagger, wordplay, and highlight-reel energy of SportsCenter's golden-age anchors — the smooth authority of a Dan Patrick, the inventive flair of a Stuart Scott, the unbridled enthusiasm of a Rich Eisen, the deadpan wit of a Kenny Mayne. Authoritative, theatrical, genuinely thrilling — never cheesy.\n\nTournament: ${t&&t.name?t.name:'the tournament'} at ${t&&t.course?t.course:'the course'}, Par ${par}.\nFinal gross results, low to high:\n${lines}\n\nGuidelines:\n- 2 tight paragraphs, ~100 words max. Every line earns its place.\n- Golf language leads — fairways, the back nine, closing it out, the walk up 18: golf drama and euphemisms are the core, and the SportsCenter pizzazz is the seasoning on top.\n- Open with drama pulled from the ACTUAL numbers — a commanding win, a one-stroke thriller, a battle down the card. Vary the opening every time; no fixed template, so no two recaps read alike.\n- Crown the winner with a sense of occasion and state the margin. Bring in another finish only if the numbers make it a story.\n- Borrow the energy and inventive wordplay of that anchor tradition; a light homage nod is fine, but keep every line your own — do not fabricate quotes from real announcers or claim any of them said or did anything. The voice is the tribute; the words are original.\n- Base everything ONLY on the results above. Invent nothing — no holes, shots, weather, or stats that aren't listed.`;
   try{
     const r = await fetch('/api/gemini', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ prompt: prompt }) });
     const data = await r.json().catch(function(){ return {}; });
@@ -5345,7 +5345,7 @@ window._real_navCasual = function(btn) {
 };
 
 // Build/version stamp — confirms which version is actually running (catches stale cache)
-var APP_BUILD = '2026.08.19 · ai-recap';
+var APP_BUILD = '2026.08.19 · recap-voice';
 console.log('%cMorks Golf Tour build: ' + APP_BUILD, 'color:#c9a227;font-weight:bold;font-size:14px;');
 try {
   var _bt = document.createElement('div');
