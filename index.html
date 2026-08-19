@@ -411,6 +411,19 @@ hr.div{border:none;border-top:1px solid var(--cream-dark);margin:1rem 0;}
 .gc-dlgbtns button{flex:1;padding:11px;border-radius:9px;border:none;font-weight:800;font-size:0.9rem;cursor:pointer;}
 .gc-dlgbtns .gc-ghost{background:var(--cream-dark);color:var(--forest);}
 .gc-dlgbtns .gc-danger{background:#c0392b;color:#fff;}
+.lbd-caret{display:inline-block;background:#00a6e0;color:#fff;font-weight:800;border-radius:6px;padding:1px 7px;margin-left:8px;font-size:0.82rem;line-height:1.3;vertical-align:middle;box-shadow:0 1px 2px rgba(0,0,0,0.25);}
+.lbd-tap{cursor:pointer;}
+.lbd-tap:active{filter:brightness(0.97);}
+.lbd-detail td{padding:0 6px 8px;background:var(--cream);}
+.lbd-math{padding:10px 4px;font-size:0.84rem;color:#1a1a1a;}
+.lbd-step{margin-bottom:5px;}
+.lbd-note{font-size:0.72rem;color:var(--text-mid);margin-top:4px;padding:0 4px 4px;}
+.gc-dcell.s36-2 .gc-dbot{background:rgba(46,158,63,0.30);}
+.gc-dcell.s36-1 .gc-dbot{background:rgba(160,160,160,0.35);}
+.gc-dcell.s36-0 .gc-dbot{background:rgba(192,57,43,0.24);}
+.gc-dcell.bp-count{border-color:#e6c34a;}
+.gc-dcell.bp-count .gc-dmid{background:rgba(245,208,96,0.32);}
+.bp-tag{color:#b8860b;font-weight:800;font-size:0.85em;}
 </style>
 </head>
 <body>
@@ -938,6 +951,7 @@ let currentUser = null, userProfile = null;
 let activeTournament = null, allTournaments = [], allPlayers = [];
 let scorecardData = {}; // holeNum -> score
 let currentLbTab = 'gross';
+let _lbExpanded = null;   // leaderboard: playerId whose proof-of-math drill is open
 let lbMode = 'tournament';
 let lbUnsubscribe = null;
 let gcUnsubscribe = null;
@@ -2064,7 +2078,7 @@ function populateLbSelect() {
 }
 
 function switchLbTab(tab, btn) {
-  currentLbTab=tab;
+  currentLbTab=tab; _lbExpanded=null;
   document.querySelectorAll('.lb-tab').forEach(b=>b.classList.remove('active'));
   if(btn) btn.classList.add('active');
   renderLeaderboardContent();
@@ -2078,7 +2092,7 @@ function setLbFormatTab(fmt){
   var map={stroke:'gross',gross:'gross',net:'net',hsi:'hsi',system36:'system36',peoria:'peoria'};
   var f=map[fmt]||'gross';
   var label={gross:'Gross',net:'Net',hsi:'HSI',system36:'System 36',peoria:'Blind Peoria'}[f]||'Gross';
-  currentLbTab=f;
+  currentLbTab=f; _lbExpanded=null;
   var cont=document.getElementById('lb-format-tabs');
   if(cont){
     cont.querySelectorAll('.lb-tab').forEach(function(b){
@@ -2443,6 +2457,71 @@ function _validSI(raw){
   return raw.map(Number);
 }
 
+// ===== Proof-of-math drill-downs (tournament leaderboard, tap a row) =====
+// Reuse the group-scorecard drill cell styling (.gc-*) so the look is consistent app-wide.
+function _caretChip(expanded){ return '<span class="lbd-caret'+(expanded?' open':'')+'">'+(expanded?'\u25be':'\u25b8')+'</span>'; }
+function _lbPars(){ return (window._lbTourney && window._lbTourney.holePars) || DEFAULT_PARS; }
+
+function _lbDrillNet(s, hc, par){
+  var hp=s.holesPlayed||18, strokes=Math.round((hp/18)*(hc||0)), net=s.gross-strokes;
+  return '<div class="gc-drill"><div class="lbd-math">'
+    +'<div class="lbd-step">Handicap <b>'+(hc||0)+'</b>'+(hp<18?(' \u00d7 '+hp+'/18 holes'):'')+' = <b>'+strokes+'</b> strokes</div>'
+    +'<div class="lbd-step">Net = Gross <b>'+s.gross+'</b> \u2212 <b>'+strokes+'</b> = <b>'+net+'</b></div>'
+    +'<div class="lbd-note">Net applies one flat handicap to the whole round (not allocated per hole).</div>'
+    +'</div></div>';
+}
+
+function _lbDrillHSI(s, si, hc){
+  var res=calcHSI(s.holes, si, hc);
+  if(!res) return '<div class="gc-drill"><div class="lbd-note">Stroke index unavailable for this course.</div></div>';
+  var pars=_lbPars(), cells='', run=0;
+  for(var hn=1;hn<=18;hn++){
+    var par=pars[hn-1]||4, rec=(s.holes||{})[hn];
+    if(rec&&typeof rec.score==='number'){
+      var recv=res.strokesByHole[hn]||0, nb=res.netByHole[hn]; run+=(nb-par);
+      var dots=recv>0?(recv>1?('\u25cf'+recv):'\u25cf'):'';
+      cells+='<div class="gc-dcell'+(recv>0?' gc-dstroke':'')+'"><div class="gc-dtop"><span class="gc-dh">'+hn+'</span></div><div class="gc-dmid">'+rec.score+(dots?'<span class="gc-ddot">'+dots+'</span>':'')+'</div><div class="gc-dbot"><span class="gc-dpar">'+par+'</span></div></div>';
+    } else {
+      cells+='<div class="gc-dcell gc-dempty"><div class="gc-dtop"><span class="gc-dh">'+hn+'</span></div><div class="gc-dmid">\u00b7</div><div class="gc-dbot"><span class="gc-dpar">'+par+'</span></div></div>';
+    }
+  }
+  var legend='<div class="gc-dlegend"><div class="gc-dsample gc-dcell"><div class="gc-dtop"><span class="gc-dh">hole</span></div><div class="gc-dmid">score</div><div class="gc-dbot"><span class="gc-dpar">par</span></div></div><span><span class="gc-ddot">\u25cf</span> = stroke hole</span></div>';
+  return '<div class="gc-drill"><div class="gc-dgrid">'+cells+'</div><div class="gc-drill-btm"><div class="gc-drill-ft">Net = Gross <b>'+res.gross+'</b> \u2212 <b>'+res.strokes+'</b> strokes = <b>'+res.net+'</b></div>'+legend+'</div></div>';
+}
+
+function _lbDrillS36(s){
+  var pars=_lbPars(), cells='', pts=0;
+  for(var hn=1;hn<=18;hn++){
+    var hp=pars[hn-1]||4, rec=(s.holes||{})[hn];
+    if(rec&&typeof rec.score==='number'){
+      var over=rec.score-hp, p=(over<=0)?2:(over===1?1:0); pts+=p;
+      var cls=(p===2)?' s36-2':(p===1?' s36-1':' s36-0');
+      cells+='<div class="gc-dcell'+cls+'"><div class="gc-dtop"><span class="gc-dh">'+hn+'</span></div><div class="gc-dmid">'+rec.score+'</div><div class="gc-dbot"><span class="gc-dpar">'+p+'</span></div></div>';
+    } else {
+      cells+='<div class="gc-dcell gc-dempty"><div class="gc-dtop"><span class="gc-dh">'+hn+'</span></div><div class="gc-dmid">\u00b7</div><div class="gc-dbot"><span class="gc-dpar">\u2013</span></div></div>';
+    }
+  }
+  var hcp=36-pts, net=s.gross-hcp;
+  var legend='<div class="gc-dlegend"><div class="gc-dsample gc-dcell"><div class="gc-dtop"><span class="gc-dh">hole</span></div><div class="gc-dmid">score</div><div class="gc-dbot"><span class="gc-dpar">pts</span></div></div><span>par+ = 2 \u00b7 bogey = 1 \u00b7 dbl+ = 0</span></div>';
+  return '<div class="gc-drill"><div class="gc-dgrid">'+cells+'</div><div class="gc-drill-btm"><div class="gc-drill-ft"><b>'+pts+'</b> pts \u2192 hcp 36\u2212'+pts+' = <b>'+hcp+'</b> \u2192 Net '+s.gross+'\u2212'+hcp+' = <b>'+net+'</b></div>'+legend+'</div></div>';
+}
+
+function _lbDrillPeoria(s, bpHoles, par){
+  if(!bpHoles||bpHoles.length!==6) return '<div class="gc-drill"><div class="lbd-note">Counting holes not drawn yet.</div></div>';
+  var pars=_lbPars(), cells='', sum=0;
+  for(var hn=1;hn<=18;hn++){
+    var hp=pars[hn-1]||4, rec=(s.holes||{})[hn], isBP=bpHoles.indexOf(hn)>=0;
+    var sc=(rec&&typeof rec.score==='number')?rec.score:null;
+    if(isBP && sc!=null) sum+=sc;
+    cells+='<div class="gc-dcell'+(isBP?' bp-count':'')+(sc==null?' gc-dempty':'')+'"><div class="gc-dtop"><span class="gc-dh">'+hn+(isBP?' <b class="bp-tag">BP</b>':'')+'</span></div><div class="gc-dmid">'+(sc!=null?sc:'\u00b7')+'</div><div class="gc-dbot"><span class="gc-dpar">'+hp+'</span></div></div>';
+  }
+  var proj=sum*3, hcpRaw=proj-par, hcp=Math.min(Math.max(Math.round(hcpRaw*0.8),0),36), net=s.gross-hcp;
+  var legend='<div class="gc-dlegend"><span><b class="bp-tag">BP</b> = one of the 6 counting holes</span></div>';
+  return '<div class="gc-drill"><div class="gc-dgrid">'+cells+'</div><div class="gc-drill-btm"><div class="gc-drill-ft">6 holes = <b>'+sum+'</b> \u00d73 = <b>'+proj+'</b> \u2212 par '+par+' = '+hcpRaw+' \u00d70.8 = hcp <b>'+hcp+'</b> \u2192 Net '+s.gross+'\u2212'+hcp+' = <b>'+net+'</b></div>'+legend+'</div></div>';
+}
+
+window._real_lbToggleDrill=function(pid){ _lbExpanded=(_lbExpanded===pid)?null:pid; renderLeaderboardContent(); };
+
 function renderLeaderboardContent() {
   const scores=window._lbScores||[];
   const t=window._lbTourney||activeTournament;
@@ -2462,7 +2541,7 @@ function renderLeaderboardContent() {
       .map(s=>{ const _rh=window._resHcpCache&&window._resHcpCache[s.playerId]; const _hc=_rh?_rh.value:0; return {...s, _hc:_hc, net:s.gross-Math.round((s.holesPlayed/18)*_hc)}; })
       .sort((a,b)=>a.net-b.net);
     rows=ranked.map((s,i)=>({
-      rank:i+1, name:s.name, cols:`<td class="c">${s.gross}</td><td class="c">${s._hc}</td><td class="c bold">${s.net}</td>`, leader:i===0
+      rank:i+1, name:s.name, cols:`<td class="c">${s.gross}</td><td class="c">${s._hc}</td><td class="c bold">${s.net}</td>`, leader:i===0, playerId:s.playerId, drill:(_lbExpanded===s.playerId?_lbDrillNet(s,s._hc,par):'')
     }));
   } else if(currentLbTab==='system36'){
     headers=`<th class="c">#</th><th>Player</th><th class="c">Gross</th><th class="c">Pts</th><th class="c">Net</th>`;
@@ -2470,7 +2549,7 @@ function renderLeaderboardContent() {
       .map(s=>{ const r=calcSystem36(s.holes); return {...s, s36pts:r.pts, s36net:s.gross-r.hcp}; })
       .sort((a,b)=>a.s36net-b.s36net);
     rows=ranked.map((s,i)=>({
-      rank:i+1, name:s.name, cols:`<td class="c">${s.gross}</td><td class="c">${s.s36pts}</td><td class="c bold">${s.s36net}</td>`, leader:i===0
+      rank:i+1, name:s.name, cols:`<td class="c">${s.gross}</td><td class="c">${s.s36pts}</td><td class="c bold">${s.s36net}</td>`, leader:i===0, playerId:s.playerId, drill:(_lbExpanded===s.playerId?_lbDrillS36(s):'')
     }));
     if(!rows.length){ el.innerHTML=`<div class="empty"><div class="ei">⏳</div><p>System 36 requires all 18 holes.</p></div>`; return; }
   } else if(currentLbTab==='peoria'){
@@ -2482,7 +2561,7 @@ function renderLeaderboardContent() {
     }).sort((a,b)=>a.peoriaNet-b.peoriaNet);
     headers=`<th class="c">#</th><th>Player</th><th class="c">Gross</th><th class="c">Peoria HCP</th><th class="c">Net</th>`;
     rows=ranked.map((s,i)=>({
-      rank:i+1, name:s.name, cols:`<td class="c">${s.gross}</td><td class="c">${s.peoriaHcp}</td><td class="c bold">${s.peoriaNet}</td>`, leader:i===0
+      rank:i+1, name:s.name, cols:`<td class="c">${s.gross}</td><td class="c">${s.peoriaHcp}</td><td class="c bold">${s.peoriaNet}</td>`, leader:i===0, playerId:s.playerId, drill:(_lbExpanded===s.playerId?_lbDrillPeoria(s,selectedHoles,par):'')
     }));
     if(!rows.length){ el.innerHTML=`<div class="empty"><div class="ei">⏳</div><p>Blind Peoria requires all 18 holes.</p></div>`; return; }
   } else if(currentLbTab==='hsi'){
@@ -2513,16 +2592,16 @@ function renderLeaderboardContent() {
       .filter(s=>s.hsiNet!=null)
       .sort((a,b)=>a.hsiNet-b.hsiNet);
     rows=ranked.map((s,i)=>({
-      rank:i+1, name:s.name, cols:`<td class="c">${s.gross}</td><td class="c">${s.hsiStrokes}</td><td class="c bold">${s.hsiNet}</td>`, leader:i===0
+      rank:i+1, name:s.name, cols:`<td class="c">${s.gross}</td><td class="c">${s.hsiStrokes}</td><td class="c bold">${s.hsiNet}</td>`, leader:i===0, playerId:s.playerId, drill:(_lbExpanded===s.playerId?_lbDrillHSI(s,holeHcp,_hc):'')
     }));
     if(!rows.length){ el.innerHTML=`<div class="empty"><div class="ei">⏳</div><p>HSI requires all 18 holes.</p></div>`; return; }
   }
 
   el.innerHTML=`<div class="lb-table-wrap"><table>
     <thead><tr>${headers}</tr></thead>
-    <tbody>${rows.map(r=>`<tr class="${r.leader?'leader':''}">
+    <tbody>${rows.map(r=>`<tr class="${r.leader?'leader':''}${r.playerId?' lbd-tap':''}"${r.playerId?` onclick="window._real_lbToggleDrill('${escJs(r.playerId)}')"`:''}>
       <td class="c"><span class="badge ${badgeClass(r.rank)}">${r.rank}</span></td>
-      <td class="pname">${avatarHtml(r.name,26)}${esc(r.name)}</td>${r.cols}</tr>`).join('')}
+      <td class="pname">${avatarHtml(r.name,26)}${esc(r.name)}${r.playerId?_caretChip(_lbExpanded===r.playerId):''}</td>${r.cols}</tr>${r.drill?`<tr class="lbd-detail"><td colspan="5">${r.drill}</td></tr>`:''}`).join('')}
     </tbody></table></div>`;
   if(currentLbTab==='peoria' && Array.isArray(t?.peoriaHoles) && t.peoriaHoles.length===6){
     const _bpHoles=[...t.peoriaHoles].sort(function(a,b){return a-b;}).join(', ');
@@ -3864,6 +3943,7 @@ var _plWinsExpanded = false;   // compare view: Wins row expanded to per-format 
 function _plWinsByFormat(pid){
   var b={gross:0,net:0,hsi:0,system36:0,peoria:0};
   (allTournaments||[]).forEach(function(t){
+    if(t.status!=='completed' && t.status!=='locked') return;
     (t.results||[]).forEach(function(r){
       if(r && r.playerId===pid && r.rank===1){
         var f=(r.format||t.format||'stroke'); if(f==='stroke') f='gross';
@@ -3957,7 +4037,8 @@ function renderPlayersList(){
       + '<td ' + click + '><div style="display:flex;align-items:center;">' + avatarHtml(p,28) + '<div>'
       + '<div class="pr-name">' + esc(plName(p)) + (isMe?' <span class="chip chip-gold" style="font-size:0.6rem;">YOU</span>':'') + '</div>'
       + '<div class="pr-email">' + (p.role==='admin'?'<span class="chip chip-red" style="font-size:0.6rem;">admin</span> ':'') + 'HCP ' + plVal(st.hcp) + '</div></div></div></td>'
-      + '<td class="c" ' + click + '>' + plVal(st.rounds) + '</td>'
+      + '<td class="c" ' + click + '>' + plVal(st.casualRounds) + '</td>'
+      + '<td class="c" ' + click + '>' + plVal(_plTourneyRounds(p.id)) + '</td>'
       + '<td class="c bold" ' + click + '>' + plVal(st.avgGross) + '</td>'
       + '<td class="c" ' + click + '>' + plVal(st.wins) + '</td></tr>';
   }).join('');
@@ -3967,7 +4048,7 @@ function renderPlayersList(){
       + '<div style="font-size:0.82rem;color:var(--text-light);">Select up to 4 to compare \u00b7 <b style="color:var(--forest);">' + _plCompare.length + '/4</b></div>'
       + '<button class="btn btn-gold btn-sm"' + (canCompare?'':' disabled style="opacity:0.45;"') + ' onclick="window._real_plCompareView()">\u2696\ufe0f Compare</button>'
     + '</div>'
-    + '<div class="lb-table-wrap pl-tight"><table><thead><tr><th></th><th>Player</th><th class="c">Rounds</th><th class="c">Avg</th><th class="c">Wins</th></tr></thead><tbody>'
+    + '<div class="lb-table-wrap pl-tight"><table><thead><tr><th></th><th>Player</th><th class="c">Casual</th><th class="c">Tourn</th><th class="c">Avg</th><th class="c">Wins</th></tr></thead><tbody>'
       + (rows || '<tr><td colspan="5" style="text-align:center;padding:1rem;color:var(--text-light);">No players yet.</td></tr>')
     + '</tbody></table></div>'
     + '<div class="section-sub" style="margin-top:0.6rem;">Tap a player for full stats. Averages come from each player\u2019s recorded rounds.</div>';
@@ -4050,7 +4131,7 @@ function plCompareView(){
       return '<td class="c' + (isBest?' bold':'') + '"' + (isBest?' style="color:var(--forest);background:rgba(201,162,39,0.16);"':'') + '>' + disp + '</td>';
     }).join('');
     if(key==='wins'){
-      var caret = '<span style="display:inline-block;background:rgba(0,180,240,0.18);color:#0092c8;font-weight:800;border-radius:5px;padding:0 6px;margin-left:6px;font-size:0.72rem;">'+(_plWinsExpanded?'\u25be':'\u25b8')+'</span>';
+      var caret = _caretChip(_plWinsExpanded);
       var winsRow = header + '<tr onclick="window._real_plToggleWins()" style="cursor:pointer;"><td>' + m[0] + caret + '</td>' + cells + '</tr>';
       if(_plWinsExpanded){
         var FORDER=[['gross','Gross'],['net','Net'],['hsi','HSI'],['system36','System 36'],['peoria','Blind Peoria']];
@@ -5211,7 +5292,7 @@ window._real_navCasual = function(btn) {
 };
 
 // Build/version stamp — confirms which version is actually running (catches stale cache)
-var APP_BUILD = '2026.08.18 · compare-tourney-rounds';
+var APP_BUILD = '2026.08.18 · proof-drilldowns';
 console.log('%cMorks Golf Tour build: ' + APP_BUILD, 'color:#c9a227;font-weight:bold;font-size:14px;');
 try {
   var _bt = document.createElement('div');
