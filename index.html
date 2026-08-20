@@ -1112,9 +1112,53 @@ function _lbRecapRetry(msg){
 function _lbRecapCard(){
   const t = window._lbTourney || activeTournament;
   const tid = (t && t.id) ? t.id : '_';
-  const cached = window._lbRecapCache[tid];
+  const cached = window._lbRecapCache[tid] || (t && t.aiRecap && t.aiRecap.text) || null;
   const inner = cached ? _lbRecapFilled(cached) : `<p style="font-size:0.85rem;color:rgba(0,0,0,0.6);margin:0 0 12px;">Get an AI-written recap of how this one played out — based on the results so far.</p><button class="btn btn-gold btn-full" onclick="window._real_lbGenRecap()">✨ Generate Recap</button>`;
   return `<div class="card" style="border:1.5px solid var(--gold);"><div style="font-weight:700;color:var(--forest-mid);margin-bottom:8px;">✨ Tournament Recap</div><div id="lb-recap-slot">${inner}</div></div>`;
+}
+// Moments engine: turn a player's per-hole map into a short list of NOTABLE holes only
+// (eagles/birdies and doubles/blow-ups) for the recap prompt. Pars and bogeys are omitted to
+// keep the prompt small. Every entry is a TRUE hole from holeScores — the recap may cite these
+// and only these; it never invents shots. Each hole doc carries its own .par and .score.
+function _lbNotableHoles(holes){
+  const out=[];
+  Object.keys(holes||{}).map(Number).sort(function(a,b){return a-b;}).forEach(function(hn){
+    const h=holes[hn];
+    if(!h || typeof h.score!=='number' || h.score<=0 || typeof h.par!=='number') return;
+    const over=h.score-h.par;
+    let label=null;
+    if(over<=-3) label='albatross';
+    else if(over===-2) label='eagle';
+    else if(over===-1) label='birdie';
+    else if(over===2) label='double bogey';
+    else if(over>=3) label='blow-up (+'+over+')';
+    if(label) out.push(label+' on '+hn);
+  });
+  return out.join(', ');
+}
+// Single source of truth for the recap prompt — used by BOTH the manual button
+// (_real_lbGenRecap) and the finalize auto-trigger, so the house broadcast voice and the
+// no-invention guardrail can never drift between the two paths. Ranks by gross (the recap is a
+// gross-based narrative regardless of the tournament's scoring format), then appends each
+// player's real notable holes so the AI can cite true moments without fabricating any.
+function _lbBuildRecapPrompt(t, scores){
+  const ranked = rankGross(scores, t);
+  const par = (t && t.par) || 72;
+  const lines = ranked.map(function(s,i){
+    const notable=_lbNotableHoles(s.holes);
+    return (i+1)+'. '+s.name+' '+s.gross+' ('+s.holesPlayed+' holes)'+(notable?' — '+notable:'');
+  }).join('\n');
+  return "You're the voice of a recreational golf group's tournament recap — write like a marquee sports broadcast. Fuse two traditions: the gravitas, warmth, and sense of occasion of a legendary lead golf announcer (the measured, elegant Jim Nantz register), and the swagger, wordplay, and highlight-reel energy of SportsCenter's golden-age anchors — the smooth authority of a Dan Patrick, the inventive flair of a Stuart Scott, the unbridled enthusiasm of a Rich Eisen, the deadpan wit of a Kenny Mayne. Authoritative, theatrical, genuinely thrilling — never cheesy.\n\n"
+    + "Tournament: "+(t&&t.name?t.name:'the tournament')+" at "+(t&&t.course?t.course:'the course')+", Par "+par+".\n"
+    + "Final gross results, low to high. Any notable holes after the dash are REAL — birdies/eagles and doubles/blow-ups drawn straight from the card:\n"+lines+"\n\n"
+    + "Guidelines:\n"
+    + "- 2 tight paragraphs, ~110 words max. Every line earns its place.\n"
+    + "- Golf language leads — fairways, the back nine, closing it out, the walk up 18: golf drama and euphemisms are the core, and the SportsCenter pizzazz is the seasoning on top.\n"
+    + "- Open with drama pulled from the ACTUAL numbers — a commanding win, a one-stroke thriller, a battle down the card. Vary the opening every time; no fixed template, so no two recaps read alike.\n"
+    + "- Crown the winner with a sense of occasion and state the margin. Bring in another finish only if the numbers make it a story.\n"
+    + "- You MAY cite the notable holes listed above by name (e.g. a birdie on 7, a blow-up on the 12th) when they sharpen the story — but ONLY those exact holes. Invent no other holes, shots, weather, or stats.\n"
+    + "- Borrow the energy and inventive wordplay of that anchor tradition; a light homage nod is fine, but keep every line your own — do not fabricate quotes from real announcers or claim any of them said or did anything. The voice is the tribute; the words are original.\n"
+    + "- Base everything ONLY on the data above. Invent nothing beyond what's listed.";
 }
 window._real_lbGenRecap = async function(){
   const t = window._lbTourney || activeTournament;
@@ -1123,10 +1167,7 @@ window._real_lbGenRecap = async function(){
   if(!slot) return;
   if(!scores.length){ slot.innerHTML = `<p style="font-size:0.85rem;color:rgba(0,0,0,0.6);">No scores yet to recap.</p>`; return; }
   slot.innerHTML = `<div class="loading"><div class="spinner"></div><p>Writing the recap…</p></div>`;
-  const ranked = rankGross(scores, t);
-  const lines = ranked.map((s,i)=>`${i+1}. ${s.name} ${s.gross} (${s.holesPlayed} holes)`).join('\n');
-  const par = (t && t.par) || 72;
-  const prompt = `You're the voice of a recreational golf group's tournament recap — write like a marquee sports broadcast. Fuse two traditions: the gravitas, warmth, and sense of occasion of a legendary lead golf announcer (the measured, elegant Jim Nantz register), and the swagger, wordplay, and highlight-reel energy of SportsCenter's golden-age anchors — the smooth authority of a Dan Patrick, the inventive flair of a Stuart Scott, the unbridled enthusiasm of a Rich Eisen, the deadpan wit of a Kenny Mayne. Authoritative, theatrical, genuinely thrilling — never cheesy.\n\nTournament: ${t&&t.name?t.name:'the tournament'} at ${t&&t.course?t.course:'the course'}, Par ${par}.\nFinal gross results, low to high:\n${lines}\n\nGuidelines:\n- 2 tight paragraphs, ~100 words max. Every line earns its place.\n- Golf language leads — fairways, the back nine, closing it out, the walk up 18: golf drama and euphemisms are the core, and the SportsCenter pizzazz is the seasoning on top.\n- Open with drama pulled from the ACTUAL numbers — a commanding win, a one-stroke thriller, a battle down the card. Vary the opening every time; no fixed template, so no two recaps read alike.\n- Crown the winner with a sense of occasion and state the margin. Bring in another finish only if the numbers make it a story.\n- Borrow the energy and inventive wordplay of that anchor tradition; a light homage nod is fine, but keep every line your own — do not fabricate quotes from real announcers or claim any of them said or did anything. The voice is the tribute; the words are original.\n- Base everything ONLY on the results above. Invent nothing — no holes, shots, weather, or stats that aren't listed.`;
+  const prompt = _lbBuildRecapPrompt(t, scores);
   try{
     const r = await fetch('/api/gemini', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ prompt: prompt }) });
     const data = await r.json().catch(function(){ return {}; });
@@ -3438,6 +3479,18 @@ async function finalizeTournament(t, targetStatus){
     try { await recomputePlayerStatsFor(r.playerId); }
     catch(e){ console.error('stat recompute failed for', r.playerId, e); }
   }
+  // Auto-recap (best-effort, LAST). The lock/results/stats above are already committed and can
+  // never be rolled back by anything here. Generate the moments-aware recap ONCE and cache it on
+  // the tournament doc (aiRecap), so every viewer sees the same recap with no per-viewer AI call.
+  // Same admin updateDoc path as the status/results write above, so it is permission-safe. On any
+  // failure (rate limit, network) we skip silently — the manual Generate Recap button covers it.
+  try {
+    const _recapPrompt = _lbBuildRecapPrompt(t, scores);
+    const _rr = await fetch('/api/gemini', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ prompt: _recapPrompt }) });
+    const _rd = await _rr.json().catch(function(){ return {}; });
+    const _rtext = (_rr.ok && !_rd.error) ? (_rd.text||'').trim() : '';
+    if(_rtext){ await updateDoc(doc(db,'tournaments',t.id), { aiRecap: { text: _rtext, generatedAt: new Date().toISOString() } }); }
+  } catch(e){ console.error('auto-recap skipped (finalize continues normally)', e); }
   return true;
 }
 
@@ -5477,7 +5530,7 @@ window._real_navCasual = function(btn) {
 };
 
 // Build/version stamp — confirms which version is actually running (catches stale cache)
-var APP_BUILD = '2026.08.19 · recap-gate';
+var APP_BUILD = '2026.08.20 · recap-moments';
 console.log('%cMorks Golf Tour build: ' + APP_BUILD, 'color:#c9a227;font-weight:bold;font-size:14px;');
 try {
   var _bt = document.createElement('div');
