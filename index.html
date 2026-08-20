@@ -2661,7 +2661,7 @@ function renderLeaderboardContent() {
   }
   // Shared hole-by-hole scorecard below the standings (raw gross scores; format-agnostic —
   // format-aware stroke/points indicators come with the drill-down build).
-  el.insertAdjacentHTML('beforeend', _lbRecapCard());
+  if(t && (t.status==='completed' || t.status==='locked')) el.insertAdjacentHTML('beforeend', _lbRecapCard()); // recap only on finalized tournaments: hidden mid-round, shown in History
   el.insertAdjacentHTML('beforeend', renderHoleByHole(t, rankGross(scores, t), currentLbTab));
 }
 
@@ -5477,7 +5477,7 @@ window._real_navCasual = function(btn) {
 };
 
 // Build/version stamp — confirms which version is actually running (catches stale cache)
-var APP_BUILD = '2026.08.19 · coach-continuity';
+var APP_BUILD = '2026.08.19 · recap-gate';
 console.log('%cMorks Golf Tour build: ' + APP_BUILD, 'color:#c9a227;font-weight:bold;font-size:14px;');
 try {
   var _bt = document.createElement('div');
