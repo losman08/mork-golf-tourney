@@ -425,6 +425,33 @@ hr.div{border:none;border-top:1px solid var(--cream-dark);margin:1rem 0;}
 .gc-dcell.bp-count{border-color:#e6c34a;}
 .gc-dcell.bp-count .gc-dmid{background:rgba(245,208,96,0.32);}
 .bp-tag{color:#b8860b;font-weight:800;font-size:0.85em;}
+/* ── scoring-format-guide ── */
+.fg-item{border:1px solid var(--cream-dark);border-radius:11px;margin-bottom:9px;overflow:hidden;background:#fff;}
+.fg-head{display:flex;align-items:center;gap:9px;padding:11px 13px;cursor:pointer;}
+.fg-badge{font-size:1.1rem;line-height:1;}
+.fg-name{font-weight:700;color:var(--forest);font-size:0.9rem;}
+.fg-one{font-size:0.75rem;color:#5a5a50;margin-top:1px;}
+.fg-car{margin-left:auto;color:var(--info);font-size:0.7rem;font-weight:700;background:rgba(41,128,185,0.1);border:1px solid rgba(41,128,185,0.35);border-radius:999px;padding:2px 9px;white-space:nowrap;}
+.fg-body{display:none;padding:0 13px 13px;font-size:0.8rem;line-height:1.55;color:#33332e;}
+.fg-item.open .fg-body{display:block;}
+.fg-item.open .fg-car{background:var(--info);color:#fff;}
+.fg-formula{margin-top:7px;background:var(--gold-pale);border:1px solid var(--cream-dark);border-radius:8px;padding:7px 10px;font-size:0.74rem;color:#4a4030;}
+.fg-formula code{font-family:ui-monospace,monospace;color:var(--forest);font-weight:600;}
+.fg-demo{margin-top:1rem;background:var(--forest-mid);border-radius:12px;padding:13px;}
+.fg-demo h4{font-family:'Playfair Display',serif;color:var(--gold);font-size:0.98rem;margin-bottom:3px;}
+.fg-demo .ds{font-size:0.76rem;color:var(--cream);opacity:0.9;margin-bottom:10px;line-height:1.5;}
+.fg-roster{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;}
+.fg-rchip{background:rgba(245,240,232,0.12);color:var(--cream);border-radius:8px;padding:4px 9px;font-size:0.7rem;}
+.fg-rchip b{color:var(--gold-light);}
+.fg-table{width:100%;border-collapse:collapse;font-size:0.77rem;background:var(--cream);border-radius:10px;overflow:hidden;}
+.fg-table th,.fg-table td{padding:7px 5px;text-align:center;border-bottom:1px solid var(--cream-dark);}
+.fg-table thead th{background:var(--forest);color:var(--cream);font-weight:600;font-size:0.72rem;}
+.fg-table td.fc{text-align:left;font-weight:700;color:var(--forest);white-space:nowrap;}
+.fg-table .win{background:rgba(245,208,96,0.55);color:var(--forest);font-weight:800;}
+.fg-why{font-size:0.72rem;line-height:1.5;color:#eee7d8;margin-top:9px;}
+.fg-why .r{padding:5px 0;border-top:1px solid rgba(245,240,232,0.14);}
+.fg-why b{color:var(--gold-light);}
+.fg-foot{font-size:0.68rem;color:#5a5a50;margin-top:0.7rem;line-height:1.5;}
 </style>
 </head>
 <body>
@@ -546,6 +573,7 @@ hr.div{border:none;border-top:1px solid var(--cream-dark);margin:1rem 0;}
         <button class="lb-tab" data-fmt="system36" onclick="window._real_switchLbTab('system36',this)">System 36</button>
         <button class="lb-tab" data-fmt="peoria" onclick="window._real_switchLbTab('peoria',this)">Blind Peoria</button>
       </div>
+      <div style="padding:3px 1rem 0;"><button onclick="window._real_openModal('modal-format-guide')" style="background:transparent;border:none;color:var(--gold);font-size:0.74rem;font-weight:600;font-family:'Inter',sans-serif;cursor:pointer;padding:2px 0;text-decoration:underline;text-underline-offset:2px;">&#9432; How scoring works</button></div>
       <div class="lb-format-note" id="lb-format-note"></div>
       <div class="pad" style="padding-top:0.8rem;">
         <div id="lb-admin-actions" style="margin-bottom:0.6rem;"></div>
@@ -819,6 +847,54 @@ hr.div{border:none;border-top:1px solid var(--cream-dark);margin:1rem 0;}
     <div id="si-body" style="font-size:0.9rem;color:var(--text-mid);line-height:1.55;"></div>
     <div class="modal-footer">
       <button class="btn btn-forest" onclick="window._real_closeModal('modal-stat-info')">Got it</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="modal-format-guide">
+  <div class="modal" style="max-width:520px;">
+    <div class="modal-header"><h3>📖 How Scoring Works</h3><button class="modal-close-btn" onclick="closeModal('modal-format-guide')">✕</button></div>
+    <div style="font-size:0.85rem;line-height:1.55;color:var(--text-mid);margin-bottom:1rem;">The <b>same round</b> can crown a <b>different winner</b> depending on the format the tournament uses. Here's each one in plain English — tap to expand.</div>
+
+    <div class="fg-item"><div class="fg-head" onclick="this.parentNode.classList.toggle('open')"><span class="fg-badge">⛳</span><div><div class="fg-name">Gross</div><div class="fg-one">Raw strokes. No handicap.</div></div><span class="fg-car">tap</span></div><div class="fg-body">The simplest format: add up every stroke you took. Lowest total wins — best for the day, straight up. It rewards the best ball-striker and ignores handicaps entirely, so the scratch players tend to run away with it.<div class="fg-formula"><code>score = total strokes · to-par = strokes − 71</code></div></div></div>
+
+    <div class="fg-item"><div class="fg-head" onclick="this.parentNode.classList.toggle('open')"><span class="fg-badge">🎯</span><div><div class="fg-name">Net</div><div class="fg-one">Gross minus your handicap.</div></div><span class="fg-car">tap</span></div><div class="fg-body">Levels the field: we subtract your Handicap Index from your gross, so a steady bogey golfer can beat a scratch player by playing to their number. Whoever plays best <i>relative to their ability</i> wins.<div class="fg-formula"><code>net = gross − your handicap index</code> (scaled to holes played)</div></div></div>
+
+    <div class="fg-item"><div class="fg-head" onclick="this.parentNode.classList.toggle('open')"><span class="fg-badge">📊</span><div><div class="fg-name">HSI (Handicap Stroke Index)</div><div class="fg-one">Net, but strokes spread by hole difficulty.</div></div><span class="fg-car">tap</span></div><div class="fg-body">Same idea as Net, but your handicap strokes are handed out hole-by-hole — the hardest holes (stroke index 1 first) get your strokes before the easy ones. On a full 18-hole leaderboard the <i>total</i> comes out the same as Net; the difference shows up hole-by-hole, which is what matters for match-play skins and per-hole battles.<div class="fg-formula"><code>net = gross − strokes received</code> · hardest holes get strokes first</div></div></div>
+
+    <div class="fg-item"><div class="fg-head" onclick="this.parentNode.classList.toggle('open')"><span class="fg-badge">🧮</span><div><div class="fg-name">System 36</div><div class="fg-one">The round builds its own handicap.</div></div><span class="fg-car">tap</span></div><div class="fg-body">No handicap needed — the round scores itself. Each hole: <b>par or better = 2 points, bogey = 1, double or worse = 0</b>. Your System 36 handicap is 36 minus your points, then net = gross minus that handicap. It rewards making pars and birdies and quietly forgives the odd blow-up, so a hot putter can win without a low gross.<div class="fg-formula"><code>handicap = 36 − points · net = gross − handicap</code></div></div></div>
+
+    <div class="fg-item"><div class="fg-head" onclick="this.parentNode.classList.toggle('open')"><span class="fg-badge">🎲</span><div><div class="fg-name">Blind Peoria</div><div class="fg-one">6 secret holes, drawn after the round.</div></div><span class="fg-car">tap</span></div><div class="fg-body">The fun one. After everyone finishes, six holes are drawn <b>at random</b> — nobody knows which while they play. Your scores on just those six set your handicap for the whole round. It's a great equalizer with a big dose of luck: catch a bad stretch in the draw and you get a generous handicap; catch your best holes and you don't.<div class="fg-formula"><code>handicap = clamp( round( 0.8 × (sum of 6 holes × 3 − 71) ), 0–36 ) · net = gross − handicap</code></div></div></div>
+
+    <div class="fg-demo">
+      <h4>One round at Seascape · four winners</h4>
+      <div class="ds">The exact same four scorecards, scored four ways. Each format crowns a different player — lower is better.</div>
+      <div class="fg-roster">
+        <span class="fg-rchip"><b>Player A</b> · hc 5 · 76 (+5)</span>
+        <span class="fg-rchip"><b>Player B</b> · hc 14 · 83 (+12)</span>
+        <span class="fg-rchip"><b>Player C</b> · hc 12 · 85 (+14)</span>
+        <span class="fg-rchip"><b>Player D</b> · hc 20 · 96 (+25)</span>
+      </div>
+      <table class="fg-table"><thead><tr><th style="text-align:left;">Format</th><th>A</th><th>B</th><th>C</th><th>D</th></tr></thead>
+      <tbody>
+        <tr><td class="fc">⛳ Gross</td><td class="win">76 🏆</td><td>83</td><td>85</td><td>96</td></tr>
+        <tr><td class="fc">🎯 Net</td><td>71</td><td class="win">69 🏆</td><td>73</td><td>76</td></tr>
+        <tr><td class="fc">🧮 System 36</td><td>69</td><td>71</td><td class="win">68 🏆</td><td>74</td></tr>
+        <tr><td class="fc">🎲 Blind Peoria</td><td>70</td><td>73</td><td>72</td><td class="win">69 🏆</td></tr>
+      </tbody></table>
+      <div class="fg-why">
+        <div class="r"><b>Gross → Player A.</b> Fewest actual strokes. Handicaps don't count, so the best round wins outright.</div>
+        <div class="r"><b>Net → Player B.</b> Gross minus handicap. B (14) shooting 83 nets 69 — played closest to their ceiling, edging A's 71.</div>
+        <div class="r"><b>System 36 → Player C.</b> Three birdies scored full value while keeping the gross moderate — the best self-made handicap, so an 85 gross still wins.</div>
+        <div class="r"><b>Blind Peoria → Player D.</b> The draw landed on holes 1–5 &amp; 8 — right in D's blow-up stretch — handing over a 27 handicap. Big handicap, big deduction, and the 96 nets down to 69. Pure luck of the draw.</div>
+      </div>
+      <div class="fg-foot" style="color:var(--gold-light);opacity:0.85;">Secret holes this round: 1, 2, 3, 4, 5, 8 (drawn after play).</div>
+    </div>
+
+    <div class="fg-foot">All figures computed with the app's live scoring functions on real Seascape pars. HSI is omitted from the table because on a full 18-hole board it ties Net.</div>
+
+    <div class="modal-footer" style="margin-top:1rem;">
+      <button class="btn btn-forest" onclick="window._real_closeModal('modal-format-guide')">Got it</button>
     </div>
   </div>
 </div>
@@ -2974,6 +3050,26 @@ async function renderProfileHandicap(){
   const anyEst=r.window20.some(function(rd){return rd.estimated;});
   sub.textContent='Best '+r.useCount+' of last '+r.n+' differentials'+(r.adjustment?(' ('+(r.adjustment>0?'+':'')+r.adjustment.toFixed(1)+' adj.)'):'')+(anyEst?' · estimated (WHS-style)':' · USGA/WHS method');
   host.appendChild(sub);
+
+  // ── hcp-math-tail (Option B): "How this works" glossary expander ──
+  const gpill=document.createElement('button');
+  gpill.style.cssText='display:inline-flex;align-items:center;gap:5px;margin-top:0.7rem;background:rgba(41,128,185,0.12);color:var(--info);border:1px solid rgba(41,128,185,0.4);border-radius:999px;padding:4px 12px;font-size:0.76rem;font-weight:600;font-family:Inter,sans-serif;cursor:pointer;';
+  gpill.textContent='\u24D8 How this works';
+  const gloss=document.createElement('div');
+  gloss.style.cssText='display:none;margin-top:0.7rem;background:var(--gold-pale);border:1px solid var(--cream-dark);border-radius:10px;overflow:hidden;';
+  const _glItems=[
+    ['Handicap Index','Your index isn\u2019t the average of every round \u2014 it\u2019s the average of your best few from your last 20. The more rounds you log, the more of your best ones count: best 1 of 3\u20135 rounds, best 2 of 6\u20138, best 3 of 9\u201311\u2026 up to best 8 of 20. With only a few rounds, a small adjustment is applied. Mirrors the official USGA / World Handicap System method (Rule 5.2a). Only 18-hole casual rounds feed your index \u2014 tournament rounds are left out on purpose.'],
+    ['Score Differential (Diff)','How good one round was, adjusted for course difficulty so rounds at different courses compare fairly. Lower is better. Math: (gross \u2212 course rating) \u00d7 113 \u00f7 slope.'],
+    ['Course Rating (Rtg)','The score a scratch (zero-handicap) golfer is expected to shoot from these tees \u2014 usually near par. If we don\u2019t have the official rating for a round, we use par as a stand-in (those rows are marked *).'],
+    ['Slope','How much tougher the course plays for an everyday golfer than a scratch golfer. 113 is a standard, average-difficulty course; higher numbers mean harder. It\u2019s what makes the differential fair across easy and hard courses.'],
+    ['Estimated rounds (*)','This round didn\u2019t have an official course rating and slope on file, so we estimated using par as the rating and 113 as the slope. It still counts toward your index, and sharpens automatically the moment real rating and slope are added for that course.']
+  ];
+  gloss.innerHTML=_glItems.map(function(it,i){
+    const bd=i<_glItems.length-1?'border-bottom:1px solid var(--cream-dark);':'';
+    return '<div style="padding:9px 12px;'+bd+'font-size:0.78rem;line-height:1.5;color:#33332e;"><b style="color:var(--forest);display:block;margin-bottom:2px;">'+it[0]+'</b>'+it[1]+'</div>';
+  }).join('');
+  gpill.onclick=function(){ const open=gloss.style.display!=='none'; gloss.style.display=open?'none':'block'; };
+  host.appendChild(gpill); host.appendChild(gloss);
 
   const toggle=document.createElement('button');
   toggle.className='btn btn-ghost btn-sm'; toggle.style.marginTop='0.7rem';
@@ -5530,7 +5626,7 @@ window._real_navCasual = function(btn) {
 };
 
 // Build/version stamp — confirms which version is actually running (catches stale cache)
-var APP_BUILD = '2026.08.20 · recap-moments';
+var APP_BUILD = '2026.08.20 · format-guide';
 console.log('%cMorks Golf Tour build: ' + APP_BUILD, 'color:#c9a227;font-weight:bold;font-size:14px;');
 try {
   var _bt = document.createElement('div');
