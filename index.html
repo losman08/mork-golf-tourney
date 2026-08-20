@@ -4702,6 +4702,32 @@ function _coachYtLink(areaKey){
   const a = _coachAreas()[areaKey] || _coachAreas().blowup;
   return 'https://www.youtube.com/results?search_query='+encodeURIComponent(a.yt);
 }
+let _coachHistExpanded = false;
+function _coachFmtDate(d){
+  try{ const p=String(d).split('-'); const mo=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; return mo[(+p[1])-1]+' '+(+p[2])+' \u2019'+p[0].slice(2); }catch(e){ return d; }
+}
+function _coachHist(){ return (userProfile && Array.isArray(userProfile.coachHistory)) ? userProfile.coachHistory : []; }
+function _coachHistStrip(){
+  const hist = _coachHist(); if(!hist.length) return '';
+  const areas = _coachAreas();
+  const rev = hist.slice().reverse();
+  const show = _coachHistExpanded ? rev : rev.slice(0,3);
+  const rows = show.map(function(e){ const a=areas[e.area]; return '<div style="font-size:0.78rem;padding:1px 0;color:#20241f;">\u2022 '+esc(a?a.label:e.area)+' <span style="color:var(--text-light);">('+_coachFmtDate(e.date)+')</span></div>'; }).join('');
+  const caret = (rev.length>3) ? '<span onclick="window._real_coachToggleHist()" style="cursor:pointer;">'+_caretChip(_coachHistExpanded)+'</span>' : '';
+  return '<div style="margin-bottom:12px;"><div style="font-size:0.72rem;color:var(--text-light);margin-bottom:3px;">Focus check-ins '+caret+'</div>'+rows+'</div>';
+}
+window._real_coachToggleHist = function(){ _coachHistExpanded = !_coachHistExpanded; _coachRerender(); };
+async function _coachLogFocus(areaKey){
+  if(!currentUser) return;
+  const today = new Date().toISOString().slice(0,10);
+  let hist = _coachHist().slice();
+  const last = hist[hist.length-1];
+  if(last && last.area===areaKey && last.date===today) return; // one check-in per area per day
+  hist.push({ area: areaKey, date: today });
+  if(hist.length>50) hist = hist.slice(hist.length-50);
+  if(userProfile) userProfile.coachHistory = hist;
+  try{ await updateDoc(doc(db,'players',currentUser.uid), { coachHistory: hist }); }catch(e){ console.error('coachHistory persist', e); }
+}
 function _coachCard(bundle, source){
   const auto = _coachFocus(bundle);
   const areas = _coachAreas();
@@ -4721,6 +4747,7 @@ function _coachCard(bundle, source){
   return '<div class="card" style="border:1.5px solid var(--gold);margin-bottom:1.5rem;">'
     + '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;flex-wrap:wrap;"><span style="font-weight:800;color:var(--forest-mid);font-size:1.02rem;">\ud83c\udf99\ufe0f Your Coach</span><span style="display:inline-flex;background:rgba(0,0,0,0.06);border-radius:16px;padding:3px;gap:2px;">'+pBtns+'</span></div>'
     + '<div style="background:rgba(224,30,30,0.08);border-left:3px solid #e01e1e;border-radius:6px;padding:8px 10px;font-size:0.82rem;margin-bottom:10px;"><b style="color:#c0392b;">Focus:</b> '+esc(activeArea.label)+' \u2014 '+esc(auto.reason)+'</div>'
+    + _coachHistStrip()
     + '<div class="fg" style="margin-bottom:12px;"><label style="font-size:0.72rem;color:var(--text-light);">Work on (\u2605 = suggested)</label><select onchange="window._real_coachSetArea(this.value)">'+opts+'</select></div>'
     + '<div id="coach-tip-slot">'+tipInner+'</div></div>';
 }
@@ -4743,7 +4770,10 @@ window._real_coachTip = async function(){
   if(rates.bounceBack!=null) facts.push('bounce-back '+rates.bounceBack+'%');
   [['p3','par 3'],['p4','par 4'],['p5','par 5']].forEach(function(r){ const d=parType[r[0]]||{}; if(d.avg!=null) facts.push(r[1]+' avg '+(d.avg>0?'+'+d.avg:d.avg)+' vs par'); });
   if(splits.front!=null && splits.back!=null) facts.push('front nine '+splits.front+' / back nine '+splits.back+' vs par');
-  const prompt = "You are "+persona.role+"\n\nGive ONE short coaching tip to a recreational golfer, in a confident, vivid broadcast-quality voice — never generic, never cheesy.\n\nFocus area: "+activeArea.label+".\nWhy it's the focus: "+auto.reason+".\nThe player's numbers: "+(facts.join('; ')||'limited data')+".\n\nWrite 2-3 tight sentences of specific, genuinely useful advice for THIS focus area, staying in your persona's lane. Do not invent stats beyond those given. Do not quote or impersonate any real, named person. No hashtags, no sign-off.";
+  const _phist = _coachHist();
+  const _pPrior = _phist.filter(function(e){ return e.area===activeKey; });
+  const contextNote = _pPrior.length ? (" This player has focused on this same area before (first on "+_coachFmtDate(_pPrior[0].date)+") — briefly acknowledge they are still working on it and encourage persistence.") : (_phist.length ? " This is a new focus area for this player." : "");
+  const prompt = "You are "+persona.role+"\n\nGive ONE short coaching tip to a recreational golfer, in a confident, vivid broadcast-quality voice — never generic, never cheesy.\n\nFocus area: "+activeArea.label+".\nWhy it's the focus: "+auto.reason+".\nThe player's numbers: "+(facts.join('; ')||'limited data')+"."+contextNote+"\n\nWrite 2-3 tight sentences of specific, genuinely useful advice for THIS focus area, staying in your persona's lane. Do not invent stats beyond those given. Do not quote or impersonate any real, named person. No hashtags, no sign-off.";
   const fail = function(msg){ const s=document.getElementById('coach-tip-slot'); if(s) s.innerHTML='<p style="font-size:0.85rem;color:rgba(0,0,0,0.6);margin:0 0 12px;">'+msg+'</p><button class="btn btn-gold btn-full" onclick="window._real_coachTip()">\ud83d\udca1 Try Again</button>'; };
   try{
     const r = await fetch('/api/gemini', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ prompt: prompt }) });
@@ -4757,6 +4787,7 @@ window._real_coachTip = async function(){
     const text = (data.text||'').trim();
     if(!text){ fail("Couldn't get a tip just now. Tap to try again."); return; }
     window._coachCache[_hSource+'|'+activeKey+'|'+_coachPersona] = text;
+    await _coachLogFocus(activeKey);
     _coachRerender();
   }catch(e){ fail("Couldn't get a tip just now. Tap to try again."); }
 };
@@ -5446,7 +5477,7 @@ window._real_navCasual = function(btn) {
 };
 
 // Build/version stamp — confirms which version is actually running (catches stale cache)
-var APP_BUILD = '2026.08.19 · coach-rotate';
+var APP_BUILD = '2026.08.19 · coach-continuity';
 console.log('%cMorks Golf Tour build: ' + APP_BUILD, 'color:#c9a227;font-weight:bold;font-size:14px;');
 try {
   var _bt = document.createElement('div');
