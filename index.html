@@ -1132,8 +1132,9 @@ window._real_lbGenRecap = async function(){
     const data = await r.json().catch(function(){ return {}; });
     const s2 = document.getElementById('lb-recap-slot'); if(!s2) return;
     if(!r.ok || data.error){
-      const busy = r.status===429 || /RESOURCE_EXHAUSTED|quota|rate/i.test(JSON.stringify(data||{}));
-      s2.innerHTML = _lbRecapRetry(busy ? 'The recap engine is busy — wait a minute and try again.' : "Couldn't write the recap just now. Tap to try again.");
+      const sc = data.scope || (r.status===429 ? 'minute' : 'other');
+      const msg = (sc==='day') ? "The AI's daily limit is reached — it resets overnight, so try again tomorrow." : (sc==='minute') ? 'The recap engine is busy — wait a minute and try again.' : "Couldn't write the recap just now. Tap to try again.";
+      s2.innerHTML = _lbRecapRetry(msg);
       return;
     }
     const text = (data.text||'').trim();
@@ -4668,9 +4669,8 @@ let _coachPersona = 'pro';
 let _coachOverride = null; // null = deterministic pick; else a chosen area key
 window._coachCache = window._coachCache || {};
 const _COACH_PERSONAS = {
-  pro: { label:'Pro', model:'gemini-3.6-flash', role:"a tour professional giving a first-person take — your own mindset and shot strategy, how YOU would attack this. Speak as the player's peer sharing how you'd play it. Strategy and mindset, not swing mechanics." },
-  caddie: { label:'Caddie', model:'gemini-3.6-flash', role:"the player's caddie speaking directly TO the player. Course management, club and target selection, staying composed, avoiding big numbers. Decisions and strategy, never swing mechanics. Never speak as if you are the player." },
-  instructor: { label:'Instructor', model:'gemini-3.6-flash', role:"a teaching professional. Diagnose the pattern, prescribe one concrete drill or fundamental, and frame it as a habit to build. Instructional and encouraging." }
+  pro: { label:'Pro', role:"a tour professional giving a first-person take — your own mindset and shot strategy, how YOU would attack this. Speak as the player's peer sharing how you'd play it. Strategy and mindset, not swing mechanics." },
+  instructor: { label:'Instructor', role:"a teaching professional. Diagnose the pattern, prescribe one concrete drill or fundamental, and frame it as a habit to build. Instructional and encouraging." }
 };
 function _coachAreas(){
   return {
@@ -4749,8 +4749,9 @@ window._real_coachTip = async function(){
     const r = await fetch('/api/gemini', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ prompt: prompt }) });
     const data = await r.json().catch(function(){ return {}; });
     if(!r.ok || data.error){
-      const busy = r.status===429 || /RESOURCE_EXHAUSTED|quota|rate/i.test(JSON.stringify(data||{}));
-      fail(busy ? "The coach is busy — wait a minute and try again." : "Couldn't get a tip just now. Tap to try again.");
+      const sc = data.scope || (r.status===429 ? 'minute' : 'other');
+      const msg = (sc==='day') ? "The AI's daily limit is reached — it resets overnight, so try again tomorrow." : (sc==='minute') ? "The coach is busy — wait a minute and try again." : "Couldn't get a tip just now. Tap to try again.";
+      fail(msg);
       return;
     }
     const text = (data.text||'').trim();
@@ -5445,7 +5446,7 @@ window._real_navCasual = function(btn) {
 };
 
 // Build/version stamp — confirms which version is actually running (catches stale cache)
-var APP_BUILD = '2026.08.19 · coach-a';
+var APP_BUILD = '2026.08.19 · coach-rotate';
 console.log('%cMorks Golf Tour build: ' + APP_BUILD, 'color:#c9a227;font-weight:bold;font-size:14px;');
 try {
   var _bt = document.createElement('div');
