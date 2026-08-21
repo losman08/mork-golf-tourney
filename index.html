@@ -508,6 +508,8 @@ hr.div{border:none;border-top:1px solid var(--cream-dark);margin:1rem 0;}
 .cr-note-item .hn{flex:0 0 auto;font-weight:800;font-size:0.7rem;color:var(--forest-mid);background:#eef3ec;border-radius:7px;padding:3px 8px;}
 .cr-note-item .tx{flex:1;font-size:0.82rem;color:var(--text-dark);line-height:1.4;}
 .cr-notes-empty{text-align:center;color:var(--text-light);font-size:0.85rem;padding:24px 10px;}
+#casual-content .hole-grid{grid-template-columns:1fr;gap:9px;}
+#casual-content .hole-card{min-width:0;}
 </style>
 </head>
 <body>
@@ -4729,6 +4731,9 @@ async function renderHomeActiveRound(){
   if (!draft || !draft.course) return;
   var holes = draft.holes || {};
   var entered = Object.keys(holes).filter(function(h){ return holes[h] && typeof holes[h].score === 'number' && holes[h].score > 0; }).length;
+  var cur = 0;
+  for (var _i = 1; _i <= 18; _i++){ var _hd = holes[_i]; if (!(_hd && typeof _hd.score === 'number' && _hd.score > 0)){ cur = _i; break; } }
+  var curTxt = (entered >= 18 || !cur) ? '⛳ All 18 in · ready to Finish' : ('⛳ On hole ' + cur);
   el.innerHTML = '<div class="card" style="margin-top:12px;border-left:5px solid var(--gold);">'
     + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">'
     +   '<span style="font-size:0.7rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--forest-mid);">\u25b6 Round in Progress</span>'
@@ -4736,11 +4741,23 @@ async function renderHomeActiveRound(){
     + '</div>'
     + '<div style="font-family:\'Playfair Display\',serif;font-size:1.1rem;color:var(--text-dark);margin-bottom:2px;">' + esc(draft.course) + '</div>'
     + '<div style="font-size:0.76rem;color:var(--text-mid);margin-bottom:10px;">' + (draft.date ? esc(draft.date) + ' \u00b7 ' : '') + 'Par ' + (draft.par || 72) + '</div>'
+    + '<div style="margin-bottom:10px;"><span id="home-cur-hole" style="display:inline-flex;align-items:center;font-size:0.72rem;font-weight:700;color:var(--forest-mid);background:var(--gold-pale);border:1px solid #f0e4b0;border-radius:20px;padding:5px 12px;">' + curTxt + '</span></div>'
     + '<div style="display:flex;gap:8px;">'
     +   '<button class="btn btn-gold" style="flex:1.5;" onclick="window._real_navCasual(null)">⛳ Enter Scores</button>'
     +   '<button class="btn btn-ghost" style="flex:1;" onclick="window._real_crOpenNotes()">📝 Notes</button>'
     + '</div>'
     + '</div>';
+  if (cur && draft.courseId && typeof crLoadLibrary === 'function'){
+    crLoadLibrary(function(lib){
+      var c = (lib || []).find(function(x){ return x.id === draft.courseId; });
+      var tee = c && ((c.tees || []).find(function(t){ return t.name === (draft.tees || 'White'); }) || (c.tees || [])[0]);
+      var hd = tee && tee.holes && tee.holes[cur - 1];
+      var span = document.getElementById('home-cur-hole');
+      if (span && hd){
+        span.textContent = '⛳ Hole ' + cur + ' · Par ' + hd.par + (hd.yards ? (' · ' + hd.yards + 'y') : '') + (hd.hcp ? (' · SI ' + hd.hcp) : '');
+      }
+    });
+  }
 }
 
 
@@ -5942,7 +5959,7 @@ window._real_navCasual = function(btn) {
 };
 
 // Build/version stamp — confirms which version is actually running (catches stale cache)
-var APP_BUILD = '2026.08.22 · casual-cards';
+var APP_BUILD = '2026.08.22 · cards-fix';
 console.log('%cMorks Golf Tour build: ' + APP_BUILD, 'color:#c9a227;font-weight:bold;font-size:14px;');
 try {
   var _bt = document.createElement('div');
