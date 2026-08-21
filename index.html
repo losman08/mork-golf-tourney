@@ -478,6 +478,10 @@ hr.div{border:none;border-top:1px solid var(--cream-dark);margin:1rem 0;}
   89%,99%{transform:translate(-150px,-96px) rotate(0deg) scale(0.8);opacity:0;}
   100%{transform:translate(-150px,-96px) rotate(0deg) scale(0.8);opacity:1;}
 }
+.cr-jchip{min-width:30px;height:30px;padding:0 6px;border-radius:7px;border:1.5px solid var(--cream-dark);background:#fff;color:var(--text-mid);font-weight:700;font-size:0.8rem;cursor:pointer;font-family:Inter,sans-serif;}
+.cr-jchip.entered{background:#deefe0;border-color:#2e9e3f;color:#257e32;}
+.cr-jchip.current{box-shadow:0 0 0 2px var(--gold);border-color:var(--gold);}
+.cr-note-inp{width:100%;margin-top:5px;font-size:0.72rem;padding:4px 6px;border:1px solid var(--cream-dark);border-radius:6px;color:var(--text-dark);background:#fff;font-family:Inter,sans-serif;box-sizing:border-box;}
 </style>
 </head>
 <body>
@@ -545,6 +549,7 @@ hr.div{border:none;border-top:1px solid var(--cream-dark);margin:1rem 0;}
 
         <!-- Current event hero -->
         <div id="home-current-event"></div>
+        <div id="home-active-round"></div>
 
         <!-- Main nav tiles — drag to rearrange -->
         <div style="margin-top:1.2rem;display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
@@ -1617,6 +1622,7 @@ async function loadHome() {
   if (adminTile) adminTile.style.display = userProfile?.role === 'admin' ? 'block' : 'none';
   renderHomeTiles();
   renderHomeEvent();
+  renderHomeActiveRound();
   renderHomeSeasonLb();
   renderHomeRecent();
 }
@@ -3907,8 +3913,10 @@ window._real_viewCasualRound = async function(rid){
 window._real_openScorecardPhoto = function(){ if (window._vcPhoto) window.open(window._vcPhoto, '_blank'); };
 
 let casualHoles = {};
+let casualNotes = {};
 async function loadCasualRound() {
   casualHoles = {};
+  casualNotes = {};
   crPhotoDataUri = null;
   const cont = document.getElementById('casual-content');
   if (!cont) return;
@@ -3929,6 +3937,8 @@ async function loadCasualRound() {
           <select id="cr-tees"><option>Blue</option><option selected>White</option><option>Red</option><option>Gold</option></select>
         </div>
       </div>
+      <button class="btn btn-gold btn-full" id="cr-start-btn" style="margin-top:10px;" onclick="window._real_crStartRound()">▶ Start Round · Save As You Go</button>
+      <div id="cr-live-indicator" style="display:none;margin-top:10px;text-align:center;font-size:0.78rem;font-weight:700;color:var(--forest-mid);background:var(--gold-pale);border:1px solid var(--gold);border-radius:8px;padding:7px;">● Live — scores autosave as you play</div>
     </div>
     <div class="card card-sm" style="margin-bottom:1rem;">
       <label style="display:block;font-size:0.78rem;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:var(--text-mid);margin-bottom:8px;">Scorecard Photo (optional)</label>
@@ -3941,6 +3951,7 @@ async function loadCasualRound() {
       <div class="sc-stat"><div class="val" id="cr-vs-par">—</div><div class="lbl">vs Par</div></div>
       <div class="sc-stat"><div class="val" id="cr-holes">0</div><div class="lbl">Holes</div></div>
     </div>
+    <div id="cr-jump-strip" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:0.8rem;"></div>
     <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:0.8rem;align-items:center;">
   <span style="font-size:0.65rem;color:var(--gold);margin-right:2px;text-transform:uppercase;letter-spacing:0.05em;">Score key:</span>
   <span style="background:#fffad7;border:1.5px solid #ffde05;border-radius:4px;padding:1px 6px;font-size:0.65rem;font-weight:700;color:#736402;">Albatross</span>
@@ -3967,6 +3978,8 @@ async function loadCasualRound() {
   cont.innerHTML = html;
   document.getElementById('cr-date').valueAsDate = new Date();
   crLoadRecent();
+  crRenderJumpChips();
+  crHydrateDraft();
 }
 window._real_loadCasualRound = loadCasualRound;
 
@@ -3982,6 +3995,7 @@ function holeCardHTML(h, par, prefix) {
         style="font-size:1.2rem;" onfocus="this.select()" onchange="onCasualChange(${h})" oninput="onCasualChange(${h})">
       <button onclick="window._real_adjustCasualHole(${h},1)">+</button>
     </div>
+    <input class="cr-note-inp" type="text" id="${prefix}-note-${h}" placeholder="note (optional)" maxlength="120" oninput="window._real_onCasualNote(${h})">
   </div>`;
 }
 
@@ -4003,6 +4017,8 @@ window._real_onCasualChange = function(h) {
   const hc = document.getElementById('cr-hc-' + h);
   if (hc) { hc.className = 'hole-card' + (val ? ` filled ${getScoreClass(val, par)}` : ''); }
   updateCasualSummary();
+  crRefreshJumpChips();
+  if (window._crDraftActive) _crSaveDraft();
 };
 
 function updateCasualSummary() {
@@ -4445,18 +4461,192 @@ async function saveCasualRound() {
       var pEl = document.getElementById('cr-hc-' + h);
       var pl = pEl ? pEl.querySelector('.hole-par') : null;
       var hp = pl ? (parseInt((pl.textContent || '').replace('Par ', '')) || (DEFAULT_PARS[h-1] || 4)) : (DEFAULT_PARS[h-1] || 4);
-      return [h, { score: s, par: hp }];
+      var _ho = { score: s, par: hp };
+      if (casualNotes[h]) _ho.note = casualNotes[h];
+      return [h, _ho];
     })),
     createdAt: serverTimestamp()
   });
   // Recompute stats from source records — single source of truth, no drift
   await refreshMyStats();
+  await _crDeleteDraft();
   toast(`✅ Round saved! ${gross} at ${course}`);
   casualHoles = {};
+  casualNotes = {};
   crPhotoDataUri = null;
   loadCasualRound();
 }
 window._real_saveCasualRound = saveCasualRound;
+
+// == SAVE-AS-YOU-GO (casual drafts) ==========================================
+// A live draft lives in casualDrafts/{uid} (one per player), physically OUTSIDE
+// casualRounds so a half-entered round never touches stats, the WHS index, or any
+// leaderboard. Stats readers still query casualRounds only. The draft is created
+// on an explicit Start, autosaved (debounced) per hole, hydrated on resume, and
+// best-effort deleted on Finish (a failed delete never blocks the save).
+let _crDraftTimer = null;
+
+function _crHolePar(h){
+  var pEl = document.getElementById('cr-hc-' + h);
+  var pl = pEl ? pEl.querySelector('.hole-par') : null;
+  return pl ? (parseInt((pl.textContent || '').replace('Par ', '')) || (DEFAULT_PARS[h-1] || 4)) : (DEFAULT_PARS[h-1] || 4);
+}
+
+async function _crWriteDraft(){
+  if (!currentUser) return;
+  try {
+    var holes = {};
+    Object.keys(casualHoles).forEach(function(h){
+      holes[h] = { score: casualHoles[h], par: _crHolePar(h) };
+      if (casualNotes[h]) holes[h].note = casualNotes[h];
+    });
+    Object.keys(casualNotes).forEach(function(h){
+      if (!holes[h]) holes[h] = { par: _crHolePar(h), note: casualNotes[h] };
+    });
+    var ce = document.getElementById('cr-course');
+    var de = document.getElementById('cr-date');
+    var pe = document.getElementById('cr-par');
+    var te = document.getElementById('cr-tees');
+    var at = window._crActiveTee || null;
+    await setDoc(doc(db, 'casualDrafts', currentUser.uid), {
+      playerId: currentUser.uid,
+      course: ce ? (ce.value || '') : '',
+      courseId: (window._crActiveCourse && window._crActiveCourse.id) || null,
+      date: de ? (de.value || '') : '',
+      par: pe ? (Number(pe.value) || 72) : 72,
+      tees: te ? (te.value || '') : '',
+      rating: (at && at.rating) ? Number(at.rating) : null,
+      slope: (at && at.slope) ? Number(at.slope) : null,
+      holes: holes,
+      updatedAt: serverTimestamp()
+    });
+  } catch(e){ console.warn('draft save failed', e); }
+}
+
+function _crSaveDraft(){
+  if (!currentUser || !window._crDraftActive) return;
+  clearTimeout(_crDraftTimer);
+  _crDraftTimer = setTimeout(function(){ _crWriteDraft(); }, 800);
+}
+
+async function _crDeleteDraft(){
+  window._crDraftActive = false;
+  clearTimeout(_crDraftTimer);
+  if (!currentUser) return;
+  try { await deleteDoc(doc(db, 'casualDrafts', currentUser.uid)); }
+  catch(e){ console.warn('draft delete failed', e); }
+}
+
+window._real_crStartRound = async function(){
+  if (!currentUser) { toast('Sign in first.'); return; }
+  var ce = document.getElementById('cr-course');
+  if (!ce || !ce.value.trim()) { toast('Pick a course first.'); return; }
+  window._crDraftActive = true;
+  var sb = document.getElementById('cr-start-btn');
+  var li = document.getElementById('cr-live-indicator');
+  if (sb) sb.style.display = 'none';
+  if (li) li.style.display = 'block';
+  await _crWriteDraft();
+  toast('\u25b6 Round started \u2014 scores autosave as you play.');
+  window._real_navTo('home', null);
+};
+
+window._real_onCasualNote = function(h){
+  var el = document.getElementById('cr-note-' + h);
+  var v = el ? (el.value || '') : '';
+  if (v.trim()) casualNotes[h] = v.trim(); else delete casualNotes[h];
+  if (window._crDraftActive) _crSaveDraft();
+};
+
+function crRenderJumpChips(){
+  var strip = document.getElementById('cr-jump-strip');
+  if (!strip) return;
+  var out = '';
+  for (var i = 1; i <= 18; i++){
+    out += '<button type="button" class="cr-jchip" data-h="' + i + '" onclick="window._real_crJump(' + i + ')">' + i + '</button>';
+  }
+  strip.innerHTML = out;
+  crRefreshJumpChips();
+}
+
+function crRefreshJumpChips(){
+  var strip = document.getElementById('cr-jump-strip');
+  if (!strip) return;
+  var cur = 0;
+  for (var i = 1; i <= 18; i++){ if (!(casualHoles[i] > 0)){ cur = i; break; } }
+  strip.querySelectorAll('.cr-jchip').forEach(function(b){
+    var hn = Number(b.getAttribute('data-h'));
+    b.classList.toggle('entered', casualHoles[hn] > 0);
+    b.classList.toggle('current', hn === cur);
+  });
+}
+
+window._real_crJump = function(h){
+  var card = document.getElementById('cr-hc-' + h);
+  var inp = document.getElementById('cr-hole-' + h);
+  if (card && card.scrollIntoView) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  if (inp) setTimeout(function(){ inp.focus(); if (inp.select) inp.select(); }, 250);
+};
+
+async function crHydrateDraft(){
+  if (!currentUser) return;
+  var draft = null;
+  try { var s = await getDoc(doc(db, 'casualDrafts', currentUser.uid)); if (s.exists()) draft = s.data(); }
+  catch(e){ return; }
+  if (!draft) return;
+  window._crDraftActive = true;
+  var sb = document.getElementById('cr-start-btn');
+  var li = document.getElementById('cr-live-indicator');
+  if (sb) sb.style.display = 'none';
+  if (li) li.style.display = 'block';
+  var fill = function(){
+    if (draft.date){ var de = document.getElementById('cr-date'); if (de) de.value = draft.date; }
+    if (draft.par){ var pe = document.getElementById('cr-par'); if (pe) pe.value = draft.par; }
+    if (draft.tees){ var te = document.getElementById('cr-tees'); if (te) te.value = draft.tees; }
+    var ce = document.getElementById('cr-course'); if (ce && draft.course) ce.value = draft.course;
+    var holes = draft.holes || {};
+    Object.keys(holes).forEach(function(h){
+      var hd = holes[h]; if (!hd) return;
+      var inp = document.getElementById('cr-hole-' + h);
+      if (inp && typeof hd.score === 'number' && hd.score > 0){ inp.value = hd.score; onCasualChange(h); }
+      if (hd.note){ casualNotes[h] = hd.note; var ni = document.getElementById('cr-note-' + h); if (ni) ni.value = hd.note; }
+    });
+    crRefreshJumpChips();
+    updateCasualSummary();
+  };
+  if (draft.courseId && typeof crLoadLibrary === 'function'){
+    crLoadLibrary(function(lib){
+      var course = (lib || []).find(function(c){ return c.id === draft.courseId; });
+      if (course) crApplyTee(course, draft.tees || 'White');
+      fill();
+    });
+  } else {
+    fill();
+  }
+}
+
+async function renderHomeActiveRound(){
+  var el = document.getElementById('home-active-round');
+  if (!el) return;
+  el.innerHTML = '';
+  if (!currentUser) return;
+  var draft = null;
+  try { var s = await getDoc(doc(db, 'casualDrafts', currentUser.uid)); if (s.exists()) draft = s.data(); }
+  catch(e){ return; }
+  if (!draft || !draft.course) return;
+  var holes = draft.holes || {};
+  var entered = Object.keys(holes).filter(function(h){ return holes[h] && typeof holes[h].score === 'number' && holes[h].score > 0; }).length;
+  el.innerHTML = '<div class="card" style="margin-top:12px;border-left:5px solid var(--gold);">'
+    + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">'
+    +   '<span style="font-size:0.7rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--forest-mid);">\u25b6 Round in Progress</span>'
+    +   '<span style="font-size:0.68rem;font-weight:700;color:#257e32;background:#deefe0;border-radius:6px;padding:1px 7px;">' + entered + '/18</span>'
+    + '</div>'
+    + '<div style="font-family:\'Playfair Display\',serif;font-size:1.1rem;color:var(--text-dark);margin-bottom:2px;">' + esc(draft.course) + '</div>'
+    + '<div style="font-size:0.76rem;color:var(--text-mid);margin-bottom:10px;">' + (draft.date ? esc(draft.date) + ' \u00b7 ' : '') + 'Par ' + (draft.par || 72) + '</div>'
+    + '<button class="btn btn-gold btn-full" onclick="window._real_navCasual(null)">\u26f3 Enter Scores</button>'
+    + '</div>';
+}
+
 
 // ── CASUAL ROUND HISTORY ──
 async function loadCasualHistory() {
@@ -5655,7 +5845,7 @@ window._real_navCasual = function(btn) {
 };
 
 // Build/version stamp — confirms which version is actually running (catches stale cache)
-var APP_BUILD = '2026.08.20 · loader';
+var APP_BUILD = '2026.08.21 · casual-live';
 console.log('%cMorks Golf Tour build: ' + APP_BUILD, 'color:#c9a227;font-weight:bold;font-size:14px;');
 try {
   var _bt = document.createElement('div');
