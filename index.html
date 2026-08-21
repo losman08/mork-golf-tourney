@@ -482,6 +482,32 @@ hr.div{border:none;border-top:1px solid var(--cream-dark);margin:1rem 0;}
 .cr-jchip.entered{background:#deefe0;border-color:#2e9e3f;color:#257e32;}
 .cr-jchip.current{box-shadow:0 0 0 2px var(--gold);border-color:var(--gold);}
 .cr-note-inp{width:100%;margin-top:5px;font-size:0.72rem;padding:4px 6px;border:1px solid var(--cream-dark);border-radius:6px;color:var(--text-dark);background:#fff;font-family:Inter,sans-serif;box-sizing:border-box;}
+.hole-card{background:#fff;border:2px solid var(--cream-dark);border-radius:12px;padding:11px 12px;gap:8px;}
+.hc-top{display:flex;align-items:flex-start;justify-content:space-between;gap:6px;}
+.hole-label{font-family:'Playfair Display',serif;font-size:1.02rem;font-weight:700;color:var(--forest);letter-spacing:0;text-transform:none;display:block;}
+.hc-pills{display:flex;flex-wrap:wrap;gap:4px;justify-content:flex-end;align-items:center;}
+.hole-par,.hole-yds,.hole-si{font-size:0.62rem;font-weight:700;padding:2px 8px;border-radius:20px;border:1px solid var(--cream-dark);white-space:nowrap;letter-spacing:0;text-transform:none;}
+.hole-par{background:#eef3ec;color:var(--forest-mid);border-color:#cfe0cd;}
+.hole-yds{background:var(--cream);color:var(--text-mid);}
+.hole-si{background:#eaf1f6;color:#2b6a94;border-color:#cfe0ee;}
+.hole-input-row{display:flex;align-items:center;gap:2px;background:var(--cream);border:1px solid var(--cream-dark);border-radius:11px;padding:3px;width:fit-content;}
+.hole-input-row button{width:40px;height:42px;border-radius:9px;background:#fff;font-size:1.35rem;}
+.hole-input-row button:hover{background:var(--cream-dark);}
+.hole-val{width:50px;font-size:1.5rem;font-family:'Playfair Display',serif;color:var(--text-dark);}
+.hc-note{display:flex;align-items:center;gap:6px;padding-top:8px;border-top:1px dashed var(--cream-dark);}
+.hc-note-ic{font-size:0.8rem;opacity:0.55;}
+.cr-note-inp{flex:1;width:auto;margin-top:0;border:none;background:transparent;padding:2px 0;font-size:0.74rem;border-radius:0;box-sizing:border-box;}
+.cr-note-inp::placeholder{color:#b3ab94;}
+.cr-actionbar{display:flex;gap:9px;align-items:center;}
+.cr-notes-ov{position:fixed;inset:0;background:rgba(20,30,24,0.55);z-index:300;display:flex;align-items:flex-end;justify-content:center;}
+.cr-notes-sheet{background:var(--cream);width:100%;max-width:460px;border-radius:18px 18px 0 0;max-height:78vh;overflow-y:auto;padding:18px 16px 26px;box-shadow:var(--shadow-lg);}
+.cr-notes-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+.cr-notes-h .t{font-family:'Playfair Display',serif;font-size:1.15rem;color:var(--text-dark);}
+.cr-notes-h .x{font-size:1.05rem;color:var(--text-mid);cursor:pointer;background:none;border:none;padding:4px 8px;}
+.cr-note-item{display:flex;gap:10px;align-items:flex-start;background:#fff;border:1px solid var(--cream-dark);border-radius:11px;padding:11px 12px;margin-bottom:8px;cursor:pointer;}
+.cr-note-item .hn{flex:0 0 auto;font-weight:800;font-size:0.7rem;color:var(--forest-mid);background:#eef3ec;border-radius:7px;padding:3px 8px;}
+.cr-note-item .tx{flex:1;font-size:0.82rem;color:var(--text-dark);line-height:1.4;}
+.cr-notes-empty{text-align:center;color:var(--text-light);font-size:0.85rem;padding:24px 10px;}
 </style>
 </head>
 <body>
@@ -3917,6 +3943,7 @@ let casualNotes = {};
 async function loadCasualRound() {
   casualHoles = {};
   casualNotes = {};
+  window._crDraftActive = false;
   crPhotoDataUri = null;
   const cont = document.getElementById('casual-content');
   if (!cont) return;
@@ -3974,28 +4001,93 @@ async function loadCasualRound() {
     const par = pars[h-1] || 4;
     html += holeCardHTML(h, par, 'cr');
   }
-  html += `</div>`;
+  html += `</div><div id="cr-actionbar" class="cr-actionbar" style="margin-top:18px;"></div>`;
   cont.innerHTML = html;
   document.getElementById('cr-date').valueAsDate = new Date();
   crLoadRecent();
   crRenderJumpChips();
+  crRenderActionBar();
   crHydrateDraft();
 }
 window._real_loadCasualRound = loadCasualRound;
 
+// == casual-cards: Done / Finish / Delete action bar + round notes ==========
+function crRenderActionBar(){
+  var bar = document.getElementById('cr-actionbar');
+  if (!bar) return;
+  if (window._crDraftActive){
+    bar.innerHTML =
+      '<button class="btn btn-forest" style="flex:1;" onclick="window._real_saveCasualRound()">🏁 Finish Round</button>'
+      + '<button class="btn" style="flex:0 0 auto;background:transparent;color:var(--danger);border:1.5px solid rgba(192,57,43,0.4);" onclick="window._real_crDeleteRound()">🗑 Delete</button>';
+  } else {
+    bar.innerHTML =
+      '<button class="btn btn-forest btn-full" onclick="window._real_saveCasualRound()">🏁 Finish Round</button>';
+  }
+}
+
+window._real_crDone = function(){
+  // Draft mode: everything is already autosaved, just go home.
+  if (window._crDraftActive){ window._real_navTo('home', null); return; }
+  // Legacy entry (no draft): entered scores aren't saved anywhere yet.
+  var entered = Object.keys(casualHoles).length;
+  if (entered === 0){ window._real_navTo('home', null); return; }
+  if (confirm("These scores aren't saved yet. Tap Cancel to go back and Finish the round, or OK to leave without saving.")){
+    casualHoles = {}; casualNotes = {};
+    window._real_navTo('home', null);
+  }
+};
+
+window._real_crDeleteRound = function(){
+  if (!confirm("Delete this in-progress round? Nothing will be posted to your stats, and this can't be undone.")) return;
+  _crDeleteDraft().then(function(){
+    casualHoles = {}; casualNotes = {};
+    toast('🗑 Round deleted.');
+    window._real_navTo('home', null);
+  });
+};
+
+window._real_crOpenNotes = async function(){
+  if (!currentUser) return;
+  var draft = null;
+  try { var s = await getDoc(doc(db, 'casualDrafts', currentUser.uid)); if (s.exists()) draft = s.data(); } catch(e){}
+  var holes = (draft && draft.holes) || {};
+  var items = Object.keys(holes)
+    .filter(function(h){ return holes[h] && holes[h].note; })
+    .sort(function(a,b){ return Number(a) - Number(b); })
+    .map(function(h){ return '<div class="cr-note-item" onclick="window._real_crNoteJump(' + h + ')"><span class="hn">H' + h + '</span><span class="tx">' + esc(holes[h].note) + '</span></div>'; })
+    .join('');
+  var body = items || '<div class="cr-notes-empty">No notes yet. Add a note on any hole while entering your scores.</div>';
+  var ov = document.createElement('div');
+  ov.className = 'cr-notes-ov';
+  ov.id = 'cr-notes-ov';
+  ov.onclick = function(e){ if (e.target === ov) ov.remove(); };
+  ov.innerHTML = '<div class="cr-notes-sheet"><div class="cr-notes-h"><span class="t">📝 Round Notes</span><button class="x" onclick="var o=document.getElementById(\'cr-notes-ov\');if(o)o.remove();">✕</button></div>' + body + '</div>';
+  document.body.appendChild(ov);
+};
+
+window._real_crNoteJump = function(h){
+  var ov = document.getElementById('cr-notes-ov'); if (ov) ov.remove();
+  window._real_navCasual(null);
+  setTimeout(function(){ if (window._real_crJump) window._real_crJump(h); }, 450);
+};
+
 function holeCardHTML(h, par, prefix) {
   return `<div class="hole-card" id="${prefix}-hc-${h}">
-    <div style="display:flex;justify-content:space-between;align-items:center;">
+    <div class="hc-top">
       <div class="hole-label">Hole ${h}</div>
-      <div class="hole-par">Par ${par}</div>
+      <div class="hc-pills">
+        <span class="hole-par">Par ${par}</span>
+        <span class="hole-yds" style="display:none;"></span>
+        <span class="hole-si" style="display:none;"></span>
+      </div>
     </div>
     <div class="hole-input-row">
       <button onclick="window._real_adjustCasualHole(${h},-1)">−</button>
       <input class="hole-val" type="number" id="${prefix}-hole-${h}" value="" placeholder="${par}" min="1" max="15"
-        style="font-size:1.2rem;" onfocus="this.select()" onchange="onCasualChange(${h})" oninput="onCasualChange(${h})">
+        onfocus="this.select()" onchange="onCasualChange(${h})" oninput="onCasualChange(${h})">
       <button onclick="window._real_adjustCasualHole(${h},1)">+</button>
     </div>
-    <input class="cr-note-inp" type="text" id="${prefix}-note-${h}" placeholder="note (optional)" maxlength="120" oninput="window._real_onCasualNote(${h})">
+    <div class="hc-note"><span class="hc-note-ic">📝</span><input class="cr-note-inp" type="text" id="${prefix}-note-${h}" placeholder="Add a note for this hole (optional)" maxlength="120" oninput="window._real_onCasualNote(${h})"></div>
   </div>`;
 }
 
@@ -4613,6 +4705,7 @@ async function crHydrateDraft(){
     });
     crRefreshJumpChips();
     updateCasualSummary();
+    crRenderActionBar();
   };
   if (draft.courseId && typeof crLoadLibrary === 'function'){
     crLoadLibrary(function(lib){
@@ -4643,7 +4736,10 @@ async function renderHomeActiveRound(){
     + '</div>'
     + '<div style="font-family:\'Playfair Display\',serif;font-size:1.1rem;color:var(--text-dark);margin-bottom:2px;">' + esc(draft.course) + '</div>'
     + '<div style="font-size:0.76rem;color:var(--text-mid);margin-bottom:10px;">' + (draft.date ? esc(draft.date) + ' \u00b7 ' : '') + 'Par ' + (draft.par || 72) + '</div>'
-    + '<button class="btn btn-gold btn-full" onclick="window._real_navCasual(null)">\u26f3 Enter Scores</button>'
+    + '<div style="display:flex;gap:8px;">'
+    +   '<button class="btn btn-gold" style="flex:1.5;" onclick="window._real_navCasual(null)">⛳ Enter Scores</button>'
+    +   '<button class="btn btn-ghost" style="flex:1;" onclick="window._real_crOpenNotes()">📝 Notes</button>'
+    + '</div>'
     + '</div>';
 }
 
@@ -5514,11 +5610,12 @@ function crApplyTee(course, teeName) {
       var labelEl = card.querySelector('.hole-label');
       var parEl2 = card.querySelector('.hole-par');
       var inp = document.getElementById('cr-hole-' + h.hole);
-      if (labelEl) {
-        labelEl.innerHTML = 'Hole ' + h.hole +
-          (h.yards ? '<span class="hole-yds">' + h.yards + 'y</span>' : '');
-      }
+      if (labelEl) labelEl.textContent = 'Hole ' + h.hole;
       if (parEl2) parEl2.textContent = 'Par ' + h.par;
+      var ydsEl = card.querySelector('.hole-yds');
+      if (ydsEl) { if (h.yards) { ydsEl.textContent = h.yards + 'y'; ydsEl.style.display = ''; } else { ydsEl.style.display = 'none'; } }
+      var siEl = card.querySelector('.hole-si');
+      if (siEl) { if (h.hcp) { siEl.textContent = 'SI ' + h.hcp; siEl.style.display = ''; } else { siEl.style.display = 'none'; } }
       // Update the placeholder to the new par only. Do NOT fill inp.value or write
       // casualHoles — only holes the player actually enters should count.
       if (inp) inp.placeholder = h.par;
@@ -5769,7 +5866,7 @@ document.addEventListener('DOMContentLoaded', () => {
     <div class="topbar">
       <div><div class="topbar-title">Casual Round</div><div class="topbar-sub">Log a round anytime</div></div>
       <div class="topbar-right">
-        <button class="btn btn-gold btn-sm" onclick="window._real_saveCasualRound()">Save Round</button>
+        <button class="btn btn-gold btn-sm" onclick="window._real_crDone()">✓ Done</button>
       </div>
     </div>
     <div class="pad" id="casual-content"><div class="loading"><div class="spinner"></div></div></div>
@@ -5845,7 +5942,7 @@ window._real_navCasual = function(btn) {
 };
 
 // Build/version stamp — confirms which version is actually running (catches stale cache)
-var APP_BUILD = '2026.08.21 · casual-live';
+var APP_BUILD = '2026.08.22 · casual-cards';
 console.log('%cMorks Golf Tour build: ' + APP_BUILD, 'color:#c9a227;font-weight:bold;font-size:14px;');
 try {
   var _bt = document.createElement('div');
